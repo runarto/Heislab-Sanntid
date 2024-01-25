@@ -3,7 +3,7 @@ package main
 
 import (
     "fmt"
-    "Exercise3/elevio"
+    "Heislab-Sanntid/elevio"
     "time"
 )
 
