@@ -2,7 +2,7 @@ package main
 
 
 import (
-    "Exercise3/elevio"
+    "Heislab-Sanntid/elevio"
 )
 
 
