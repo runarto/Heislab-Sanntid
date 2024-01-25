@@ -1,3 +1,4 @@
-module Exercise3
+module github.com/runarto/Heislab-Sanntid
 
-replace Exercise3 => ./driver-go-master
+replace github.com/runarto/Heislab-Sanntid => ./driver-go-master
+
