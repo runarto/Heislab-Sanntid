@@ -4,6 +4,8 @@ import (
 	"Heislab-Sanntid/elevio"
 
 	"github.com/runarto/Heislab-Sanntid/elevio"
+
+	"math"
 )
 
 type Elevator struct {
@@ -141,8 +143,33 @@ func (e *Elevator) ChooseBestOrder() activeOrder {
 			}
 		}
 
-		//Not moving? Just return the first order
+		//Not moving
 		if e.CurrentDirection == elevio.MD_Stop {
+
+			//Prioritize cab orders
+			if e.ActiveOrders[i].Button == elevio.BT_Cab && bestOrder.Button != elevio.BT_Cab {
+				bestOrder = e.ActiveOrders[i]
+				continue
+			}
+
+			//Prioritize closest cab orders
+			if e.ActiveOrders[i].Button == elevio.BT_Cab && bestOrder.Button == elevio.BT_Cab {
+
+				if (math.Abs(float64(e.CurrentFloor) - float64(e.ActiveOrders[i].Floor))) < (math.Abs(float64(e.CurrentFloor) - float64(e.ActiveOrders[i].Floor))) {
+					bestOrder = e.ActiveOrders[i]
+					continue
+				}
+			}
+
+			//Not cab orders. Just pick closest?
+			if e.ActiveOrders[i].Button != elevio.BT_Cab && bestOrder.Button != elevio.BT_Cab {
+
+				if (math.Abs(float64(e.CurrentFloor) - float64(e.ActiveOrders[i].Floor))) < (math.Abs(float64(e.CurrentFloor) - float64(e.ActiveOrders[i].Floor))) {
+					bestOrder = e.ActiveOrders[i]
+					continue
+				}
+			}
+
 			return e.ActiveOrders[0]
 		}
 	}
