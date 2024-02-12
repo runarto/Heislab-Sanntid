@@ -54,6 +54,36 @@ func (e *Elevator) NewActiveOrder(Order activeOrder) {
 	e.ActiveOrders = append(e.ActiveOrders, Order)
 }
 
+func (e *Elevator) RemoveOrder(floor int, Button elevio.ButtonType) {
+    for i, order := range e.ActiveOrders {
+        if order.Floor == floor && order.Button == Button {
+            // Remove the order from the slice
+            e.ActiveOrders = append(e.ActiveOrders[:i], e.ActiveOrders[i+1:]...)
+            break // Assuming only one order per floor/button combination, otherwise remove this
+        }
+    }
+}
+
+func (e *Elevator) SetButtonLamp(Button elevio.ButtonType, floor int, value bool) {
+	elevio.SetButtonLamp(Button, floor, value)
+}
+
+func (e *Elevator) GetFloor() int {
+	return elevio.GetFloor()
+}
+
+func (e *Elevator) SetFloorIndicator(floor int) {
+	elevio.SetFloorIndicator(floor)
+}
+
+func (e *Elevator) SetDoorOpenLamp(value bool) {
+	elevio.SetDoorOpenLamp(value)
+}
+
+func (e *Elevator) SetMaster(value bool) {
+	e.IsMaster = value
+}
+
 func (e *Elevator) ChooseBestOrder() activeOrder {
 
 	//If no orders -> send current floor as order. Best to not call the function if there are no orders...
