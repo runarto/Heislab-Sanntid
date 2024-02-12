@@ -2,7 +2,7 @@ package main
 
 
 import (
-    "Exercise3/elevio"
+    "github.com/runarto/Heislab-Sanntid/elevio"
 )
 
 
@@ -13,8 +13,8 @@ type Elevator struct {
 	stopButton bool // Stop button pressed or not
 	ActiveOrders  []activeOrder //List of structs 
 	NetworkAdress string
-	// Should probably contain it's network address in a string format. 
-
+	IsMaster bool
+	
 }
 
 type activeOrder struct {
@@ -47,8 +47,36 @@ func (e *Elevator) SetDoorState(state bool) {
 	}
 }
 
-func (e *Elevator) NewActiveOrder(Order activeOrder) {
+func (e *Elevator) NewOrder(Order activeOrder) {
 	e.ActiveOrders = append(e.ActiveOrders, Order)
 }
 
-// TODO: Add function for removing order? What should the input be?
+func (e *Elevator) RemoveOrder(floor int, Button elevio.ButtonType) {
+    for i, order := range e.ActiveOrders {
+        if order.Floor == floor && order.Button == Button {
+            // Remove the order from the slice
+            e.ActiveOrders = append(e.ActiveOrders[:i], e.ActiveOrders[i+1:]...)
+            break // Assuming only one order per floor/button combination, otherwise remove this
+        }
+    }
+}
+
+func (e *Elevator) SetButtonLamp(Button elevio.ButtonType, floor int, value bool) {
+	elevio.SetButtonLamp(Button, floor, value)
+}
+
+func (e *Elevator) GetFloor() int {
+	return elevio.GetFloor()
+}
+
+func (e *Elevator) SetFloorIndicator(floor int) {
+	elevio.SetFloorIndicator(floor)
+}
+
+func (e *Elevator) SetDoorOpenLamp(value bool) {
+	elevio.SetDoorOpenLamp(value)
+}
+
+func (e *Elevator) SetMaster(value bool) {
+	e.IsMaster = value
+}
