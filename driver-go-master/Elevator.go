@@ -1,8 +1,6 @@
 package main
 
 import (
-	"Heislab-Sanntid/elevio"
-
 	"github.com/runarto/Heislab-Sanntid/elevio"
 
 	"math"
@@ -14,10 +12,11 @@ type Elevator struct {
 	doorOpen         bool                  // Door open/closed
 	Obstruction      bool                  // Obstruction or not
 	stopButton       bool                  // Stop button pressed or not
-	ActiveOrders     []activeOrder         //List of structs
-	NetworkAdress    string
-	// Should probably contain it's network address in a string format.
-
+	ActiveOrders     []activeOrder         // List of active orders
+	NetworkAdress    string				   // IP address
+	IsMaster         bool                  // Master or not
+	ElevatorID 	 	 int				   // ID of the elevator (0, 1, 2, ...) 
+		                                   // Perhaps be used for determining new master?
 }
 
 type activeOrder struct {

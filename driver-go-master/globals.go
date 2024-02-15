@@ -1,45 +1,18 @@
 package main
 
 const (
-    MaxOrders       = 12
-    On              = true
-    Off             = false
-    Open            = 1
-    Close           = 0
-    NotDefined      = -1
-    ElevUp          = 1
-    ElevDown        = -1
-    FloorUp         = 0
-    FloorDown       = 1
-    FromCab         = 2
-    numFloors       = 4
-    numButtons      = 3
-    True            = 1
-    False           = 0
-    Cab             = 1
-    Up              = 0
-    Down            = 1
-    CabUp           = 0
-    CabDown         = 1
-)
-
-type State int
-
-const (
-    Stop State = iota
-    Moving
-    Still
+    numFloors = 4
+    numOfElevators = 3
+    Up = 0
+    Down = 1
 )
 
 var (
-    CurrentState      State
-    CurrentDirection  int
-    CurrentDirectionAlt int
-    LastDefinedFloor  int
-    currentFloor      int
-    IsDoorOpen        int
-    OrderComplete     bool
-    OrderArray        [MaxOrders][3]int
+    HallOrderArray [numFloors][2]int //Represents the hall orders for each floor, 
+                                     //and whether the order is up or down. 1 means it is active. 0 means not active
+    CabOrderArray [numFloors][numOfElevators]int //Represents the cab orders for each floor. 1 means it is active. 0 means not active
+    Elevators []Elevator
+
 	//gOrderArray er bestående etasje orderen kommer fra/skal til, type knapp, og om ordren kom innvendig fra (true false)
 )
 
