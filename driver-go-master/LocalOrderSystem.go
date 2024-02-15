@@ -5,6 +5,17 @@ import (
 	"fmt"
 )
 
+func (e *Elevator) InitLocalOrderSystem() {
+	for i := 0; i < elevio._numFloors; i++ {
+		for j := 0; j < elevio._numButtons; j++ {
+			e.LocalOrderArray[i][j] = False // 
+		}
+	}  
+
+	// Initialies the order system with all zeros. 
+
+}
+
 
 func (e *Elevator) ChooseBestOrder() activeOrder {
 
@@ -129,4 +140,18 @@ func (e *Elevator) ChooseBestOrder() activeOrder {
 	return bestOrder
 }
 
-func (e *Elevator) 
+func (e *Elevator) UpdateOrderSystem(order activeOrder) {
+	floor := order.Floor // The floor the order is at 
+	button := order.Button // Type of order (Up, Down, Cab)
+
+	if e.LocalOrderArray[floor][button] == True { // If the order is already in the local order array
+		e.LocalOrderArray[floor][button] = False // Remove the order from the local order array
+		elevio.SetButtonLamp(button, floor, False) // Turn off the button lamp
+	}
+	else {
+		e.LocalOrderArray[floor][button] =  True // Add the order to the local order array
+		elevio.SetButtonLamp(button, floor, True) // Turn on the button lamp
+	}
+
+
+}
