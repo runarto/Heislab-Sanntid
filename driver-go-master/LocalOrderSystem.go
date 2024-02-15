@@ -13,17 +13,29 @@ func (e *Elevator) InitLocalOrderSystem() {
 	}  
 
 	// Initialies the order system with all zeros. 
+}
 
+func (e *Elevator) CheckAmountOfActiveOrders() int {
+	ActiveOrders := 0
+	for i := 0; i < elevio._numFloors; i++ {
+		for j := 0; j < elevio._numButtons; j++ {
+			if e.LocalOrderArray[i][j] == True { // If there is an active order
+				ActiveOrders++ // Increment the number of active orders
+			}
+		}
+	}
+	return ActiveOrders // Return the number of active orders
 }
 
 
-func (e *Elevator) ChooseBestOrder() activeOrder {
+func (e *Elevator) ChooseBestOrder() Order {
 
 	//If no orders -> send current floor as order. Best to not call the function if there are no orders...
-	if len(e.ActiveOrders) == 0 {
+	if CheckAmountOfActiveOrders == 0 {
 		var nullOrder activeOrder
 		nullOrder.Floor = e.CurrentFloor
 		nullOrder.Button = elevio.BT_Cab
+		e.UpdateOrderSystem(nullOrder)
 		return nullOrder
 	}
 
@@ -140,7 +152,7 @@ func (e *Elevator) ChooseBestOrder() activeOrder {
 	return bestOrder
 }
 
-func (e *Elevator) UpdateOrderSystem(order activeOrder) {
+func (e *Elevator) UpdateOrderSystem(order Order) {
 	floor := order.Floor // The floor the order is at 
 	button := order.Button // Type of order (Up, Down, Cab)
 

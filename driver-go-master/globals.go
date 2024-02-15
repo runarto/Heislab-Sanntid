@@ -1,24 +1,49 @@
 package main
 
+
 const (
     numFloors = 4
     numOfElevators = 3
-    Up = 0
-    Down = 1
 )
 
-var (
+const (
+    HallUp = 0
+    HallDown = 1
+    Cab = 2
 
-    type GlobalOrderArray struct {
-        HallOrderArray [numFloors][2]int // Represents the hall orders
-        CabOrderArray [numOfElevators][numFloors]int // Represents the cab orders
-    }
+    True = 1
+    False = 0
 
+    On = 1
+    Off = 0
 
-
-    Elevators []Elevator // Vet ikke om man trenger det, men fint å ha akkurat nå. 
-
-
+    Up = 1
+    Down = -1
 )
+
+const (
+    Open = true
+    Close = false
+)
+
+type State int
+
+const (
+    Stop State =  // 0
+    Moving // 1
+    Still // 2
+)
+
+
+
+type GlobalOrderArray struct {
+    HallOrderArray [numFloors][2]int // Represents the hall orders
+    CabOrderArray [numOfElevators][numFloors]int // Represents the cab orders
+}
+
+
+Elevators []Elevator // Vet ikke om man trenger det, men fint å ha akkurat nå. 
+
+
 
 
