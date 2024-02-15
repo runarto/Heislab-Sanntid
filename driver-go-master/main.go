@@ -9,31 +9,21 @@ import (
 
 
 func main() {
+
     numFloors := 4
-
-
 
     // Initialize the elevator
     elevio.Init("localhost:15657", numFloors)
-
-    var wg sync.WaitGroup
-
-    // Add 2 to the WaitGroup for the two functions you want to wait for
-    wg.Add(2)
-
-    go func() {
-        defer wg.Done() // Signal that initElevator() is done
-        initElevator()
-    }()
-
-    // Start a goroutine for initializeQueue()
-    go func() {
-        defer wg.Done() // Signal that initializeQueue() is done
-        initializeQueue()
-    }()
-
-    // Wait for both functions to complete
-    wg.Wait()
+  
+    var myElevator Elevator = Elevator {
+        CurrentDirection: elevio.MD_Stop, // Assuming MD_Stop is a constant from the elevio package representing a stopped elevator
+        doorOpen:         false,
+        Obstruction:      false,
+        stopButton:       false,
+        ActiveOrders:     []activeOrder{}, // Initialize with an empty slice of activeOrder structs
+        NetworkAdress:    "192.168.1.100", // Example IP address
+        IsMaster:         true,
+    }
 
     // Create channels for handling events
     drv_buttons := make(chan elevio.ButtonEvent)
@@ -47,58 +37,35 @@ func main() {
     go elevio.PollObstructionSwitch(drv_obstr)
     go elevio.PollStopButton(drv_stop)
 
+
+    if (!e.IsMaster) {
+        drv_orders := make(chan activeOrder)
+        go ReadOrder("15657", myElevator)
+
+    }
+
     // Main event loop
     for {
         select {
+        case order := <-drv_orders:
+            // Add the order to the local order array
+
+
         case btn := <-drv_buttons:
+            // Check if it's from the cab or the hall. 
+            // If hall -> FindBestElevator(), else -> AddOrder(
 
 
-            fmt.Println("New order.")
-            if btn.Button == elevio.BT_Cab {
-
-                if btn.Floor == elevio.GetFloor() {
-                    elevatorAtFloor()
-                } else {
-                    addToQueueCab(btn.Floor)
-                    elevio.SetButtonLamp(btn.Button, btn.Floor, true)
-                    
-                }
-
-            } else {
-                addToQueueFromFloorPanel(btn.Floor, int(btn.Button))
-                elevio.SetButtonLamp(btn.Button, btn.Floor, true)
-                fmt.Println("Order added from floor panel")
-            }
-
-            if amountOfOrders() > 0 {
-                printOrderArray()
-            }
-
-            if (CurrentState == Still) {
-                moveElevator(elevatorDirection())
-            }
 
         case floor := <-drv_floors:
+            // Iterate over the local order array, and check if there are any orders for the current floor.
 
-            fmt.Println("Arrived at new floor")
-            floorLights(floor)
-
-            if checkOrderCompletion() > 0 {
-                elevatorAtFloor()
-            }
 
         case obstr := <-drv_obstr:
-            if obstr {
-                Obstruction()
-            }
-
-            moveElevator(elevatorDirection())
 
 
         case stop := <-drv_stop:
-            if stop {
-                stopElevator()
-            }
+          
         }
         
     }
