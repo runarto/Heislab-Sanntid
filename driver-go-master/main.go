@@ -47,15 +47,9 @@ func main() {
     // Main event loop
     for {
         select {
-        case order := <-drv_orders:
-            // Add the order to the local order array
-
-
         case btn := <-drv_buttons:
             // Check if it's from the cab or the hall. 
             // If hall -> FindBestElevator(), else -> AddOrder(
-
-
 
         case floor := <-drv_floors:
             // Iterate over the local order array, and check if there are any orders for the current floor.

@@ -2,86 +2,9 @@ package main
 
 import (
 	"github.com/runarto/Heislab-Sanntid/elevio"
-
-	"math"
+	"fmt"
 )
 
-type Elevator struct {
-	CurrentDirection elevio.MotorDirection // Elevator direction
-	CurrentFloor     int                   // Last or current floor. Starts at 0. 
-	doorOpen         bool                  // Door open/closed
-	Obstruction      bool                  // Obstruction or not
-	stopButton       bool                  // Stop button pressed or not
-	LocalOrderArray [3][numFloors]int       // List of active orders
-	NetworkAdress    string				   // IP address
-	IsMaster         bool                  // Master or not
-	ElevatorID 	 	 int				   // ID of the elevator (0, 1, 2, ...) 
-		                                   // Perhaps be used for determining new master?
-}
-
-type activeOrder struct {
-	Floor  int
-	Button elevio.ButtonType
-	// An order contains the floor (from/to), and the type of button.
-}
-
-func (e *Elevator) GoUp() {
-	e.CurrentDirection = elevio.MD_Up
-	elevio.SetMotorDirection(e.CurrentDirection)
-}
-
-func (e *Elevator) GoDown() {
-	e.CurrentDirection = elevio.MD_Up
-	elevio.SetMotorDirection(e.CurrentDirection)
-}
-
-func (e *Elevator) StopElevator() {
-	e.CurrentDirection = elevio.MD_Stop
-	elevio.SetMotorDirection(e.CurrentDirection)
-
-}
-
-func (e *Elevator) SetDoorState(state bool) {
-	if state {
-		e.doorOpen = true
-	} else {
-		e.doorOpen = false
-	}
-}
-
-func (e *Elevator) NewActiveOrder(Order activeOrder) {
-	e.ActiveOrders = append(e.ActiveOrders, Order)
-}
-
-func (e *Elevator) RemoveOrder(floor int, Button elevio.ButtonType) {
-    for i, order := range e.ActiveOrders {
-        if order.Floor == floor && order.Button == Button {
-            // Remove the order from the slice
-            e.ActiveOrders = append(e.ActiveOrders[:i], e.ActiveOrders[i+1:]...)
-            break // Assuming only one order per floor/button combination, otherwise remove this
-        }
-    }
-}
-
-func (e *Elevator) SetButtonLamp(Button elevio.ButtonType, floor int, value bool) {
-	elevio.SetButtonLamp(Button, floor, value)
-}
-
-func (e *Elevator) GetFloor() int {
-	return elevio.GetFloor()
-}
-
-func (e *Elevator) SetFloorIndicator(floor int) {
-	elevio.SetFloorIndicator(floor)
-}
-
-func (e *Elevator) SetDoorOpenLamp(value bool) {
-	elevio.SetDoorOpenLamp(value)
-}
-
-func (e *Elevator) SetMaster(value bool) {
-	e.IsMaster = value
-}
 
 func (e *Elevator) ChooseBestOrder() activeOrder {
 
@@ -206,4 +129,4 @@ func (e *Elevator) ChooseBestOrder() activeOrder {
 	return bestOrder
 }
 
-// TODO: Add function for removing order? What should the input be?
+func (e *Elevator) 
