@@ -45,10 +45,10 @@ func (e *Elevator) floorLights(floor int) {
 
 func (e *Elevator) ElevatorAtFloor(floor int) bool {
     e.CurrentFloor = floor; // Update the current floor
-    ordersDone []Order // Number of orders done
+    var ordersDone []Order // Number of orders done
 
     
-    for button := 0; button < elevio._numButtons; button++ {
+    for button := 0; button < numButtons; button++ {
         if e.localOrderArray[button][floor] == True { // If there is an active order at the floor
 
             if e.CurrentDirection == Up && button == HallUp {

@@ -2,8 +2,6 @@ package main
 
 import (
 	"github.com/runarto/Heislab-Sanntid/elevio"
-
-	"math"
 )
 
 type Elevator struct {
