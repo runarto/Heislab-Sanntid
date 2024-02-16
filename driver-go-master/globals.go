@@ -5,6 +5,7 @@ const (
     numFloors = 4
     numOfElevators = 3
     NotDefined = -1
+    numButtons = 3
 )
 
 const (
@@ -30,7 +31,7 @@ const (
 type State int
 
 const (
-    Stop State =  // 0
+    Stop State = iota// 0
     Moving // 1
     Still // 2
 )
@@ -42,8 +43,6 @@ type GlobalOrderArray struct {
     CabOrderArray [numOfElevators][numFloors]int // Represents the cab orders
 }
 
-
-Elevators []Elevator // Vet ikke om man trenger det, men fint å ha akkurat nå. 
 
 
 

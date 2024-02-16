@@ -12,9 +12,7 @@ type Elevator struct {
 	Obstruction      bool                  // Obstruction or not
 	stopButton       bool                  // Stop button pressed or not
 	LocalOrderArray [3][numFloors]int       // Array of active orders. First row is HallUp, second is HallDown, third is Cab
-	NetworkAdress    string				   // IP address
-	IsMaster         bool                  // Master or not
-	ElevatorID 	 	 int				   // ID of the elevator (0, 1, 2, ...) 
+					   						// ID of the elevator (0, 1, 2, ...) 
 		                                   // Perhaps be used for determining new master?
 }
 
@@ -27,32 +25,48 @@ type Order struct {
 func (e *Elevator) GoUp() {
 	e.CurrentDirection = elevio.MD_Up
 	elevio.SetMotorDirection(e.CurrentDirection)
-	SetState(Moving)
+	e.SetState(Moving)
 }
 
 func (e *Elevator) GoDown() {
-	e.CurrentDirection = elevio.MD_Up
+	e.CurrentDirection = elevio.MD_Down
 	elevio.SetMotorDirection(e.CurrentDirection)
-	SetState(Moving)
+	e.SetState(Moving)
 }
 
 func (e *Elevator) StopElevator() {
 	// e.CurrentDirection = elevio.MD_Stop
-	elevio.SetMotorDirection(e.CurrentDirection)
-	SetState(Still)
+	elevio.SetMotorDirection(elevio.MD_Stop)
+	e.SetState(Still)
 }
 
 func (e *Elevator) SetDoorState(state bool) {
 	if state {
 		e.doorOpen = true
-		elevio.SetDoorOpenLamp(On)
+		elevio.SetDoorOpenLamp(state)
 	} else {
 		e.doorOpen = false
-		elevio.SetDoorOpenLamp(Off)
+		elevio.SetDoorOpenLamp(state)
 	}
 }
 
 func (e *Elevator) SetState(state State) {
 	e.CurrentState = state
+}
+
+func (e *Elevator) isObstruction(state bool) {
+	if state {
+		e.Obstruction = true
+	} else {
+		e.Obstruction = false
+	}
+}
+
+func (e *Elevator) StopButton(state bool) {
+	if state {
+		if elevio.GetFloor() != NotDefined {
+			e.SetDoorState(Open)
+		}
+	}
 }
 

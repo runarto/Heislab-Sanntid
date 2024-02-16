@@ -1,34 +1,29 @@
 package main
 
 import (
-    "fmt"
     "github.com/runarto/Heislab-Sanntid/elevio"
-    "sync"
+    "time"
 )
 
 
 
 func main() {
 
-    numFloors := 4
-
     // Initialize the elevator
     elevio.Init("localhost:15657", numFloors)
   
-    var myElevator Elevator = Elevator {
-        CurrentState:     Still, 
-        CurrentDirection: elevio.MD_Stop,
-        doorOpen:         false,
-        Obstruction:      false,
-        stopButton:       false,
-        LocalOrderArray:  [3][numFloors]int{},  
-        NetworkAdress:    "192.168.1.100",
-        IsMaster:         true,
+    var myElevator Elevator = Elevator{
+        CurrentState:     Still, // Assuming Still is a defined constant in the State type
+        CurrentDirection: elevio.MD_Stop, // Example, use a valid value from elevio.MotorDirection
+        CurrentFloor:     elevio.GetFloor(), // Starts at floor 0
+        doorOpen:         false, // Door starts closed
+        Obstruction:      false, // No obstruction initially
+        stopButton:       false, // Stop button not pressed initially
+        LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
     }
 
     myElevator.InitLocalOrderSystem() // Initialize the local order system
     myElevator.InitElevator() // Initialize the elevator
-    myelevator.NullButtons() // Initialize the master
 
     // Create channels for handling events
     drv_buttons := make(chan elevio.ButtonEvent)
@@ -47,9 +42,13 @@ func main() {
         select {
         case btn := <-drv_buttons:
 
-            myElevator.UpdateOrderSystem(btn) // Update the local order array
+            floor := btn.Floor
+            button := btn.Button
+            newOrder := Order{floor, button}
+        
+            myElevator.UpdateOrderSystem(newOrder) // Update the local order array
             order := myElevator.ChooseBestOrder() // Choose the best order
-            MyElevator.DoOrder(order) // Move the elevator to the best order
+            myElevator.DoOrder(order) // Move the elevator to the best order
             
 
         case floor := <-drv_floors:
@@ -59,7 +58,7 @@ func main() {
             if myElevator.ElevatorAtFloor(floor) { // Check for active orders at floor
                 myElevator.StopElevator() // Stop the elevator
                 myElevator.SetDoorState(Open) // Open the door
-                time.sleep(1000 * time.Millisecond) // Wait for a second
+                time.Sleep(1000 * time.Millisecond) // Wait for a second
                 myElevator.SetDoorState(Close) // Close the door
                 if myElevator.CheckAmountOfActiveOrders() > 0 {
                     myElevator.ChooseBestOrder() // Choose the best order
@@ -73,16 +72,11 @@ func main() {
 
 
         case obstr := <-drv_obstr:
-            while obstr {
-                e.SetDoorState(Open) // Open the door
-            }
-            e.SetDoorState(Close) // Close the door
+            myElevator.isObstruction(obstr)
 
 
         case stop := <-drv_stop:
-            if stop {
-                e.StopElevator() // Stop the elevator
-            }
+            myElevator.StopButton(stop)
           
         }
         

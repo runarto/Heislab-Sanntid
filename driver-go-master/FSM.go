@@ -9,10 +9,10 @@ import (
 
 
 func NullButtons() { // Turns off all buttons
-    elevio.SetStopLamp(Off)
+    elevio.SetStopLamp(false)
     for f := 0; f < numFloors; f++ {
         for b := 0; b < numButtons; b++ {
-			elevio.SetButtonLamp(elevio.ButtonType(b), f, Off)
+			elevio.SetButtonLamp(elevio.ButtonType(b), f, false)
         }
     }
 }
@@ -38,7 +38,6 @@ func (e *Elevator) InitElevator() {
 func (e *Elevator) floorLights(floor int) {
     if (floor >= 0 && floor <= 3) {
         elevio.SetFloorIndicator(floor);
-        LastDefinedFloor = currentFloor
         e.CurrentFloor = floor
     }
 }
@@ -49,19 +48,19 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
 
     
     for button := 0; button < numButtons; button++ {
-        if e.localOrderArray[button][floor] == True { // If there is an active order at the floor
+        if e.LocalOrderArray[button][floor] == True { // If there is an active order at the floor
 
             if e.CurrentDirection == Up && button == HallUp {
-                Order = Order{floor, HallUp}
+                Order := Order{floor, HallUp}
                 ordersDone = append(ordersDone, Order)
                 // HallUp order, and the elevator is going up (take order)
                 continue 
             } 
 
-            if (e.CurrentDirection == Up && button == HallDown) && (e.localOrderArray[HallUp][floor] == False) {
+            if (e.CurrentDirection == Up && button == HallDown) && (e.LocalOrderArray[HallUp][floor] == False) {
                 check := e.CheckAbove(floor)
                 if check.Floor == NotDefined { // There are no orders above the current floor
-                    Order = Order{floor, HallDown}
+                    Order := Order{floor, HallDown}
                     ordersDone = append(ordersDone, Order) // Update the local order array
                     // HallDown order, and the elevator is going up (take order)
                     continue
@@ -69,25 +68,24 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
             }
 
             if e.CurrentDirection == Down && button == HallDown {
-                Order = Order{floor, HallDown}
+                Order := Order{floor, HallDown}
                 ordersDone = append(ordersDone, Order) // Update the local order array
                 // HallDown order, and the elevator is going down (take order)
                 continue
             }
 
-            if (e.CurrentDirection == Down && button == HallUp) && (e.localOrderArray[HallDown][floor] == False) {
+            if (e.CurrentDirection == Down && button == HallUp) && (e.LocalOrderArray[HallDown][floor] == False) {
                 check := e.CheckBelow(floor)
                 if check.Floor == NotDefined { // There are no orders below the current floor
-                    Order = Order{floor, HallUp}
+                    Order := Order{floor, HallUp}
                     ordersDone = append(ordersDone, Order) // Update the local order array
-                    ordersDone++
                     // HallUp order, and the elevator is going down (take order)
                     continue
                 }
             }
 
             if button == Cab {
-                Order = Order{floor, Cab}
+                Order := Order{floor, Cab}
                 ordersDone = append(ordersDone, Order) // Update the local order array
                 // Cab order (take order)
                 continue

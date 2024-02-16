@@ -50,7 +50,7 @@ func GetConnection(address string) (*net.UDPConn, error) {
 
 
 // SendOrder sends an order to the specified address over UDP.
-func SendOrder(address string, order activeOrder) error {
+func SendOrder(address string, order Order) error {
     conn, err := GetConnection(address)
     if err != nil {
         return err
@@ -127,14 +127,14 @@ func ReadOrder(port string, e Elevator) {
         }
 
         // Deserialize the datagram into an activeOrder struct
-        var order activeOrder
+        var order Order
         if err := json.Unmarshal(buffer[:n], &order); err != nil {
             log.Printf("Error deserializing order from %v: %v", addr, err)
             continue // Skip to the next iteration on error
         }
 
         // Process the order here (this is just an example print statement)
-        e.NewOrder(order)
+        e.UpdateOrderSystem(order)
         fmt.Printf("Received order %+v from %v\n", order, addr)
         ackMessage := []byte("ack")
         if _, err := conn.WriteToUDP(ackMessage, addr); err != nil {

@@ -2,12 +2,12 @@ package main
 
 import (
 	"github.com/runarto/Heislab-Sanntid/elevio"
-	"fmt"
+	"math"
 )
 
 func (e *Elevator) InitLocalOrderSystem() {
-	for i := 0; i < numFloors; i++ {
-		for j := 0; j < numButtons; j++ {
+	for i := 0; i < numButtons; i++ {
+		for j := 0; j < numFloors; j++ {
 			e.LocalOrderArray[i][j] = False // 
 		}
 	}  
@@ -33,8 +33,7 @@ func (e *Elevator) ChooseBestOrder() Order {
 	if e.CurrentDirection == Up {
 		if e.CheckAbove(e.CurrentFloor).Floor != NotDefined { // If there are any orders above the elevator
 			return e.CheckAbove(e.CurrentFloor) // Return the closest order
-		}
-		else if e.CheckBelow(e.CurrentFloor).Floor != NotDefined { //If there are no orders above, check below
+		} else if e.CheckBelow(e.CurrentFloor).Floor != NotDefined { //If there are no orders above, check below
 			return e.CheckBelow(e.CurrentFloor) // Return the closest order
 		}
 	}
@@ -42,22 +41,25 @@ func (e *Elevator) ChooseBestOrder() Order {
 	if e.CurrentDirection == Down {
 		if e.CheckBelow(e.CurrentFloor).Floor != NotDefined {
 			return e.CheckBelow(e.CurrentFloor)
-		}
-		else if e.CheckAbove(e.CurrentFloor).Floor != NotDefined {
+		} else if e.CheckAbove(e.CurrentFloor).Floor != NotDefined {
 			return e.CheckAbove(e.CurrentFloor)
 		}
 	}
+
+	Order := Order{0,0}
+	return Order
 
 }
 
 func (e *Elevator) CheckAbove(floor int) Order {
 	// Check if there are any orders above the elevator
-	bestOrder = Order{NotDefined, 2} // Initialize the best order
+	var bestOrder = Order{NotDefined, 2} // Initialize the best order
 	for button := 0; button < numButtons; button++ {
-		for floorOrder := floor; floorOrder < numFloors; i++ {
+		for floorOrder := floor; floorOrder < numFloors; floorOrder++ {
 			if e.LocalOrderArray[button][floorOrder] == True && button != HallDown { 
-				if abs(floorOrder - floor) <= abs(bestOrder.Floor - floor) {
-					Order = Order{floorOrder, button} // Return the order
+				if math.Abs(float64(floorOrder - floor)) <= math.Abs(float64(bestOrder.Floor - floor)) {
+					Order := Order{floorOrder, elevio.ButtonType(button)} // Return the order
+					bestOrder = Order
 				}
 			}
 		}
@@ -66,18 +68,17 @@ func (e *Elevator) CheckAbove(floor int) Order {
 
 	// Potential issue: If all orders are active at an ideal floor, the elevator will do the cab first. 
 	// How can we assert that it does the hall orders next?
-
-
 }
 
 func (e *Elevator) CheckBelow(floor int) Order {
 	// Check if there are any orders below the elevator
-	bestOrder = Order{NotDefined, 2} // Initialize the best order
+	bestOrder := Order{NotDefined, 2} // Initialize the best order
 	for button := 0; button < numButtons; button++ {
-		for floorOrder := floor; floorOrder >= 0; i-- {
+		for floorOrder := floor; floorOrder >= 0; floorOrder-- {
 			if e.LocalOrderArray[button][floorOrder] == True && button != HallUp {
-				if abs(floorOrder - floor) <= abs(bestOrder.Floor - floor) {
-					Order = Order{floorOrder, button} // Return the order
+				if math.Abs(float64(floorOrder - floor)) <= math.Abs(float64(bestOrder.Floor - floor)) {
+					Order := Order{floorOrder, elevio.ButtonType(button)} // Return the order
+					bestOrder = Order
 				}
 			}
 		}
@@ -95,11 +96,10 @@ func (e *Elevator) UpdateOrderSystem(order Order) {
 
 	if e.LocalOrderArray[button][floor] == True { // If the order is already in the local order array
 		e.LocalOrderArray[button][floor] = False // Remove the order from the local order array
-		elevio.SetButtonLamp(button, floor, False) // Turn off the button lamp
-	}
-	else {
+		elevio.SetButtonLamp(button, floor, false) // Turn off the button lamp
+	} else {
 		e.LocalOrderArray[button][floor] =  True // Add the order to the local order array
-		elevio.SetButtonLamp(button, floor, True) // Turn on the button lamp
+		elevio.SetButtonLamp(button, floor, true) // Turn on the button lamp
 	}
 
 
@@ -109,11 +109,9 @@ func (e* Elevator) DoOrder(order Order)  {
 	// Do the order
 	if order.Floor > e.CurrentFloor {
 		e.GoUp()
-	}
-	else if order.Floor < e.CurrentFloor {
+	} else if order.Floor < e.CurrentFloor {
 		e.GoDown()
-	}
-	else {
+	} else {
 		e.StopElevator()
 	}
 	
