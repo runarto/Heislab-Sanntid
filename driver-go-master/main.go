@@ -60,11 +60,16 @@ func main() {
             myElevator.floorLights(floor) // Update the floor lights
             
             if myElevator.ElevatorAtFloor(floor) { // Check for active orders at floor
-                e.StopElevator() // Stop the elevator
-                e.SetDoorState(Open) // Open the door
+                myElevator.StopElevator() // Stop the elevator
+                myElevator.SetDoorState(Open) // Open the door
                 time.sleep(1000 * time.Millisecond) // Wait for a second
-                e.SetDoorState(Close) // Close the door
-                e.ChooseBestOrder()
+                myElevator.SetDoorState(Close) // Close the door
+                if myElevator.CheckAmountOfActiveOrders() > 0 {
+                    myElevator.ChooseBestOrder() // Choose the best order
+                    // DoOrder(order) // Move the elevator to the best order (pseudocode function to move the elevator to the best order
+                } else {
+                    myElevator.SetState(Still) // If no orders, set the state to still
+                }
             }
 
 

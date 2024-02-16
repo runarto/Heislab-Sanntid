@@ -30,127 +30,64 @@ func (e *Elevator) CheckAmountOfActiveOrders() int {
 
 func (e *Elevator) ChooseBestOrder() Order {
 
-	//If no orders -> send current floor as order. Best to not call the function if there are no orders...
-	if CheckAmountOfActiveOrders == 0 {
-		var nullOrder activeOrder
-		nullOrder.Floor = e.CurrentFloor
-		nullOrder.Button = elevio.BT_Cab
-		e.UpdateOrderSystem(nullOrder)
-		return nullOrder
-	}
-
-	bestOrder := e.ActiveOrders[0]
-
-	for i := 0; i <= len(e.ActiveOrders); i++ {
-
-		//Take orders on current floor first
-		if e.CurrentFloor == e.ActiveOrders[i].Floor && e.CurrentDirection == elevio.MD_Stop {
-			return e.ActiveOrders[i]
+	if e.CurrentDirection == Up {
+		if e.CheckAbove(e.CurrentFloor).Floor != NotDefined { // If there are any orders above the elevator
+			return e.CheckAbove(e.CurrentFloor) // Return the closest order
 		}
-
-		//Going upwards
-		if e.CurrentDirection == elevio.MD_Up {
-
-			//The best case order
-			if e.CurrentFloor+1 == e.ActiveOrders[i].Floor && (e.ActiveOrders[i].Button != elevio.MD_Down || e.ActiveOrders[i].Floor == elevio._numFloors) {
-				return e.ActiveOrders[i]
-			}
-
-			//Worst case - Neither order is above elevator search for closest order below current floor
-			if e.CurrentFloor > e.ActiveOrders[i].Floor && e.CurrentFloor > bestOrder.Floor {
-				if e.ActiveOrders[i].Floor > bestOrder.Floor {
-					bestOrder = e.ActiveOrders[i]
-					continue
-				}
-			}
-
-			//Prioritize floors above current floor
-			if e.CurrentFloor < e.ActiveOrders[i].Floor && e.CurrentFloor > bestOrder.Floor {
-				bestOrder = e.ActiveOrders[i]
-				continue
-			}
-
-			//Prioritize up and cab orders
-			if e.ActiveOrders[i].Button != elevio.BT_HallDown && bestOrder.Button == elevio.BT_HallDown {
-				bestOrder = e.ActiveOrders[i]
-				continue
-			}
-
-			//Prioritize closest orders above elevator
-			if e.ActiveOrders[i].Floor < bestOrder.Floor && e.ActiveOrders[i].Floor > e.CurrentFloor {
-				bestOrder = e.ActiveOrders[i]
-				continue
-			}
-		}
-
-		//Going downwards
-		if e.CurrentDirection == elevio.MD_Down {
-
-			//The best case order
-			if e.CurrentFloor-1 == e.ActiveOrders[i].Floor && (e.ActiveOrders[i].Button != elevio.MD_Up || e.ActiveOrders[i].Floor == 1) {
-				return e.ActiveOrders[i]
-			}
-
-			//Worst case - Neither order is below elevator search for closest order above current floor
-			if e.CurrentFloor < e.ActiveOrders[i].Floor && e.CurrentFloor < bestOrder.Floor {
-				if e.ActiveOrders[i].Floor < bestOrder.Floor {
-					bestOrder = e.ActiveOrders[i]
-					continue
-				}
-			}
-
-			//Prioritize floors below current floor
-			if e.CurrentFloor > e.ActiveOrders[i].Floor && e.CurrentFloor < bestOrder.Floor {
-				bestOrder = e.ActiveOrders[i]
-				continue
-			}
-
-			//Prioritize down and cab orders
-			if e.ActiveOrders[i].Button != elevio.BT_HallUp && bestOrder.Button == elevio.BT_HallUp {
-				bestOrder = e.ActiveOrders[i]
-				continue
-			}
-
-			//Prioritize closest orders below elevator
-			if e.ActiveOrders[i].Floor > bestOrder.Floor && e.ActiveOrders[i].Floor < e.CurrentFloor {
-				bestOrder = e.ActiveOrders[i]
-				continue
-			}
-		}
-
-		//Not moving
-		if e.CurrentDirection == elevio.MD_Stop {
-
-			//Prioritize cab orders
-			if e.ActiveOrders[i].Button == elevio.BT_Cab && bestOrder.Button != elevio.BT_Cab {
-				bestOrder = e.ActiveOrders[i]
-				continue
-			}
-
-			//Prioritize closest cab orders
-			if e.ActiveOrders[i].Button == elevio.BT_Cab && bestOrder.Button == elevio.BT_Cab {
-
-				if (math.Abs(float64(e.CurrentFloor) - float64(e.ActiveOrders[i].Floor))) < (math.Abs(float64(e.CurrentFloor) - float64(e.ActiveOrders[i].Floor))) {
-					bestOrder = e.ActiveOrders[i]
-					continue
-				}
-			}
-
-			//Not cab orders. Just pick closest?
-			if e.ActiveOrders[i].Button != elevio.BT_Cab && bestOrder.Button != elevio.BT_Cab {
-
-				if (math.Abs(float64(e.CurrentFloor) - float64(e.ActiveOrders[i].Floor))) < (math.Abs(float64(e.CurrentFloor) - float64(e.ActiveOrders[i].Floor))) {
-					bestOrder = e.ActiveOrders[i]
-					continue
-				}
-			}
-
-			return e.ActiveOrders[0]
+		else if e.CheckBelow(e.CurrentFloor).Floor != NotDefined { //If there are no orders above, check below
+			return e.CheckBelow(e.CurrentFloor) // Return the closest order
 		}
 	}
 
-	return bestOrder
+	if e.CurrentDirection == Down {
+		if e.CheckBelow(e.CurrentFloor).Floor != NotDefined {
+			return e.CheckBelow(e.CurrentFloor)
+		}
+		else if e.CheckAbove(e.CurrentFloor).Floor != NotDefined {
+			return e.CheckAbove(e.CurrentFloor)
+		}
+	}
+
 }
+
+func (e *Elevator) CheckAbove(floor int) Order {
+	// Check if there are any orders above the elevator
+	bestOrder = Order{NotDefined, 2} // Initialize the best order
+	for button := 0; button < elevio._numButtons; button++ {
+		for floorOrder := floor; floorOrder < elevio._numFloors; i++ {
+			if e.LocalOrderArray[button][floorOrder] == True && button != HallDown { 
+				if abs(floorOrder - floor) <= abs(bestOrder.Floor - floor) {
+					Order = Order{floorOrder, button} // Return the order
+				}
+			}
+		}
+	}
+	return bestOrder // Return the best order
+
+	// Potential issue: If all orders are active at an ideal floor, the elevator will do the cab first. 
+	// How can we assert that it does the hall orders next?
+
+
+}
+
+func (e *Elevator) CheckBelow(floor int) Order {
+	// Check if there are any orders below the elevator
+	bestOrder = Order{NotDefined, 2} // Initialize the best order
+	for button := 0; button < elevio._numButtons; button++ {
+		for floorOrder := floor; floorOrder >= 0; i-- {
+			if e.LocalOrderArray[button][floorOrder] == True && button != HallUp {
+				if abs(floorOrder - floor) <= abs(bestOrder.Floor - floor) {
+					Order = Order{floorOrder, button} // Return the order
+				}
+			}
+		}
+	}
+	return bestOrder // Return the best order
+}
+
+
+
+
 
 func (e *Elevator) UpdateOrderSystem(order Order) {
 	floor := order.Floor // The floor the order is at 

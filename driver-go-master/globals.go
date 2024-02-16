@@ -4,6 +4,7 @@ package main
 const (
     numFloors = 4
     numOfElevators = 3
+    NotDefined = -1
 )
 
 const (
