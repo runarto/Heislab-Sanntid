@@ -104,3 +104,17 @@ func (e *Elevator) UpdateOrderSystem(order Order) {
 
 
 }
+
+func (e* Elevator) DoOrder(order Order)  {
+	// Do the order
+	if order.Floor > e.CurrentFloor {
+		e.GoUp()
+	}
+	else if order.Floor < e.CurrentFloor {
+		e.GoDown()
+	}
+	else {
+		e.StopElevator()
+	}
+	
+}

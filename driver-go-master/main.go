@@ -49,10 +49,7 @@ func main() {
 
             myElevator.UpdateOrderSystem(btn) // Update the local order array
             order := myElevator.ChooseBestOrder() // Choose the best order
-
-            // DoOrder(order) // Move the elevator to the best order (pseudocode function to move the elevator to the best order
-
-            // Need to move the elevator accordingly somehow, based off what the best order is. 
+            MyElevator.DoOrder(order) // Move the elevator to the best order
             
 
         case floor := <-drv_floors:
