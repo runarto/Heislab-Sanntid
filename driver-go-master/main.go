@@ -21,7 +21,7 @@ func main() {
         doorOpen:         false,
         Obstruction:      false,
         stopButton:       false,
-        ActiveOrders:     []activeOrder{}, 
+        LocalOrderArray:  [3][numFloors]int{},  
         NetworkAdress:    "192.168.1.100",
         IsMaster:         true,
     }
