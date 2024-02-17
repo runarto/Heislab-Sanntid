@@ -3,6 +3,7 @@ package main
 import (
     "github.com/runarto/Heislab-Sanntid/elevio"
     "time"
+    "fmt"
 )
 
 
@@ -45,13 +46,18 @@ func main() {
             floor := btn.Floor
             button := btn.Button
             newOrder := Order{floor, button}
+            fmt.Println("New order: ", newOrder)
         
             myElevator.UpdateOrderSystem(newOrder) // Update the local order array
+            myElevator.PrintLocalOrderSystem()
             order := myElevator.ChooseBestOrder() // Choose the best order
+            fmt.Println("Best order: ", order)
             myElevator.DoOrder(order) // Move the elevator to the best order
             
 
         case floor := <-drv_floors:
+
+            fmt.Println("Arrived at floor: ", floor)
 
             myElevator.floorLights(floor) // Update the floor lights
             
@@ -60,8 +66,13 @@ func main() {
                 myElevator.SetDoorState(Open) // Open the door
                 time.Sleep(1000 * time.Millisecond) // Wait for a second
                 myElevator.SetDoorState(Close) // Close the door
-                if myElevator.CheckAmountOfActiveOrders() > 0 {
-                    myElevator.ChooseBestOrder() // Choose the best order
+                fmt.Println("Ordersystem: ")
+                myElevator.PrintLocalOrderSystem()
+                amountOfOrders := myElevator.CheckAmountOfActiveOrders() // Check the amount of active orders
+                fmt.Println("Amount of active orders: ", amountOfOrders)
+                if amountOfOrders > 0 {
+                    order := myElevator.ChooseBestOrder() // Choose the best order
+                    myElevator.DoOrder(order)
                     // DoOrder(order) // Move the elevator to the best order (pseudocode function to move the elevator to the best order
                 } else {
                     myElevator.SetState(Still) // If no orders, set the state to still

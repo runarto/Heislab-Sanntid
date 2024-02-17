@@ -23,13 +23,13 @@ type Order struct {
 }
 
 func (e *Elevator) GoUp() {
-	e.CurrentDirection = elevio.MD_Up
+	e.CurrentDirection = Up
 	elevio.SetMotorDirection(e.CurrentDirection)
 	e.SetState(Moving)
 }
 
 func (e *Elevator) GoDown() {
-	e.CurrentDirection = elevio.MD_Down
+	e.CurrentDirection = Down
 	elevio.SetMotorDirection(e.CurrentDirection)
 	e.SetState(Moving)
 }

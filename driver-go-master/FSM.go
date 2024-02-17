@@ -43,6 +43,7 @@ func (e *Elevator) floorLights(floor int) {
 }
 
 func (e *Elevator) ElevatorAtFloor(floor int) bool {
+
     e.CurrentFloor = floor; // Update the current floor
     var ordersDone []Order // Number of orders done
 
@@ -59,7 +60,7 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
 
             if (e.CurrentDirection == Up && button == HallDown) && (e.LocalOrderArray[HallUp][floor] == False) {
                 check := e.CheckAbove(floor)
-                if check.Floor == NotDefined { // There are no orders above the current floor
+                if check.Button == HallDown { // There are no orders above the current floor
                     Order := Order{floor, HallDown}
                     ordersDone = append(ordersDone, Order) // Update the local order array
                     // HallDown order, and the elevator is going up (take order)
@@ -76,7 +77,7 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
 
             if (e.CurrentDirection == Down && button == HallUp) && (e.LocalOrderArray[HallDown][floor] == False) {
                 check := e.CheckBelow(floor)
-                if check.Floor == NotDefined { // There are no orders below the current floor
+                if check.Button == HallUp { // There are no orders below the current floor
                     Order := Order{floor, HallUp}
                     ordersDone = append(ordersDone, Order) // Update the local order array
                     // HallUp order, and the elevator is going down (take order)
@@ -85,6 +86,7 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
             }
 
             if button == Cab {
+                fmt.Println("Cab order at floor: ", floor)
                 Order := Order{floor, Cab}
                 ordersDone = append(ordersDone, Order) // Update the local order array
                 // Cab order (take order)
@@ -96,6 +98,7 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
     }
     if len(ordersDone) > 0 {
         for i := 0; i < len(ordersDone); i++ {
+            fmt.Println("Order done: ", ordersDone[i])
             e.UpdateOrderSystem(ordersDone[i]) // Update the local order array
         }
         return true // There are active orders at the floor
