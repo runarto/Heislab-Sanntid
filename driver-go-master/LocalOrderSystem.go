@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/runarto/Heislab-Sanntid/elevio"
 	"fmt"
+	"time"
 )
 
 func (e *Elevator) PrintLocalOrderSystem() {
@@ -267,19 +268,21 @@ func (e *Elevator) UpdateOrderSystem(order Order) {
 func (e* Elevator) DoOrder(order Order)  {
 	// Do the order
 	if order.Floor > e.CurrentFloor {
-		if e.CurrentDirection == Up {
-			return
-		} else {
-			e.GoUp()
-		}
+		e.GoUp()
 	} else if order.Floor < e.CurrentFloor {
-		if e.CurrentDirection == Down {
-			return
-		} else {
-			e.GoDown()
-		}
+		e.GoDown()
 	} else {
+		// The order is at the current floor
+		go e.WaitForPossibleOrder(order)
+	}
+	
+}
+
+func (e* Elevator) WaitForPossibleOrder(order Order) {
+	time.Sleep(3 * time.Second) // Insert delay in case cab-orders come in. 
+	if e.CurrentFloor == order.Floor {
 		e.StopElevator()
+		e.HandleElevatorAtFloor(order.Floor)
 	}
 	
 }

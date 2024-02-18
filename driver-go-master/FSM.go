@@ -62,7 +62,7 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
                 if (e.CurrentDirection == Up && button == HallDown) && (e.LocalOrderArray[HallUp][floor] == False) {
                     check := e.CheckHallOrdersAbove(floor)
                     fmt.Println("Check above ( ElevatorAtFloor() ): ", check)
-                    if check.Button == HallDown { // There are no orders above the current floor
+                    if check.Button == elevio.ButtonType(button) && check.Floor == floor { // There are no orders above the current floor
                         Order := Order{floor, HallDown}
                         ordersDone = append(ordersDone, Order) // Update the local order array
                         // HallDown order, and the elevator is going up (take order)
@@ -79,7 +79,7 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
 
                 if (e.CurrentDirection == Down && button == HallUp) && (e.LocalOrderArray[HallDown][floor] == False) {
                     check := e.CheckHallOrdersBelow(floor)
-                    if check.Button == HallUp { // There are no orders below the current floor
+                    if check.Button == elevio.ButtonType(button) && check.Floor == floor { // There are no orders below the current floor
                         Order := Order{floor, HallUp}
                         ordersDone = append(ordersDone, Order) // Update the local order array
                         // HallUp order, and the elevator is going down (take order)

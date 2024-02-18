@@ -2,7 +2,6 @@ package main
 
 import (
     "github.com/runarto/Heislab-Sanntid/elevio"
-    "time"
     "fmt"
 )
 
@@ -11,7 +10,7 @@ import (
 func main() {
 
     // Initialize the elevator
-    elevio.Init("localhost:15657", numFloors)
+    elevio.Init("localhost:15658", numFloors)
   
     var myElevator Elevator = Elevator{
         CurrentState:     Still, // Assuming Still is a defined constant in the State type
@@ -47,12 +46,27 @@ func main() {
             button := btn.Button
             newOrder := Order{floor, button}
             fmt.Println("New order: ", newOrder)
-        
-            myElevator.UpdateOrderSystem(newOrder) // Update the local order array
-            myElevator.PrintLocalOrderSystem()
-            bestOrder = myElevator.ChooseBestOrder() // Choose the best order
-            fmt.Println("Best order: ", bestOrder)
-            myElevator.DoOrder(bestOrder) // Move the elevator to the best order
+
+            if myElevator.CheckIfOrderIsActive(newOrder) { // Check if the order is active
+                if bestOrder.Floor == myElevator.CurrentFloor {
+                    myElevator.HandleElevatorAtFloor(bestOrder.Floor) // Handle the elevator at the floor
+                } else {
+                    myElevator.DoOrder(bestOrder) // Move the elevator to the best order
+                }
+                
+            } else {
+                myElevator.UpdateOrderSystem(newOrder) // Update the local order array
+                myElevator.PrintLocalOrderSystem()
+                bestOrder = myElevator.ChooseBestOrder() // Choose the best order
+                fmt.Println("Best order: ", bestOrder)
+    
+                if bestOrder.Floor == myElevator.CurrentFloor {
+                    myElevator.HandleElevatorAtFloor(bestOrder.Floor) // Handle the elevator at the floor
+                } else {
+                    myElevator.DoOrder(bestOrder) // Move the elevator to the best order
+                }
+
+            }
             
 
         case floor := <-drv_floors:
@@ -60,25 +74,7 @@ func main() {
             fmt.Println("Arrived at floor: ", floor)
 
             myElevator.floorLights(floor) // Update the floor lights
-            
-            if myElevator.ElevatorAtFloor(floor) { // Check for active orders at floor
-                myElevator.StopElevator() // Stop the elevator
-                myElevator.SetDoorState(Open) // Open the door
-                time.Sleep(1000 * time.Millisecond) // Wait for a second
-                myElevator.SetDoorState(Close) // Close the door
-                fmt.Println("Order system: ")
-                myElevator.PrintLocalOrderSystem()
-                amountOfOrders := myElevator.CheckAmountOfActiveOrders() // Check the amount of active orders
-                fmt.Println("Amount of active orders: ", amountOfOrders)
-                if amountOfOrders > 0 {
-                    bestOrder = myElevator.ChooseBestOrder() // Choose the best order
-                    fmt.Println("Best order: ", bestOrder)
-                    myElevator.DoOrder(bestOrder)
-                    // DoOrder(order) // Move the elevator to the best order (pseudocode function to move the elevator to the best order
-                } else {
-                    myElevator.SetState(Still) // If no orders, set the state to still
-                }
-            }
+            myElevator.HandleElevatorAtFloor(floor) // Handle the elevator at the floor
 
 
 
