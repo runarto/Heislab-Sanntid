@@ -18,11 +18,13 @@ var (
 // InitializeConnection sets up a UDP connection to the specified address.
 func InitializeConnection(address string) (*net.UDPConn, error) {
     udpAddr, err := net.ResolveUDPAddr("udp", address)
+
     if err != nil {
         return nil, fmt.Errorf("resolving UDP address failed: %v", err)
     }
 
     conn, err := net.DialUDP("udp", nil, udpAddr)
+
     if err != nil {
         return nil, fmt.Errorf("dialing UDP connection failed: %v", err)
     }
@@ -99,10 +101,10 @@ func SendOrder(address string, order Order) error {
 // Note, must implement another function for handling the global order arrays, or local order arrays. 
 // Or perhaps implement a case switch for handling the different types of orders.
 
-func ReadOrder(port string, e Elevator) {
+func ReadOrder(port string, receiver chan<- Order)  {
     // Resolve the local UDP address
     localAddr, err := net.ResolveUDPAddr("udp", ":"+port)
-    if err != nil {
+    if err != nil { 
         log.Fatalf("Error resolving UDP address: %v", err)
     }
 
@@ -134,7 +136,6 @@ func ReadOrder(port string, e Elevator) {
         }
 
         // Process the order here (this is just an example print statement)
-        e.UpdateOrderSystem(order)
         fmt.Printf("Received order %+v from %v\n", order, addr)
         ackMessage := []byte("ack")
         if _, err := conn.WriteToUDP(ackMessage, addr); err != nil {
@@ -142,6 +143,9 @@ func ReadOrder(port string, e Elevator) {
         } else {
             fmt.Printf("Ack sent to %v\n", addr)
         }
+
+        receiver <- order
+
 
     }
 }

@@ -20,26 +20,50 @@ func main() {
         Obstruction:      false, // No obstruction initially
         stopButton:       false, // Stop button not pressed initially
         LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
+        isMaster:         true, // Not master initially
     }
 
     myElevator.InitLocalOrderSystem() // Initialize the local order system
     myElevator.InitElevator() // Initialize the elevator
+
+    // Check if elevator is initialized as master or slave
+    //  if myElevator.CheckIfMaster()
+
+    // If it master, broadcast message to other elevators letting them know that.
+    // Message should contain the master's IP address, and the port number it is listening on.
+    // myElevator.BroadcastMaster() 
 
     // Create channels for handling events
     drv_buttons := make(chan elevio.ButtonEvent)
     drv_floors := make(chan int)
     drv_obstr := make(chan bool)
     drv_stop := make(chan bool)
+    drv_UDP := make(chan Order)
 
     // Start polling functions in separate goroutines
     go elevio.PollButtons(drv_buttons)
     go elevio.PollFloorSensor(drv_floors)
     go elevio.PollObstructionSwitch(drv_obstr)
     go elevio.PollStopButton(drv_stop)
+    go ReadOrder(_ListeningPort, drv_UDP) // Read from the UDP port
 
     // Main event loop
     for {
         select {
+
+        case newOrder := <-drv_UDP:
+            fmt.Println("New order: ", newOrder)
+
+            // check if master, if not, update local order system
+
+            // if master, update global order system
+            // if order is a HallOrder, pull local order systems from all elevators
+            // Choose best elevator for order
+            // Send order to best elevator 
+
+
+
+
         case btn := <-drv_buttons:
 
             floor := btn.Floor
@@ -55,6 +79,11 @@ func main() {
                 }
                 
             } else {
+                // if myElevator.isMaster -> update global order system locally
+                // else, send order to master
+
+                // SendOrder(address, newOrder) // Send the order to master
+
                 myElevator.UpdateOrderSystem(newOrder) // Update the local order array
                 myElevator.PrintLocalOrderSystem()
                 bestOrder = myElevator.ChooseBestOrder() // Choose the best order

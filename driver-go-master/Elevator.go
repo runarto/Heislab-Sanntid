@@ -12,7 +12,7 @@ type Elevator struct {
 	Obstruction      bool                  // Obstruction or not
 	stopButton       bool                  // Stop button pressed or not
 	LocalOrderArray [3][numFloors]int       // Array of active orders. First row is HallUp, second is HallDown, third is Cab
-					   						// ID of the elevator (0, 1, 2, ...) 
+	isMaster 		bool				   // Is the elevator master or not
 		                                   // Perhaps be used for determining new master?
 }
 
@@ -61,6 +61,14 @@ func (e *Elevator) StopButton(state bool) {
 		if elevio.GetFloor() != NotDefined {
 			e.SetDoorState(Open)
 		}
+	}
+}
+
+func (e* Elevator) CheckIfMaster() bool {
+	if e.isMaster {
+		return true
+	} else {
+		return false
 	}
 }
 

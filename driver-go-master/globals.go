@@ -32,6 +32,9 @@ const (
     Close = false
 )
 
+var _ListeningPort = "20000"
+// Can we assume that we know the IP of the elevators initially?
+
 type State int
 
 const (
