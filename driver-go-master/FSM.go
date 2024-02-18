@@ -43,46 +43,50 @@ func (e *Elevator) floorLights(floor int) {
 }
 
 func (e *Elevator) ElevatorAtFloor(floor int) bool {
-
-    e.CurrentFloor = floor; // Update the current floor
+     // Update the current floor
     var ordersDone []Order // Number of orders done
 
     
     for button := 0; button < numButtons; button++ {
         if e.LocalOrderArray[button][floor] == True { // If there is an active order at the floor
 
-            if e.CurrentDirection == Up && button == HallUp {
-                Order := Order{floor, HallUp}
-                ordersDone = append(ordersDone, Order)
-                // HallUp order, and the elevator is going up (take order)
-                continue 
-            } 
+            if floor == bestOrder.Floor {
 
-            if (e.CurrentDirection == Up && button == HallDown) && (e.LocalOrderArray[HallUp][floor] == False) {
-                check := e.CheckAbove(floor)
-                if check.Button == HallDown { // There are no orders above the current floor
+                if e.CurrentDirection == Up && button == HallUp {
+                    Order := Order{floor, HallUp}
+                    ordersDone = append(ordersDone, Order)
+                    // HallUp order, and the elevator is going up (take order)
+                    continue 
+                } 
+
+                if (e.CurrentDirection == Up && button == HallDown) && (e.LocalOrderArray[HallUp][floor] == False) {
+                    check := e.CheckHallOrdersAbove(floor)
+                    fmt.Println("Check above ( ElevatorAtFloor() ): ", check)
+                    if check.Button == HallDown { // There are no orders above the current floor
+                        Order := Order{floor, HallDown}
+                        ordersDone = append(ordersDone, Order) // Update the local order array
+                        // HallDown order, and the elevator is going up (take order)
+                        continue
+                    }
+                }
+
+                if e.CurrentDirection == Down && button == HallDown {
                     Order := Order{floor, HallDown}
                     ordersDone = append(ordersDone, Order) // Update the local order array
-                    // HallDown order, and the elevator is going up (take order)
+                    // HallDown order, and the elevator is going down (take order)
                     continue
                 }
-            }
 
-            if e.CurrentDirection == Down && button == HallDown {
-                Order := Order{floor, HallDown}
-                ordersDone = append(ordersDone, Order) // Update the local order array
-                // HallDown order, and the elevator is going down (take order)
-                continue
-            }
-
-            if (e.CurrentDirection == Down && button == HallUp) && (e.LocalOrderArray[HallDown][floor] == False) {
-                check := e.CheckBelow(floor)
-                if check.Button == HallUp { // There are no orders below the current floor
-                    Order := Order{floor, HallUp}
-                    ordersDone = append(ordersDone, Order) // Update the local order array
-                    // HallUp order, and the elevator is going down (take order)
-                    continue
+                if (e.CurrentDirection == Down && button == HallUp) && (e.LocalOrderArray[HallDown][floor] == False) {
+                    check := e.CheckHallOrdersBelow(floor)
+                    if check.Button == HallUp { // There are no orders below the current floor
+                        Order := Order{floor, HallUp}
+                        ordersDone = append(ordersDone, Order) // Update the local order array
+                        // HallUp order, and the elevator is going down (take order)
+                        continue
+                    }
                 }
+
             }
 
             if button == Cab {

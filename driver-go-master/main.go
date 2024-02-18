@@ -50,9 +50,9 @@ func main() {
         
             myElevator.UpdateOrderSystem(newOrder) // Update the local order array
             myElevator.PrintLocalOrderSystem()
-            order := myElevator.ChooseBestOrder() // Choose the best order
-            fmt.Println("Best order: ", order)
-            myElevator.DoOrder(order) // Move the elevator to the best order
+            bestOrder = myElevator.ChooseBestOrder() // Choose the best order
+            fmt.Println("Best order: ", bestOrder)
+            myElevator.DoOrder(bestOrder) // Move the elevator to the best order
             
 
         case floor := <-drv_floors:
@@ -66,13 +66,14 @@ func main() {
                 myElevator.SetDoorState(Open) // Open the door
                 time.Sleep(1000 * time.Millisecond) // Wait for a second
                 myElevator.SetDoorState(Close) // Close the door
-                fmt.Println("Ordersystem: ")
+                fmt.Println("Order system: ")
                 myElevator.PrintLocalOrderSystem()
                 amountOfOrders := myElevator.CheckAmountOfActiveOrders() // Check the amount of active orders
                 fmt.Println("Amount of active orders: ", amountOfOrders)
                 if amountOfOrders > 0 {
-                    order := myElevator.ChooseBestOrder() // Choose the best order
-                    myElevator.DoOrder(order)
+                    bestOrder = myElevator.ChooseBestOrder() // Choose the best order
+                    fmt.Println("Best order: ", bestOrder)
+                    myElevator.DoOrder(bestOrder)
                     // DoOrder(order) // Move the elevator to the best order (pseudocode function to move the elevator to the best order
                 } else {
                     myElevator.SetState(Still) // If no orders, set the state to still

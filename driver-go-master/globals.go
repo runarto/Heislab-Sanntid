@@ -1,5 +1,9 @@
 package main
 
+import (
+    "github.com/runarto/Heislab-Sanntid/elevio"
+)
+
 
 const (
     numFloors = 4
@@ -36,12 +40,20 @@ const (
     Still // 2
 )
 
+type Order struct {
+	Floor  int
+	Button elevio.ButtonType
+	// An order contains the floor (from/to), and the type of button.
+}
+
 
 
 type GlobalOrderArray struct {
     HallOrderArray [numFloors][2]int // Represents the hall orders
     CabOrderArray [numOfElevators][numFloors]int // Represents the cab orders
 }
+
+var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
 
 
 

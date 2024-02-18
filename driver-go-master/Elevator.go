@@ -16,12 +16,6 @@ type Elevator struct {
 		                                   // Perhaps be used for determining new master?
 }
 
-type Order struct {
-	Floor  int
-	Button elevio.ButtonType
-	// An order contains the floor (from/to), and the type of button.
-}
-
 func (e *Elevator) GoUp() {
 	e.CurrentDirection = Up
 	elevio.SetMotorDirection(e.CurrentDirection)

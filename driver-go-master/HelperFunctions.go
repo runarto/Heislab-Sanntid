@@ -1,9 +1,9 @@
 package main
 
 import (
-
+	"math"
 )
 
-function Abs(x int, y int) int { 
-	return ath.Abs(float64(x - y))
+func AbsValue(x int, y int) int { 
+	return int(math.Abs(float64(x - y)))
 }
