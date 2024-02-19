@@ -21,7 +21,17 @@ func main() {
         stopButton:       false, // Stop button not pressed initially
         LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
         isMaster:         true, // Not master initially
+        ElevatorIP:       "localhost:20000", // Set to the IP of the elevator
+        ElevatorID:       0 // Set to the ID of the elevator
     }
+    // Food for thought: Cannot initialize as master. Must be elected master by the other elevators.
+    // If the elevator is initialized as master and goes offline, another elevator must be elected master.
+    // However if it comes back online, it would be initialized as master again, hence we would have two masters. 
+    // This is a problem. We need to solve this.
+    // Hence, we need to broadcast a message to each of the elevators, figure out which one is master, and let the elevators know. 
+
+
+
 
     myElevator.InitLocalOrderSystem() // Initialize the local order system
     myElevator.InitElevator() // Initialize the elevator
@@ -46,6 +56,11 @@ func main() {
     go elevio.PollObstructionSwitch(drv_obstr)
     go elevio.PollStopButton(drv_stop)
     go ReadOrder(_ListeningPort, drv_UDP) // Read from the UDP port
+
+    // if myElevator.isMaster { 
+    //    Message = MessageGlobalOrder{globalOrderSystem}
+    //    globalOrdersSys := Message.Serialize()
+    //    go BroadcastGlobalOrderSystem(globalOrdersSys) }
 
     // Main event loop
     for {

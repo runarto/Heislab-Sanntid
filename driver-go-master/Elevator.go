@@ -13,7 +13,8 @@ type Elevator struct {
 	stopButton       bool                  // Stop button pressed or not
 	LocalOrderArray [3][numFloors]int       // Array of active orders. First row is HallUp, second is HallDown, third is Cab
 	isMaster 		bool				   // Is the elevator master or not
-		                                   // Perhaps be used for determining new master?
+	ElevatorIP		string				   // IP:port of the elevator
+	ElevatorID		int					   // ID of the elevator		                     	              
 }
 
 func (e *Elevator) GoUp() {

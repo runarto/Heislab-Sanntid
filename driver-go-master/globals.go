@@ -33,6 +33,7 @@ const (
 )
 
 var _ListeningPort = "20000"
+var _broadcastAddr = "255.255.255.255:20000"
 // Can we assume that we know the IP of the elevators initially?
 
 type State int
@@ -55,6 +56,28 @@ type GlobalOrderArray struct {
     HallOrderArray [numFloors][2]int // Represents the hall orders
     CabOrderArray [numOfElevators][numFloors]int // Represents the cab orders
 }
+
+type MessageGlobalOrder struct { // Send periodically to update the global order system
+    // 0x01
+    globalOrders GlobalOrderArray
+}
+
+type MessageNewOrder struct { // Send when a new order is received
+    // 0x02 
+    newOrder Order
+    e Elevator
+}
+
+type MessageOrderComplete struct { // Send when an order is completed
+    // 0x03
+    order Order
+    e Elevator
+}
+
+// Thought: This should work, because the last updated "e" instance from 
+// elevator is from when an order was received.
+
+var ActiveElevators []Elevator = make([]Elevator, numOfElevators)
 
 var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
 
