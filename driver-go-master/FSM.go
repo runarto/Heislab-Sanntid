@@ -31,6 +31,11 @@ func (e *Elevator) InitElevator() {
     e.StopElevator()
     e.CurrentFloor = elevio.GetFloor()
     fmt.Println("Elevator is ready for use")
+
+
+    
+
+
 }
 
 

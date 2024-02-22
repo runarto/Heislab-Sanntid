@@ -20,16 +20,18 @@ func main() {
         Obstruction:      false, // No obstruction initially
         stopButton:       false, // Stop button not pressed initially
         LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
-        isMaster:         true, // Not master initially
+        isMaster:         false, // Not master initially
         ElevatorIP:       "localhost:20000", // Set to the IP of the elevator
-        ElevatorID:       0 // Set to the ID of the elevator
+        ElevatorID:       0, // Set to the ID of the elevator
     }
-    // Food for thought: Cannot initialize as master. Must be elected master by the other elevators.
-    // If the elevator is initialized as master and goes offline, another elevator must be elected master.
-    // However if it comes back online, it would be initialized as master again, hence we would have two masters. 
-    // This is a problem. We need to solve this.
-    // Hence, we need to broadcast a message to each of the elevators, figure out which one is master, and let the elevators know. 
 
+    // Assumption: All elevators know each others IP at start-up
+    // Need a general function for deciding which elevator is master. 
+    // This function should be called by all elevators at start-up.
+    // Idea: All elevators broadcast their Elevator-instance to all other elevators.
+    // Each elevator compares the n values with their own, and the elevator with the highest value is master.
+    // There likely is not a need to confirm this by sending a message to all other elevators,
+    // because each elevator will have the same result.
 
 
 
@@ -48,36 +50,60 @@ func main() {
     drv_floors := make(chan int)
     drv_obstr := make(chan bool)
     drv_stop := make(chan bool)
-    drv_UDP := make(chan Order)
+    drv_OrderComplete := make(chan MessageOrderComplete)
+    drv_NewOrder := make(chan MessageNewOrder)
+    drv_watchdog := make(chan bool)
 
     // Start polling functions in separate goroutines
     go elevio.PollButtons(drv_buttons)
     go elevio.PollFloorSensor(drv_floors)
     go elevio.PollObstructionSwitch(drv_obstr)
     go elevio.PollStopButton(drv_stop)
-    go ReadOrder(_ListeningPort, drv_UDP) // Read from the UDP port
+
+    go incrementCounter(drv_watchdog) // Only for slave
+    myElevator.BroadcastElevatorInstance()
+
+    // for address, conn := range connections {
+
+    //     go HandleMessage(conn, drv_OrderComplete, drv_NewOrder) // Only for master
+
+    // }
 
     // if myElevator.isMaster { 
-    //    Message = MessageGlobalOrder{globalOrderSystem}
+    //    Message := MessageGlobalOrder{globalOrderSystem}
     //    globalOrdersSys := Message.Serialize()
     //    go BroadcastGlobalOrderSystem(globalOrdersSys) }
+
+    // while len(Elevator != numOfElevators) {
+    //    wait
+    //}
 
     // Main event loop
     for {
         select {
 
-        case newOrder := <-drv_UDP:
+        case <-drv_watchdog:
+
+            // Check if master is still alive
+            // If master is not alive, elect new master
+            // ElectNewMaster()
+            // If master is alive, start a new timer
+            // go incrementCounter(drv_watchdog)
+
+        case newOrder := <-drv_NewOrder:
+
             fmt.Println("New order: ", newOrder)
 
-            // check if master, if not, update local order system
-
-            // if master, update global order system
-            // if order is a HallOrder, pull local order systems from all elevators
-            // Choose best elevator for order
-            // Send order to best elevator 
+            // Update global order system
+            // Check if cab or hall order
+            // If hall, determine best elevator for order
+            // Send order to best elevator
 
 
-
+        case orderComplete := <-drv_OrderComplete:
+    
+            fmt.Println("Order complete: ", orderComplete)
+            // Update global order system
 
         case btn := <-drv_buttons:
 
@@ -96,6 +122,9 @@ func main() {
             } else {
                 // if myElevator.isMaster -> update global order system locally
                 // else, send order to master
+
+                //newOrderToSend := MessageNewOrder{newOrder, myElevator} // Create a new order message
+                //SendOrder(masterAddress, newOrderToSend) // Send the order to master
 
                 // SendOrder(address, newOrder) // Send the order to master
 

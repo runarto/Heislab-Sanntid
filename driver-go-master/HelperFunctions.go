@@ -4,6 +4,12 @@ import (
 	"math"
 	"fmt"
 	"time"
+	"sync"
+)
+
+var (
+    watchdogCounter int
+    counterMutex    sync.Mutex
 )
 
 func AbsValue(x int, y int) int { 
@@ -40,4 +46,30 @@ func (e *Elevator) CheckIfOrderIsActive(order Order) bool {
 	} else {
 		return false
 	}
+}
+
+
+func GlobalOrderSystemReceived(globalOrders GlobalOrderArray) {
+	globalOrderArray = globalOrders
+	// Update the local order system with the global order system
+
+}
+
+func incrementCounter(receiver chan<- bool) {
+    for {
+        time.Sleep(1 * time.Second) // Wait for 1 second
+        counterMutex.Lock()
+        watchdogCounter++
+        counterMutex.Unlock()
+		if watchdogCounter > 20 { 
+			receiver <- true
+			break
+		}
+    }
+}
+
+func resetCounter() {
+    counterMutex.Lock()
+    watchdogCounter = 0
+    counterMutex.Unlock()
 }

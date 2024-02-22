@@ -4,6 +4,9 @@ import (
     "github.com/runarto/Heislab-Sanntid/elevio"
 )
 
+elevatorID := []string{"elevator1-ip:port", "elevator2-ip:port", "elevator2-ip:port"}
+
+
 
 const (
     numFloors = 4
@@ -32,8 +35,8 @@ const (
     Close = false
 )
 
-var _ListeningPort = "20000"
-var _broadcastAddr = "255.255.255.255:20000"
+var _ListeningPort = "29876"
+var _broadcastAddr = "255.255.255.255:29876"
 // Can we assume that we know the IP of the elevators initially?
 
 type State int
@@ -53,8 +56,14 @@ type Order struct {
 
 
 type GlobalOrderArray struct {
-    HallOrderArray [numFloors][2]int // Represents the hall orders
+    HallOrderArray [2][numFloors]int // Represents the hall orders
     CabOrderArray [numOfElevators][numFloors]int // Represents the cab orders
+}
+
+
+var globalOrderArray = GlobalOrderArray{
+    HallOrderArray: [2][numFloors]int{},
+    CabOrderArray: [numOfElevators][numFloors]int{},
 }
 
 type MessageGlobalOrder struct { // Send periodically to update the global order system
@@ -71,6 +80,10 @@ type MessageNewOrder struct { // Send when a new order is received
 type MessageOrderComplete struct { // Send when an order is completed
     // 0x03
     order Order
+    e Elevator
+}
+
+type MessageElevator struct {
     e Elevator
 }
 
