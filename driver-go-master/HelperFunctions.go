@@ -73,3 +73,44 @@ func resetCounter() {
     watchdogCounter = 0
     counterMutex.Unlock()
 }
+
+
+func DetermineMaster() {
+    if len(ActiveElevators) == 0 {
+        return // No elevators available
+    }
+
+    // Start with the first elevator as the initial candidate for master
+    masterCandidate := ActiveElevators[0]
+
+    // Iterate through the elevators to find the one with the lowest ElevatorID
+    for _, elevator := range ActiveElevators[1:] {
+        if elevator.ElevatorID < masterCandidate.ElevatorID {
+            masterCandidate = elevator
+        }
+    }
+
+    // Set the masterCandidate as the master and update the local state as needed
+    // This is a simplified representation; actual implementation may require additional synchronization and communication
+    masterCandidate.isMaster = true
+	masterElevatorIP = masterCandidate.ElevatorIP
+
+    // Broadcast or communicate the master election result as needed
+    // This could involve sending a message to all elevators or updating a shared state
+}
+
+
+func UpdateActiveElevators(elevator Elevator) {
+	elevatorExists := false
+	for _, elevator := range ActiveElevators {
+		if elevator.ElevatorID == elevator.ElevatorID {
+			elevatorExists = true
+			break
+		}
+	}
+
+	if !elevatorExists {
+		ActiveElevators = append(ActiveElevators, elevator)
+	}
+
+}

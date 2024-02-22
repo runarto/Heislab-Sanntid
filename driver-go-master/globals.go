@@ -6,6 +6,8 @@ import (
 
 elevatorID := []string{"elevator1-ip:port", "elevator2-ip:port", "elevator2-ip:port"}
 
+masterElevatorIP := "elevator1-ip:port"
+
 
 
 const (
@@ -66,7 +68,7 @@ var globalOrderArray = GlobalOrderArray{
     CabOrderArray: [numOfElevators][numFloors]int{},
 }
 
-type MessageGlobalOrder struct { // Send periodically to update the global order system
+type MessageGlobalOrderArray struct { // Send periodically to update the global order system
     // 0x01
     globalOrders GlobalOrderArray
 }
@@ -75,22 +77,29 @@ type MessageNewOrder struct { // Send when a new order is received
     // 0x02 
     newOrder Order
     e Elevator
+    toElevatorID int // The elevator to send the order to
 }
 
 type MessageOrderComplete struct { // Send when an order is completed
     // 0x03
     order Order
     e Elevator
+    fromElevatorID int // The elevator that completed the order
 }
 
 type MessageElevator struct {
     e Elevator
 }
 
+type MessageAlive {
+    message string
+    elevatorID string
+}
+
 // Thought: This should work, because the last updated "e" instance from 
 // elevator is from when an order was received.
 
-var ActiveElevators []Elevator = make([]Elevator, numOfElevators)
+var ActiveElevators []Elevator
 
 var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
 

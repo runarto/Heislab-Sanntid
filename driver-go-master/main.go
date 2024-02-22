@@ -2,6 +2,7 @@ package main
 
 import (
     "github.com/runarto/Heislab-Sanntid/elevio"
+    "github.com/runarto/Heislab-Sanntid/NetworkFiles"
     "fmt"
 )
 
@@ -25,34 +26,29 @@ func main() {
         ElevatorID:       0, // Set to the ID of the elevator
     }
 
-    // Assumption: All elevators know each others IP at start-up
-    // Need a general function for deciding which elevator is master. 
-    // This function should be called by all elevators at start-up.
-    // Idea: All elevators broadcast their Elevator-instance to all other elevators.
-    // Each elevator compares the n values with their own, and the elevator with the highest value is master.
-    // There likely is not a need to confirm this by sending a message to all other elevators,
-    // because each elevator will have the same result.
+
+    if err != nil {
+        fmt.Println("Error setting up broadcast listener: ", err)
+    }
+    conn, err := SetUpBroadcastListener() // Set up the broadcast listener
+    drv_NewOrder := make(chan MessageNewOrder)
+    drv_OrderComplete := make(chan MessageOrderComplete)
+
+    time.Sleep(3 * time.Second) // Wait for 3 seconds
+
+    go HandleMessages(conn, drv_NewOrder, drv_OrderComplete) // Start handling messages in a separate goroutine
 
 
 
     myElevator.InitLocalOrderSystem() // Initialize the local order system
     myElevator.InitElevator() // Initialize the elevator
+   
 
-    // Check if elevator is initialized as master or slave
-    //  if myElevator.CheckIfMaster()
 
-    // If it master, broadcast message to other elevators letting them know that.
-    // Message should contain the master's IP address, and the port number it is listening on.
-    // myElevator.BroadcastMaster() 
-
-    // Create channels for handling events
     drv_buttons := make(chan elevio.ButtonEvent)
     drv_floors := make(chan int)
     drv_obstr := make(chan bool)
     drv_stop := make(chan bool)
-    drv_OrderComplete := make(chan MessageOrderComplete)
-    drv_NewOrder := make(chan MessageNewOrder)
-    drv_watchdog := make(chan bool)
 
     // Start polling functions in separate goroutines
     go elevio.PollButtons(drv_buttons)
@@ -60,50 +56,35 @@ func main() {
     go elevio.PollObstructionSwitch(drv_obstr)
     go elevio.PollStopButton(drv_stop)
 
-    go incrementCounter(drv_watchdog) // Only for slave
-    myElevator.BroadcastElevatorInstance()
 
-    // for address, conn := range connections {
-
-    //     go HandleMessage(conn, drv_OrderComplete, drv_NewOrder) // Only for master
-
-    // }
-
-    // if myElevator.isMaster { 
-    //    Message := MessageGlobalOrder{globalOrderSystem}
-    //    globalOrdersSys := Message.Serialize()
-    //    go BroadcastGlobalOrderSystem(globalOrdersSys) }
-
-    // while len(Elevator != numOfElevators) {
-    //    wait
-    //}
-
-    // Main event loop
     for {
         select {
 
-        case <-drv_watchdog:
-
-            // Check if master is still alive
-            // If master is not alive, elect new master
-            // ElectNewMaster()
-            // If master is alive, start a new timer
-            // go incrementCounter(drv_watchdog)
-
         case newOrder := <-drv_NewOrder:
-
             fmt.Println("New order: ", newOrder)
 
-            // Update global order system
-            // Check if cab or hall order
-            // If hall, determine best elevator for order
-            // Send order to best elevator
+            if myElevator.isMaster {
+                // If hall-order
+                    // Update global order system locally
+                    // Calculate cost
+                    // Send order to best elevator
+                // else if cab-order
+                    // just update order system
+            } else {
+                // Update global order system locally
+                // check if newOrder.ToElevatorID == myElevator.ElevatorID {
+                    // Add order to local order system
+                //}
+
+            }
 
 
+            // logic for handling new order
+        
         case orderComplete := <-drv_OrderComplete:
-    
             fmt.Println("Order complete: ", orderComplete)
-            // Update global order system
+
+            // Update global order system accordingly
 
         case btn := <-drv_buttons:
 
