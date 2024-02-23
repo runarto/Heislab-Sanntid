@@ -15,15 +15,17 @@ func main() {
   
     var myElevator Elevator = Elevator{
         CurrentState:     Still, // Assuming Still is a defined constant in the State type
-        CurrentDirection: elevio.MD_Stop, // Example, use a valid value from elevio.MotorDirection
+        CurrentDirection: elevio.MD_Stop,
+        GeneralDirection // Example, use a valid value from elevio.MotorDirection
         CurrentFloor:     elevio.GetFloor(), // Starts at floor 0
         doorOpen:         false, // Door starts closed
         Obstruction:      false, // No obstruction initially
         stopButton:       false, // Stop button not pressed initially
         LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
         isMaster:         false, // Not master initially
-        ElevatorIP:       "localhost:20000", // Set to the IP of the elevator
+        ElevatorIP:       "localhost"+_ListeningPort, // Set to the IP of the elevator
         ElevatorID:       0, // Set to the ID of the elevator
+        isActive:         true, // Elevator is active initially
     }
 
 
@@ -31,12 +33,13 @@ func main() {
         fmt.Println("Error setting up broadcast listener: ", err)
     }
     conn, err := SetUpBroadcastListener() // Set up the broadcast listener
-    drv_NewOrder := make(chan MessageNewOrder)
-    drv_OrderComplete := make(chan MessageOrderComplete)
+    drv_Message := make(chan Data)
 
     time.Sleep(3 * time.Second) // Wait for 3 seconds
 
     go HandleMessages(conn, drv_NewOrder, drv_OrderComplete) // Start handling messages in a separate goroutine
+    msg := MessageElevator{myElevator} // Create a new elevator instance message
+    SendMessage(_broadcastAddr, msg) // Broadcast the elevator instance message 
 
 
 
@@ -60,31 +63,12 @@ func main() {
     for {
         select {
 
-        case newOrder := <-drv_NewOrder:
-            fmt.Println("New order: ", newOrder)
+        case msg := <-drv_Message:
+            messageType := msg.Message[0]
+            messageBytes := msg.Message[1:]
+            conn = msg.Address
 
-            if myElevator.isMaster {
-                // If hall-order
-                    // Update global order system locally
-                    // Calculate cost
-                    // Send order to best elevator
-                // else if cab-order
-                    // just update order system
-            } else {
-                // Update global order system locally
-                // check if newOrder.ToElevatorID == myElevator.ElevatorID {
-                    // Add order to local order system
-                //}
-
-            }
-
-
-            // logic for handling new order
-        
-        case orderComplete := <-drv_OrderComplete:
-            fmt.Println("Order complete: ", orderComplete)
-
-            // Update global order system accordingly
+            myElevator.MessageType(messageType, messageBytes, conn) // Handle the message type
 
         case btn := <-drv_buttons:
 

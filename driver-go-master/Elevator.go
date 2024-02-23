@@ -6,7 +6,8 @@ import (
 
 type Elevator struct {
 	CurrentState	 State                 // Current state of the elevator (Moving, Still, Stop)
-	CurrentDirection elevio.MotorDirection // Elevator direction
+	CurrentDirection elevio.MotorDirection 
+	GeneralDirection int 				   // Elevator direction
 	CurrentFloor     int                   // Last or current floor. Starts at 0. 
 	doorOpen         bool                  // Door open/closed
 	Obstruction      bool                  // Obstruction or not
@@ -14,7 +15,9 @@ type Elevator struct {
 	LocalOrderArray [3][numFloors]int       // Array of active orders. First row is HallUp, second is HallDown, third is Cab
 	isMaster 		bool				   // Is the elevator master or not
 	ElevatorIP		string				   // IP:port of the elevator
-	ElevatorID		int					   // ID of the elevator		                     	              
+	ID				int					   // ID of the elevator		
+	isActive 		bool				   // Is the elevator active or not    
+	timeSinceLastPong int 				// Time since last ping from the elevator                 	              
 }
 
 func (e *Elevator) GoUp() {

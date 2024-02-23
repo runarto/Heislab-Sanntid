@@ -4,9 +4,6 @@ import (
     "github.com/runarto/Heislab-Sanntid/elevio"
 )
 
-elevatorID := []string{"elevator1-ip:port", "elevator2-ip:port", "elevator2-ip:port"}
-
-masterElevatorIP := "elevator1-ip:port"
 
 
 
@@ -88,18 +85,15 @@ type MessageOrderComplete struct { // Send when an order is completed
 }
 
 type MessageElevator struct {
+    s string
     e Elevator
 }
 
-type MessageAlive {
-    message string
-    elevatorID string
-}
 
 // Thought: This should work, because the last updated "e" instance from 
 // elevator is from when an order was received.
 
-var ActiveElevators []Elevator
+var Elevators []Elevator
 
 var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
 

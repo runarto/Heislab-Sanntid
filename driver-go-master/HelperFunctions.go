@@ -7,10 +7,6 @@ import (
 	"sync"
 )
 
-var (
-    watchdogCounter int
-    counterMutex    sync.Mutex
-)
 
 func AbsValue(x int, y int) int { 
 	return int(math.Abs(float64(x - y)))
@@ -55,33 +51,15 @@ func GlobalOrderSystemReceived(globalOrders GlobalOrderArray) {
 
 }
 
-func incrementCounter(receiver chan<- bool) {
-    for {
-        time.Sleep(1 * time.Second) // Wait for 1 second
-        counterMutex.Lock()
-        watchdogCounter++
-        counterMutex.Unlock()
-		if watchdogCounter > 20 { 
-			receiver <- true
-			break
-		}
-    }
-}
-
-func resetCounter() {
-    counterMutex.Lock()
-    watchdogCounter = 0
-    counterMutex.Unlock()
-}
 
 
 func DetermineMaster() {
-    if len(ActiveElevators) == 0 {
+    if len(Elevators) == 0 {
         return // No elevators available
     }
 
     // Start with the first elevator as the initial candidate for master
-    masterCandidate := ActiveElevators[0]
+    masterCandidate := Elevators[0]
 
     // Iterate through the elevators to find the one with the lowest ElevatorID
     for _, elevator := range ActiveElevators[1:] {
@@ -100,10 +78,15 @@ func DetermineMaster() {
 }
 
 
+
+
 func UpdateActiveElevators(elevator Elevator) {
+	elevatorID = elevator.ElevatorID
 	elevatorExists := false
-	for _, elevator := range ActiveElevators {
-		if elevator.ElevatorID == elevator.ElevatorID {
+
+	for _, elevator := range Elevators {
+		if elevator.ElevatorID == elevatorID {
+			elevator.isActive = true
 			elevatorExists = true
 			break
 		}
@@ -113,4 +96,125 @@ func UpdateActiveElevators(elevator Elevator) {
 		ActiveElevators = append(ActiveElevators, elevator)
 	}
 
+}
+
+
+
+func (e *Elevator) MessageType (messageType int, messageBytes []byte, conn *net.UDPAddr) {
+
+	switch messageType {
+		case 0x01:
+			var msg MessageGlobalOrderArray
+			if err := json.Unmarshal(messageBytes, &msg); err != nil {
+				log.Fatal(err)
+			}
+			
+			globalOrderArray = msg.globalOrders
+
+		case 0x02:
+			var msg MessageNewOrder
+			if err := json.Unmarshal(messageBytes, &msg); err != nil {
+				log.Fatal(err)
+			}
+
+			fromElevator := msg.e // The elevator that sent the order
+			newOrder := msg.newOrder // The new order
+			toElevatorID := msg.toElevatorID // The elevator to send the order to
+
+			UpdateActiveElevators(fromElevator) // Update the active elevators array, if needed
+			
+			// Logic for handling new order
+			if e.isMaster { // If the elevator is the master
+				if newOrder.Button == Cab { // If the order is a cab order
+					// Update order arrays
+				} else {
+					// Calculate the best elevator for the order
+					// Broadcast order to the best elevator
+				} else {
+					if toElevatorID == e.ElevatorID { // If the order is for the elevator
+						// Update order arrays	
+
+					}
+				}
+			}
+			//
+
+			
+
+		case 0x03:
+			var msg MessageOrderComplete
+			if err := json.Unmarshal(messageBytes, &msg); err != nil {
+				log.Fatal(err)
+			}
+
+			fromElevator := msg.e // The elevator that completed the order
+			completedOrder := msg.order // The completed order
+			fromElevatorID := msg.fromElevatorID // The elevator that completed the order
+
+			UpdateActiveElevators(fromElevator) // Update the active elevators array, if needed
+			// Logic for handling completed order
+
+
+		case 0x04:
+			var msg MessageElevator
+			if err := json.Unmarshal(messageBytes, &msg); err != nil {
+				log.Fatal(err)
+			}
+
+				// Check if the elevator is already in the ActiveElevators array
+			newElevator := msg.e
+
+
+			UpdateActiveElevators(newElevator)
+
+			fmt.Println("Determining master")
+			DetermineMaster() // Re-evaluate the master elevator
+			
+
+		case 0x05:
+			var msg MessageAlive
+			if err := json.Unmarshal(messageBytes, &msg); err != nil {
+				log.Fatal(err)
+			}
+
+			message := msg.s
+			fromElevator := msg.e
+
+			if message == "Ping" {
+				UpdateActiveElevators(fromElevator) // Update the active elevators array, if needed
+				msg := MessageAlive{"Pong", e} // Create a pong message
+				serializedMsg, err := msg.Serialize()
+				if err != nil {
+					log.Printf("Error serializing message: %v", err)
+				}
+
+				_, err = conn.Write(serializedMsg)
+				if err != nil {
+					return err
+				}
+			} else if message == "Pong" {
+				fromElevator.resetCounter() // Reset the counter for the elevator
+			}
+
+			
+
+
+
+
+		// Start counters for the elevators? 
+		// If the counter reaches 20, the elevator is considered dead
+		// If the elevator is considered dead, remove it from the ActiveElevators array
+		// DetermineMaster() // Re-evaluate the master elevator
+		
+		
+		}
+}
+
+func (e *Elevator) resetCounter() {
+	for _, elevator := range ActiveElevators {
+		if e.ID == elevator.ID {
+			e.counter = 0
+			// e.startCounter()
+		}
+	}
 }
