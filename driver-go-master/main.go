@@ -2,7 +2,6 @@ package main
 
 import (
     "github.com/runarto/Heislab-Sanntid/elevio"
-    "github.com/runarto/Heislab-Sanntid/NetworkFiles"
     "fmt"
 )
 
