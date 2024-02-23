@@ -130,14 +130,11 @@ func (e *Elevator) MessageType (messageType int, messageBytes []byte, conn *net.
 				} else {
 					// Calculate the best elevator for the order
 					// Broadcast order to the best elevator
-				} else {
-					if toElevatorID == e.ElevatorID { // If the order is for the elevator
-						// Update order arrays	
-
-					}
 				}
-			}
+
+			} else if e.ElevatorID == toElevatorID { // If the elevator is the intended recipient of the order
 			//
+			}
 
 			
 
