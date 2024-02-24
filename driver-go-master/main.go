@@ -5,6 +5,7 @@ import (
     "github.com/runarto/Heislab-Sanntid/network/bcast"
     "github.com/runarto/Heislab-Sanntid/network/peers"
     "fmt"
+    "strconv"
 )
 
 
@@ -15,33 +16,26 @@ func main() {
     elevio.Init("localhost:15658", numFloors)
   
     var myElevator Elevator = Elevator{
-        CurrentState:     Still, // Assuming Still is a defined constant in the State type
+        CurrentState:     Still,            // Assuming Still is a defined constant in the State type
         CurrentDirection: elevio.MD_Stop,
-        GeneralDirection // Example, use a valid value from elevio.MotorDirection
+        GeneralDirection: Stopped,            // Example, use a valid value from elevio.MotorDirection
         CurrentFloor:     elevio.GetFloor(), // Starts at floor 0
-        doorOpen:         false, // Door starts closed
-        Obstruction:      false, // No obstruction initially
-        stopButton:       false, // Stop button not pressed initially
-        LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
-        isMaster:         false, // Not master initially
-        ElevatorIP:       "localhost"+_ListeningPort, // Set to the IP of the elevator
-        ElevatorID:       0, // Set to the ID of the elevator
-        isActive:         true, // Elevator is active initially
+        doorOpen:         false,               // Door starts closed
+        Obstruction:      false,                // No obstruction initially
+        stopButton:       false,                // Stop button not pressed initially
+        LocalOrderArray:  [3][numFloors]int{},  // Initialize with zero values
+        isMaster:         false,                    // Not master initially
+        ID:       0,                        // Set to the ID of the elevator
+        isActive:         true,                     // Elevator is active initially
     }
 
 
     myElevator.InitLocalOrderSystem() // Initialize the local order system
     myElevator.InitElevator() // Initialize the elevator
 
-    
-
-    go bcast.Transmitter(_ListeningPort, elevatorStatusTx)
-    go bcast.Receiver(_ListeningPort, elevatorStatusRx)
-
-
     peerUpdateCh := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool)
-    go peers.Transmitter(_ListeningPort, myElevator.id, peerTxEnable)
+    go peers.Transmitter(_ListeningPort, strconv.Itoa(myElevator.ID), peerTxEnable)
 	go peers.Receiver(_ListeningPort, peerUpdateCh)
 
     newOrderTx := make(chan MessageNewOrder)
@@ -74,21 +68,21 @@ func main() {
         select {
 
         case elevatorStatus := <-elevatorStatusRx:
-            fromElevator := elevatorStatus.e // Get the elevator status from the received message
+            fromElevator := elevatorStatus.E // Get the elevator status from the received message
             fmt.Println("Received elevator status: ", fromElevator.ID)
             UpdateActiveElevators(fromElevator) // Update the elevator status
             DetermineMaster()
 
 
-        case peerUpdate := <-peerUpdateCh:
+        case p := <-peerUpdateCh:
             fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-            for _, peer := range peerUpdate.Lost {
+            for _, peer := range p.Lost {
                 for _, elevator := range Elevators {
-                    if peer == elevator.ElevatorIP {
+                    if peer == strconv.Itoa(myElevator.ID) {
                         elevator.isActive = false
                     }
                 }
@@ -96,11 +90,11 @@ func main() {
             DetermineMaster() // Re-evaluate the master elevator
             
 
-        case newOrder := <-newOrderRx:
+        case Order := <-newOrderRx:
 
-            newOrder := newOrder.NewOrder
-            fromElevator := newOrder.E
-            toElevatorID := newOrder.ToElevatorID
+            newOrder := Order.NewOrder
+            // fromElevator := Order.E
+            toElevatorID := Order.ToElevatorID
 
             if toElevatorID != myElevator.ID {
                 fmt.Println("New order received: ", newOrder)
@@ -115,12 +109,11 @@ func main() {
                     // }
                     //
                     // newOrderTx <- newOrder  (only if bestElevatorID != myElevator.ID)
-    }
+            }
                 //}
 
                 // if not master, check if ToElevatorID == myElevator.ID
                 // if true, add to local order system
-            }
         
 
         
@@ -134,7 +127,7 @@ func main() {
                 UpdateActiveElevators(fromElevator) // Update the elevator status
                 fmt.Println("Order completed: ", order)
                 // Update global order system
-
+            }
 
 
             
@@ -194,6 +187,5 @@ func main() {
             myElevator.StopButton(stop)
           
         }
-        
     }
 }

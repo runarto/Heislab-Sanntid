@@ -26,6 +26,7 @@ const (
     Off = 0
 
     Up = 1
+    Stopped = 0
     Down = -1
 )
 
@@ -34,8 +35,7 @@ const (
     Close = false
 )
 
-var _ListeningPort = "29876"
-var _broadcastAddr = "255.255.255.255:29876"
+var _ListeningPort = 29876
 // Can we assume that we know the IP of the elevators initially?
 
 type State int
@@ -60,10 +60,10 @@ type GlobalOrderArray struct {
 }
 
 
-var globalOrderArray = GlobalOrderArray{
-    HallOrderArray: [2][numFloors]int{},
-    CabOrderArray: [numOfElevators][numFloors]int{},
-}
+// var globalOrderArray = GlobalOrderArray{
+//     HallOrderArray: [2][numFloors]int{},
+//     CabOrderArray: [numOfElevators][numFloors]int{},
+// }
 
 
 

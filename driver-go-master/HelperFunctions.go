@@ -4,7 +4,6 @@ import (
 	"math"
 	"fmt"
 	"time"
-	"sync"
 )
 
 
@@ -45,11 +44,11 @@ func (e *Elevator) CheckIfOrderIsActive(order Order) bool {
 }
 
 
-func GlobalOrderSystemReceived(globalOrders GlobalOrderArray) {
-	globalOrderArray = globalOrders
-	// Update the local order system with the global order system
+// func GlobalOrderSystemReceived(globalOrders GlobalOrderArray) {
+// 	globalOrderArray = globalOrders
+// 	// Update the local order system with the global order system
 
-}
+// }
 
 
 
@@ -62,8 +61,8 @@ func DetermineMaster() {
     masterCandidate := Elevators[0]
 
     // Iterate through the elevators to find the one with the lowest ElevatorID
-    for _, elevator := range ActiveElevators[1:] {
-        if elevator.ElevatorID < masterCandidate.ElevatorID {
+    for _, elevator := range Elevators[1:] {
+        if elevator.ID < masterCandidate.ID {
             masterCandidate = elevator
         }
     }
@@ -71,7 +70,6 @@ func DetermineMaster() {
     // Set the masterCandidate as the master and update the local state as needed
     // This is a simplified representation; actual implementation may require additional synchronization and communication
     masterCandidate.isMaster = true
-	masterElevatorIP = masterCandidate.ElevatorIP
 
     // Broadcast or communicate the master election result as needed
     // This could involve sending a message to all elevators or updating a shared state
@@ -81,11 +79,11 @@ func DetermineMaster() {
 
 
 func UpdateActiveElevators(e Elevator) {
-	elevatorID = e.ElevatorID // The ID of the elevator
+	elevatorID := e.ID // The ID of the elevator
 	elevatorExists := false // Flag to check if the elevator exists in the ActiveElevators array
 
 	for _, elevator := range Elevators {
-		if elevator.ElevatorID == elevatorID {
+		if elevator.ID == elevatorID {
 			elevator = e // Update the elevator
 			elevatorExists = true // Set the elevatorExists flag to true
 			break
@@ -93,7 +91,7 @@ func UpdateActiveElevators(e Elevator) {
 	}
 
 	if !elevatorExists { // If the elevator does not exist in the ActiveElevators array
-		ActiveElevators = append(ActiveElevators, elevator) // Add the elevator to the ActiveElevators array
+		Elevators = append(Elevators, e) // Add the elevator to the ActiveElevators array
 	}
 
 }
