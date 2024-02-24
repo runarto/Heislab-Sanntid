@@ -80,138 +80,24 @@ func DetermineMaster() {
 
 
 
-func UpdateActiveElevators(elevator Elevator) {
-	elevatorID = elevator.ElevatorID
-	elevatorExists := false
+func UpdateActiveElevators(e Elevator) {
+	elevatorID = e.ElevatorID // The ID of the elevator
+	elevatorExists := false // Flag to check if the elevator exists in the ActiveElevators array
 
 	for _, elevator := range Elevators {
 		if elevator.ElevatorID == elevatorID {
-			elevator.isActive = true
-			elevatorExists = true
+			elevator = e // Update the elevator
+			elevatorExists = true // Set the elevatorExists flag to true
 			break
 		}
 	}
 
-	if !elevatorExists {
-		ActiveElevators = append(ActiveElevators, elevator)
+	if !elevatorExists { // If the elevator does not exist in the ActiveElevators array
+		ActiveElevators = append(ActiveElevators, elevator) // Add the elevator to the ActiveElevators array
 	}
 
 }
 
 
 
-func (e *Elevator) MessageType (messageType int, messageBytes []byte, conn *net.UDPAddr) {
 
-	switch messageType {
-		case 0x01:
-			var msg MessageGlobalOrderArray
-			if err := json.Unmarshal(messageBytes, &msg); err != nil {
-				log.Fatal(err)
-			}
-			
-			globalOrderArray = msg.globalOrders
-
-		case 0x02:
-			var msg MessageNewOrder
-			if err := json.Unmarshal(messageBytes, &msg); err != nil {
-				log.Fatal(err)
-			}
-
-			fromElevator := msg.e // The elevator that sent the order
-			newOrder := msg.newOrder // The new order
-			toElevatorID := msg.toElevatorID // The elevator to send the order to
-
-			UpdateActiveElevators(fromElevator) // Update the active elevators array, if needed
-			
-			// Logic for handling new order
-			if e.isMaster { // If the elevator is the master
-				if newOrder.Button == Cab { // If the order is a cab order
-					// Update order arrays
-				} else {
-					// Calculate the best elevator for the order
-					// Broadcast order to the best elevator
-				}
-
-			} else if e.ElevatorID == toElevatorID { // If the elevator is the intended recipient of the order
-			//
-			}
-
-			
-
-		case 0x03:
-			var msg MessageOrderComplete
-			if err := json.Unmarshal(messageBytes, &msg); err != nil {
-				log.Fatal(err)
-			}
-
-			fromElevator := msg.e // The elevator that completed the order
-			completedOrder := msg.order // The completed order
-			fromElevatorID := msg.fromElevatorID // The elevator that completed the order
-
-			UpdateActiveElevators(fromElevator) // Update the active elevators array, if needed
-			// Logic for handling completed order
-
-
-		case 0x04:
-			var msg MessageElevator
-			if err := json.Unmarshal(messageBytes, &msg); err != nil {
-				log.Fatal(err)
-			}
-
-				// Check if the elevator is already in the ActiveElevators array
-			newElevator := msg.e
-
-
-			UpdateActiveElevators(newElevator)
-
-			fmt.Println("Determining master")
-			DetermineMaster() // Re-evaluate the master elevator
-			
-
-		case 0x05:
-			var msg MessageAlive
-			if err := json.Unmarshal(messageBytes, &msg); err != nil {
-				log.Fatal(err)
-			}
-
-			message := msg.s
-			fromElevator := msg.e
-
-			if message == "Ping" {
-				UpdateActiveElevators(fromElevator) // Update the active elevators array, if needed
-				msg := MessageAlive{"Pong", e} // Create a pong message
-				serializedMsg, err := msg.Serialize()
-				if err != nil {
-					log.Printf("Error serializing message: %v", err)
-				}
-
-				_, err = conn.Write(serializedMsg)
-				if err != nil {
-					return err
-				}
-			} else if message == "Pong" {
-				fromElevator.resetCounter() // Reset the counter for the elevator
-			}
-
-			
-
-
-
-
-		// Start counters for the elevators? 
-		// If the counter reaches 20, the elevator is considered dead
-		// If the elevator is considered dead, remove it from the ActiveElevators array
-		// DetermineMaster() // Re-evaluate the master elevator
-		
-		
-		}
-}
-
-func (e *Elevator) resetCounter() {
-	for _, elevator := range ActiveElevators {
-		if e.ID == elevator.ID {
-			e.counter = 0
-			// e.startCounter()
-		}
-	}
-}

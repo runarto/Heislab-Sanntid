@@ -65,29 +65,32 @@ var globalOrderArray = GlobalOrderArray{
     CabOrderArray: [numOfElevators][numFloors]int{},
 }
 
+
+
 type MessageGlobalOrderArray struct { // Send periodically to update the global order system
-    // 0x01
-    globalOrders GlobalOrderArray
+    Type         string `json:"type"` // Explicitly indicate the message type
+    GlobalOrders GlobalOrderArray `json:"globalOrders"`
 }
 
 type MessageNewOrder struct { // Send when a new order is received
-    // 0x02 
-    newOrder Order
-    e Elevator
-    toElevatorID int // The elevator to send the order to
+    Type          string `json:"type"` // Explicitly indicate the message type
+    NewOrder      Order `json:"newOrder"`
+    E             Elevator `json:"elevator"`
+    ToElevatorID  int `json:"toElevatorID"` // The elevator to send the order to
 }
 
 type MessageOrderComplete struct { // Send when an order is completed
-    // 0x03
-    order Order
-    e Elevator
-    fromElevatorID int // The elevator that completed the order
+    Type            string `json:"type"` // Explicitly indicate the message type
+    Order           Order `json:"order"`
+    E               Elevator `json:"elevator"`
+    FromElevatorID  int `json:"fromElevatorID"` // The elevator that completed the order
 }
 
-type MessageElevator struct {
-    s string
-    e Elevator
+type ElevatorStatus struct {
+    Type     string  `json:"type"` // A type identifier for decoding on the receiving end
+    E Elevator `json:"elevator"` // The Elevator instance
 }
+
 
 
 // Thought: This should work, because the last updated "e" instance from 

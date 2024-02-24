@@ -2,6 +2,8 @@ package main
 
 import (
     "github.com/runarto/Heislab-Sanntid/elevio"
+    "github.com/runarto/Heislab-Sanntid/network/bcast"
+    "github.com/runarto/Heislab-Sanntid/network/peers"
     "fmt"
 )
 
@@ -28,24 +30,32 @@ func main() {
     }
 
 
-    if err != nil {
-        fmt.Println("Error setting up broadcast listener: ", err)
-    }
-    conn, err := SetUpBroadcastListener() // Set up the broadcast listener
-    drv_Message := make(chan Data)
-
-    time.Sleep(3 * time.Second) // Wait for 3 seconds
-
-    go HandleMessages(conn, drv_NewOrder, drv_OrderComplete) // Start handling messages in a separate goroutine
-    msg := MessageElevator{myElevator} // Create a new elevator instance message
-    SendMessage(_broadcastAddr, msg) // Broadcast the elevator instance message 
-
-
-
     myElevator.InitLocalOrderSystem() // Initialize the local order system
     myElevator.InitElevator() // Initialize the elevator
-   
 
+    
+
+    go bcast.Transmitter(_ListeningPort, elevatorStatusTx)
+    go bcast.Receiver(_ListeningPort, elevatorStatusRx)
+
+
+    peerUpdateCh := make(chan peers.PeerUpdate)
+	peerTxEnable := make(chan bool)
+    go peers.Transmitter(_ListeningPort, myElevator.id, peerTxEnable)
+	go peers.Receiver(_ListeningPort, peerUpdateCh)
+
+    newOrderTx := make(chan MessageNewOrder)
+	newOrderRx := make(chan MessageNewOrder)
+
+	orderCompleteTx := make(chan MessageOrderComplete)
+	orderCompleteRx := make(chan MessageOrderComplete)
+
+    elevatorStatusTx := make(chan ElevatorStatus) // Channel to transmit elevator status
+    elevatorStatusRx := make(chan ElevatorStatus) // Channel to receive elevator status (if needed)
+
+    go bcast.Transmitter(_ListeningPort, newOrderTx, orderCompleteTx, elevatorStatusTx) // You can add more channels as needed
+	go bcast.Receiver(_ListeningPort, newOrderRx, orderCompleteRx, elevatorStatusRx) // You can add more channels as needed
+    go BroadcastElevatorStatus(myElevator, elevatorStatusTx) // Start broadcasting the elevator status
 
     drv_buttons := make(chan elevio.ButtonEvent)
     drv_floors := make(chan int)
@@ -58,16 +68,76 @@ func main() {
     go elevio.PollObstructionSwitch(drv_obstr)
     go elevio.PollStopButton(drv_stop)
 
+    fmt.Println("Elevator initialized")
 
     for {
         select {
 
-        case msg := <-drv_Message:
-            messageType := msg.Message[0]
-            messageBytes := msg.Message[1:]
-            conn = msg.Address
+        case elevatorStatus := <-elevatorStatusRx:
+            fromElevator := elevatorStatus.e // Get the elevator status from the received message
+            fmt.Println("Received elevator status: ", fromElevator.ID)
+            UpdateActiveElevators(fromElevator) // Update the elevator status
+            DetermineMaster()
 
-            myElevator.MessageType(messageType, messageBytes, conn) // Handle the message type
+
+        case peerUpdate := <-peerUpdateCh:
+            fmt.Printf("Peer update:\n")
+			fmt.Printf("  Peers:    %q\n", p.Peers)
+			fmt.Printf("  New:      %q\n", p.New)
+			fmt.Printf("  Lost:     %q\n", p.Lost)
+
+            for _, peer := range peerUpdate.Lost {
+                for _, elevator := range Elevators {
+                    if peer == elevator.ElevatorIP {
+                        elevator.isActive = false
+                    }
+                }
+            }
+            DetermineMaster() // Re-evaluate the master elevator
+            
+
+        case newOrder := <-newOrderRx:
+
+            newOrder := newOrder.NewOrder
+            fromElevator := newOrder.E
+            toElevatorID := newOrder.ToElevatorID
+
+            if toElevatorID != myElevator.ID {
+                fmt.Println("New order received: ", newOrder)
+                // if newOrder == Cab { add to global order system}
+                // else, if myElevator.isMaster -> {
+                    // Find best elevator for order
+                    //    newOrder := MessageNewOrder{
+                    //    Type:     "MessageNewOrder",
+                    //    NewOrder: newOrder,
+                    //    E: myElevator, // Use the correct field name as defined in your ElevatorStatus struct
+                    //    ToElevatorID: bestElevatorID,
+                    // }
+                    //
+                    // newOrderTx <- newOrder  (only if bestElevatorID != myElevator.ID)
+    }
+                //}
+
+                // if not master, check if ToElevatorID == myElevator.ID
+                // if true, add to local order system
+            }
+        
+
+        
+        case orderComplete := <-orderCompleteRx:
+
+            order := orderComplete.Order
+            fromElevator := orderComplete.E
+            fromElevatorID := orderComplete.FromElevatorID
+
+            if fromElevatorID != myElevator.ID {
+                UpdateActiveElevators(fromElevator) // Update the elevator status
+                fmt.Println("Order completed: ", order)
+                // Update global order system
+
+
+
+            
 
         case btn := <-drv_buttons:
 
