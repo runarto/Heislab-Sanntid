@@ -1,7 +1,7 @@
 package peers
 
 import (
-	"github.com/runarto/Heislab-Sanntid/network/conn"
+	"github.com/runarto/Heislab-Sanntid/Network/conn"
 	"fmt"
 	"net"
 	"sort"

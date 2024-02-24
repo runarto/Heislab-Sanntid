@@ -1,7 +1,7 @@
 package bcast
 
 import (
-	"github.com/runarto/Heislab-Sanntid/network/conn"
+	"github.com/runarto/Heislab-Sanntid/Network/conn"
 	"encoding/json"
 	"fmt"
 	"net"

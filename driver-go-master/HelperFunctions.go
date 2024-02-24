@@ -70,6 +70,7 @@ func DetermineMaster() {
     // Set the masterCandidate as the master and update the local state as needed
     // This is a simplified representation; actual implementation may require additional synchronization and communication
     masterCandidate.isMaster = true
+	fmt.Println("The master now is elevator: ", masterCandidate.ID)
 
     // Broadcast or communicate the master election result as needed
     // This could involve sending a message to all elevators or updating a shared state

@@ -2,10 +2,11 @@ package main
 
 import (
     "github.com/runarto/Heislab-Sanntid/elevio"
-    "github.com/runarto/Heislab-Sanntid/network/bcast"
-    "github.com/runarto/Heislab-Sanntid/network/peers"
+    "github.com/runarto/Heislab-Sanntid/Network/bcast"
+    "github.com/runarto/Heislab-Sanntid/Network/peers"
     "fmt"
     "strconv"
+    "flag"
 )
 
 
@@ -13,7 +14,9 @@ import (
 func main() {
 
     // Initialize the elevator
-    elevio.Init("localhost:15658", numFloors)
+    var port = flag.String("port", "15658", "define the port number")
+    flag.Parse()
+    elevio.Init("localhost:"+*port, numFloors)
   
     var myElevator Elevator = Elevator{
         CurrentState:     Still,            // Assuming Still is a defined constant in the State type
@@ -25,7 +28,7 @@ func main() {
         stopButton:       false,                // Stop button not pressed initially
         LocalOrderArray:  [3][numFloors]int{},  // Initialize with zero values
         isMaster:         false,                    // Not master initially
-        ID:       0,                        // Set to the ID of the elevator
+        ID:       1,                        // Set to the ID of the elevator
         isActive:         true,                     // Elevator is active initially
     }
 
@@ -77,8 +80,8 @@ func main() {
         case p := <-peerUpdateCh:
             fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
-			fmt.Printf("  New:      %q\n", p.New)
-			fmt.Printf("  Lost:     %q\n", p.Lost)
+			//fmt.Printf("  New:      %q\n", p.New)
+			// fmt.Printf("  Lost:     %q\n", p.Lost)
 
             for _, peer := range p.Lost {
                 for _, elevator := range Elevators {
@@ -139,33 +142,37 @@ func main() {
             newOrder := Order{floor, button}
             fmt.Println("New order: ", newOrder)
 
-            if myElevator.CheckIfOrderIsActive(newOrder) { // Check if the order is active
-                if bestOrder.Floor == myElevator.CurrentFloor {
-                    myElevator.HandleElevatorAtFloor(bestOrder.Floor) // Handle the elevator at the floor
+            newOrderTx <- MessageNewOrder{Type: "MessageNewOrder", NewOrder: newOrder, E: myElevator, ToElevatorID: myElevator.ID} // Send the new order to the network
+
+            if button == Cab {
+                if myElevator.CheckIfOrderIsActive(newOrder) { // Check if the order is active
+                    if bestOrder.Floor == myElevator.CurrentFloor {
+                        myElevator.HandleElevatorAtFloor(bestOrder.Floor) // Handle the elevator at the floor
+                    } else {
+                        myElevator.DoOrder(bestOrder) // Move the elevator to the best order
+                    }
+                    
                 } else {
-                    myElevator.DoOrder(bestOrder) // Move the elevator to the best order
+                    // if myElevator.isMaster -> update global order system locally
+                    // else, send order to master
+
+                    //newOrderToSend := MessageNewOrder{newOrder, myElevator} // Create a new order message
+                    //SendOrder(masterAddress, newOrderToSend) // Send the order to master
+
+                    // SendOrder(address, newOrder) // Send the order to master
+
+                    myElevator.UpdateOrderSystem(newOrder) // Update the local order array
+                    myElevator.PrintLocalOrderSystem()
+                    bestOrder = myElevator.ChooseBestOrder() // Choose the best order
+                    fmt.Println("Best order: ", bestOrder)
+        
+                    if bestOrder.Floor == myElevator.CurrentFloor {
+                        myElevator.HandleElevatorAtFloor(bestOrder.Floor) // Handle the elevator at the floor
+                    } else {
+                        myElevator.DoOrder(bestOrder) // Move the elevator to the best order
+                    }
+
                 }
-                
-            } else {
-                // if myElevator.isMaster -> update global order system locally
-                // else, send order to master
-
-                //newOrderToSend := MessageNewOrder{newOrder, myElevator} // Create a new order message
-                //SendOrder(masterAddress, newOrderToSend) // Send the order to master
-
-                // SendOrder(address, newOrder) // Send the order to master
-
-                myElevator.UpdateOrderSystem(newOrder) // Update the local order array
-                myElevator.PrintLocalOrderSystem()
-                bestOrder = myElevator.ChooseBestOrder() // Choose the best order
-                fmt.Println("Best order: ", bestOrder)
-    
-                if bestOrder.Floor == myElevator.CurrentFloor {
-                    myElevator.HandleElevatorAtFloor(bestOrder.Floor) // Handle the elevator at the floor
-                } else {
-                    myElevator.DoOrder(bestOrder) // Move the elevator to the best order
-                }
-
             }
             
 
