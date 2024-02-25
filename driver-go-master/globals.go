@@ -36,7 +36,7 @@ const (
 )
 
 var _ListeningPort = 29876
-// Can we assume that we know the IP of the elevators initially?
+var masterElevatorID = -1
 
 type State int
 

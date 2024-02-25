@@ -92,6 +92,8 @@ func (e *Elevator) DetermineMaster() {
 		fmt.Println("I am the master")
 	}
 
+	masterElevatorID = masterCandidate.ID // Set the master elevator ID
+
 	// Broadcast or communicate the master election result as needed
 	// This could involve sending a message to all elevators or updating a shared state
 }
