@@ -47,7 +47,7 @@ func (e *Elevator) floorLights(floor int) {
     }
 }
 
-func (e *Elevator) ElevatorAtFloor(floor int) bool {
+func (e *Elevator) HandleOrdersAtFloor(floor int, OrderCompleteTx chan MessageOrderComplete) bool {
      // Update the current floor
     var ordersDone []Order // Number of orders done
 
@@ -109,9 +109,23 @@ func (e *Elevator) ElevatorAtFloor(floor int) bool {
         for i := 0; i < len(ordersDone); i++ {
             fmt.Println("Order done: ", ordersDone[i])
             e.UpdateOrderSystem(ordersDone[i]) // Update the local order array
+            floor := ordersDone[i].Floor
+            button := ordersDone[i].Button
+            LocallyCompletedOrders[floor][button] = True
         }
+
+        OrderCompleteTx <- MessageOrderComplete{Type: "OrderComplete", 
+                                                Orders: ordersDone, 
+                                                E: *e,
+                                                FromElevatorID: e.ID}
+
+
+        
+
         return true // There are active orders at the floor
+
     } else {
+
         return false // There are no active orders at the floor
     }
 

@@ -60,16 +60,18 @@ type GlobalOrderArray struct {
 }
 
 
-// var globalOrderArray = GlobalOrderArray{
-//     HallOrderArray: [2][numFloors]int{},
-//     CabOrderArray: [numOfElevators][numFloors]int{},
-// }
+var globalOrderArray = GlobalOrderArray{
+    HallOrderArray: [2][numFloors]int{},
+    CabOrderArray: [numOfElevators][numFloors]int{},
+}
 
 
 
-type MessageGlobalOrderArray struct { // Send periodically to update the global order system
+type MessageOrderArrays struct { // Send periodically to update the global order system
     Type         string `json:"type"` // Explicitly indicate the message type
     GlobalOrders GlobalOrderArray `json:"globalOrders"`
+    LocalOrderArray [numButtons][numFloors]int `json:"localOrderArray"` // The local order array of the elevator
+    ToElevatorID int `json:"toElevatorID"` // The elevator to send the order to
 }
 
 type MessageNewOrder struct { // Send when a new order is received
@@ -81,7 +83,7 @@ type MessageNewOrder struct { // Send when a new order is received
 
 type MessageOrderComplete struct { // Send when an order is completed
     Type            string `json:"type"` // Explicitly indicate the message type
-    Order           Order `json:"order"`
+    Orders          []Order `json:"order"`
     E               Elevator `json:"elevator"`
     FromElevatorID  int `json:"fromElevatorID"` // The elevator that completed the order
 }
@@ -98,7 +100,9 @@ type ElevatorStatus struct {
 
 var Elevators []Elevator
 
+
 var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
+var LocallyCompletedOrders [numButtons][numFloors]int
 
 
 

@@ -12,7 +12,7 @@ const bufSize = 1024
 
 // Encodes received values from `chans` into type-tagged JSON, then broadcasts
 // it on `port`
-func Transmitter(port int, chans ...interface{}) {
+func Transmitter(port int, chans ...interface{}) error {
 	checkArgs(chans...)
 	typeNames := make([]string, len(chans))
 	selectCases := make([]reflect.SelectCase, len(typeNames))
@@ -24,7 +24,12 @@ func Transmitter(port int, chans ...interface{}) {
 		typeNames[i] = reflect.TypeOf(ch).Elem().String()
 	}
 
-	conn := conn.DialBroadcastUDP(port)
+	conn, err := conn.DialBroadcastUDP(port)
+	
+	if err != nil {
+		fmt.Printf("bcast.Transmitter(%d, ...): DialBroadcastUDP() failed: \"%+v\"\n", port, err)
+	}
+
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
 	for {
 		chosen, value, _ := reflect.Select(selectCases)
@@ -54,7 +59,12 @@ func Receiver(port int, chans ...interface{}) {
 	}
 
 	var buf [bufSize]byte
-	conn := conn.DialBroadcastUDP(port)
+	conn, err := conn.DialBroadcastUDP(port)
+
+	if err != nil {
+		fmt.Printf("bcast.Receiver(%d, ...): DialBroadcastUDP() failed: \"%+v\"\n", port, err)
+	}
+
 	for {
 		n, _, e := conn.ReadFrom(buf[0:])
 		if e != nil {

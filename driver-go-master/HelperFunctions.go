@@ -12,24 +12,34 @@ func AbsValue(x int, y int) int {
 }
 
 
-func (e *Elevator) HandleElevatorAtFloor(floor int) {
+func (e *Elevator) HandleElevatorAtFloor(floor int, OrderCompleteTx chan MessageOrderComplete) {
 
-	if e.ElevatorAtFloor(floor) { // Check for active orders at floor
+	if e.HandleOrdersAtFloor(floor, OrderCompleteTx) { // If true, orders have been handled at the floor
+
 		e.StopElevator() // Stop the elevator
 		e.SetDoorState(Open) // Open the door
 		time.Sleep(1000 * time.Millisecond) // Wait for a second
 		e.SetDoorState(Close) // Close the door
+
 		fmt.Println("Order system: ")
 		e.PrintLocalOrderSystem()
+
 		amountOfOrders := e.CheckAmountOfActiveOrders() // Check the amount of active orders
+
 		fmt.Println("Amount of active orders: ", amountOfOrders)
+
 		if amountOfOrders > 0 {
+
 			bestOrder = e.ChooseBestOrder() // Choose the best order
+
 			fmt.Println("Best order: ", bestOrder)
-			e.DoOrder(bestOrder)
-			// DoOrder(order) // Move the elevator to the best order (pseudocode function to move the elevator to the best order
+
+			e.DoOrder(bestOrder, OrderCompleteTx) // Set elevator in direction of best order
+			
 		} else {
+
 			e.SetState(Still) // If no orders, set the state to still
+			e.GeneralDirection = Stopped
 		}
 	}
 }
@@ -52,25 +62,42 @@ func (e *Elevator) CheckIfOrderIsActive(order Order) bool {
 
 
 
-func DetermineMaster() {
+func (e *Elevator) DetermineMaster() {
+
     if len(Elevators) == 0 {
         return // No elevators available
     }
 
-    // Start with the first elevator as the initial candidate for master
-    masterCandidate := Elevators[0]
+	fmt.Println("Determining master")
 
-    // Iterate through the elevators to find the one with the lowest ElevatorID
-    for _, elevator := range Elevators[1:] {
-        if elevator.ID < masterCandidate.ID {
-            masterCandidate = elevator
-        }
-    }
+	masterCandidate := Elevators[0] // Set the first elevator as the master candidate
+
+	for _, elevator := range Elevators {
+		if elevator.isActive {
+			masterCandidate = elevator // Set the first active elevator as the master candidate
+			break
+		}
+	}
+
+	for _, elevator := range Elevators {
+		fmt.Println("Elevator: ", elevator.ID, "isActive: ", elevator.isActive)
+		if elevator.isActive {
+			if elevator.ID < masterCandidate.ID { // If the elevator ID is less than the master candidate ID
+				masterCandidate = elevator // Set the elevator as the master candidate
+			}
+		}
+	}
+
+   
 
     // Set the masterCandidate as the master and update the local state as needed
     // This is a simplified representation; actual implementation may require additional synchronization and communication
     masterCandidate.isMaster = true
 	fmt.Println("The master now is elevator: ", masterCandidate.ID)
+	if masterCandidate.ID == e.ID {
+		e.isMaster = true
+		fmt.Println("I am the master")
+	}
 
     // Broadcast or communicate the master election result as needed
     // This could involve sending a message to all elevators or updating a shared state
@@ -79,7 +106,7 @@ func DetermineMaster() {
 
 
 
-func UpdateActiveElevators(e Elevator) {
+func UpdateElevatorsOnNetwork(e Elevator) {
 	elevatorID := e.ID // The ID of the elevator
 	elevatorExists := false // Flag to check if the elevator exists in the ActiveElevators array
 

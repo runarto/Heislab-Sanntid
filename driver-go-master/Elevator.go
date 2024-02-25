@@ -19,19 +19,24 @@ type Elevator struct {
 }
 
 func (e *Elevator) GoUp() {
+
 	e.CurrentDirection = Up
+	e.GeneralDirection = Up
 	elevio.SetMotorDirection(e.CurrentDirection)
 	e.SetState(Moving)
 }
 
 func (e *Elevator) GoDown() {
+
 	e.CurrentDirection = Down
+	e.GeneralDirection = Down
 	elevio.SetMotorDirection(e.CurrentDirection)
 	e.SetState(Moving)
 }
 
 func (e *Elevator) StopElevator() {
 	// e.CurrentDirection = elevio.MD_Stop
+	e.GeneralDirection = Stopped
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	e.SetState(Still)
 }
