@@ -2,6 +2,7 @@ package main
 
 import (
     "github.com/runarto/Heislab-Sanntid/elevio"
+    "time"
 )
 
 
@@ -12,6 +13,7 @@ const (
     numOfElevators = 3
     NotDefined = -1
     numButtons = 3
+    _ListeningPort = 29876
 )
 
 const (
@@ -35,7 +37,6 @@ const (
     Close = false
 )
 
-var _ListeningPort = 29876
 var masterElevatorID = -1
 
 type State int
@@ -52,11 +53,27 @@ type Order struct {
 	// An order contains the floor (from/to), and the type of button.
 }
 
+type Ack struct {
+    active bool // True if the order is active. Once completed (!) it is set to false
+    // If a certain amount of time passes without active being set to false, redistribute order.
+
+    received bool // True if the order is received. Once completed, it is set to false
+    // If a certain amount of time passes without received being set to true, redistribute order. 
+
+    time time.Time() // The time the order was sent and received. 
+}
+
 
 
 type GlobalOrderArray struct {
     HallOrderArray [2][numFloors]int // Represents the hall orders
     CabOrderArray [numOfElevators][numFloors]int // Represents the cab orders
+}
+
+type GlobalOrderArrayAcks struct {
+    HallOrderArray [2][numFloors]Ack // Represents the hall orders, true if received
+    CabOrderArray [numOfElevators][numFloors]Ack // Represents the cab orders, true if received
+    // May not need the cab-orders. These are all received locally anyway. 
 }
 
 
@@ -103,7 +120,6 @@ var Elevators []Elevator
 
 var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
 var LocallyCompletedOrders [numButtons][numFloors]int
-
 
 
 

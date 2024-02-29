@@ -81,6 +81,8 @@ func (e *Elevator) CheckAbove(floor int) Order {
 
 				fmt.Println("Button: ", button, "Floor: ", floorOrder)
 
+				
+
 				if button == HallUp || button == Cab { // If the order is an up order or a cab order
 					if CurrentBestOrder.Floor == NotDefined { // If the best order is not defined
 						Order := Order{floorOrder, elevio.ButtonType(button)} 
