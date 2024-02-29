@@ -80,8 +80,9 @@ func main() {
 			if toElevatorID == myElevator.ID {
 
 				fmt.Println("Received order arrays")
-				// Overwrite existing global order array
-				//CompareAndOverwriteLocalOrrderArray() // Compare and overwrite the local order array
+
+				myElevator.LocalOrderArray = orderArrays.LocalOrderArray
+				globalOrderArray = orderArrays.GlobalOrders
 			}
 
 		case elevatorStatus := <-elevatorStatusRx:
@@ -126,7 +127,11 @@ func main() {
 			if fromElevatorID != myElevator.ID {
 				// Update the elevator status
 				fmt.Println("Order completed: ", orders, "by elevator", fromElevatorID)
-				// Update global order system
+
+				for i, _ := range orders {
+					value := CheckIfGlobalOrderIsActive(orders[i])
+					myElevator.UpdateOrderSystem(orders[i], myElevator, !value)
+				}
 			}
 
 			if myElevator.CheckAmountOfActiveOrders() > 0 {

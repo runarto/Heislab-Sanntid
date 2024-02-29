@@ -102,6 +102,7 @@ func (e *Elevator) HandleOrdersAtFloor(floor int, OrderCompleteTx chan MessageOr
 
 			fmt.Println("Order done: ", ordersDone[i])
 			e.UpdateOrderSystem(ordersDone[i]) // Update the local order array
+			UpdateGlobalOrderSystem(ordersDone[i], e) // Update the global order system
 
 		}
 
@@ -121,72 +122,79 @@ func (e *Elevator) HandleOrdersAtFloor(floor int, OrderCompleteTx chan MessageOr
 
 func (e *Elevator) HandleButtonEvent(newOrderTx chan MessageNewOrder, orderCompleteTx chan MessageOrderComplete, newOrder Order) {
 	fmt.Println("Function: HandleButtonEvent")
-	button := newOrder.Button
-	if button == Cab {
 
-		fmt.Println("Cab order")
+	if !CheckIfGlobalOrderIsActive(newOrder) { // Check if the order is already active
 
-		newOrderTx <- MessageNewOrder{Type: "MessageNewOrder", NewOrder: newOrder, E: *e, ToElevatorID: NotDefined}
+		UpdateGlobalOrderSystem(newOrder, e, true) // Update the global order system
 
-		if e.CheckIfOrderIsActive(newOrder) { // Check if the order is active
-			if bestOrder.Floor == e.CurrentFloor && elevio.GetFloor() != -1 {
-				e.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Handle the elevator at the floor
+
+		button := newOrder.Button
+		if button == Cab {
+
+			fmt.Println("Cab order")
+
+			newOrderTx <- MessageNewOrder{Type: "MessageNewOrder", NewOrder: newOrder, E: *e, ToElevatorID: NotDefined}
+
+			if e.CheckIfOrderIsActive(newOrder) { // Check if the order is active
+				if bestOrder.Floor == e.CurrentFloor && elevio.GetFloor() != -1 {
+					e.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Handle the elevator at the floor
+				} else {
+					fmt.Println("Best order is", bestOrder)
+					e.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
+				}
+
 			} else {
-				fmt.Println("Best order is", bestOrder)
-				e.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
-			}
-
-		} else {
-
-			e.ProcessElevatorOrders(newOrder, orderCompleteTx)
-
-		}
-	} else {
-
-		fmt.Println("Hall order")
-
-		if e.isMaster {
-			fmt.Println("This is the master")
-			// Handle order locally (remember lights)
-			bestElevator := chooseElevator(Elevators, newOrder)
-
-			if bestElevator.ID == e.ID {
-
-				fmt.Println("Handling locally")
 
 				e.ProcessElevatorOrders(newOrder, orderCompleteTx)
 
-				newOrder := MessageNewOrder{
-					Type:         "MessageNewOrder",
-					NewOrder:     newOrder,
-					E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
-					ToElevatorID: NotDefined}
-
-				newOrderTx <- newOrder
-
-			} else {
-				fmt.Println("Sending order")
-
-				newOrder := MessageNewOrder{
-					Type:         "MessageNewOrder",
-					NewOrder:     newOrder,
-					E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
-					ToElevatorID: bestElevator.ID}
-
-				newOrderTx <- newOrder
-
-				if e.CheckAmountOfActiveOrders() > 0 {
-					e.DoOrder(bestOrder, orderCompleteTx)
-				}
-
 			}
-
 		} else {
 
-			// Set lights.
-			newOrderTx <- MessageNewOrder{Type: "MessageNewOrder", NewOrder: newOrder, E: *e, ToElevatorID: masterElevatorID}
-			e.DoOrder(bestOrder, orderCompleteTx)
+			fmt.Println("Hall order")
 
+			if e.isMaster {
+				fmt.Println("This is the master")
+				// Handle order locally (remember lights)
+				bestElevator := chooseElevator(Elevators, newOrder)
+
+				if bestElevator.ID == e.ID {
+
+					fmt.Println("Handling locally")
+
+					e.ProcessElevatorOrders(newOrder, orderCompleteTx)
+
+					newOrder := MessageNewOrder{
+						Type:         "MessageNewOrder",
+						NewOrder:     newOrder,
+						E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
+						ToElevatorID: NotDefined}
+
+					newOrderTx <- newOrder
+
+				} else {
+					fmt.Println("Sending order")
+
+					newOrder := MessageNewOrder{
+						Type:         "MessageNewOrder",
+						NewOrder:     newOrder,
+						E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
+						ToElevatorID: bestElevator.ID}
+
+					newOrderTx <- newOrder
+
+					if e.CheckAmountOfActiveOrders() > 0 {
+						e.DoOrder(bestOrder, orderCompleteTx)
+					}
+
+				}
+
+			} else {
+
+				// Set lights.
+				newOrderTx <- MessageNewOrder{Type: "MessageNewOrder", NewOrder: newOrder, E: *e, ToElevatorID: masterElevatorID}
+				e.DoOrder(bestOrder, orderCompleteTx)
+
+			}
 		}
 	}
 }
@@ -214,58 +222,63 @@ func (e *Elevator) ProcessElevatorOrders(newOrder Order, orderCompleteTx chan Me
 
 func (e *Elevator) HandleNewOrder(newOrder Order, fromElevator Elevator, toElevatorID int, orderCompleteTx chan MessageOrderComplete, newOrderTx chan MessageNewOrder) {
 
-	if toElevatorID == NotDefined && fromElevator.ID != e.ID {
-		fmt.Println("Update global order system. Order update for all")
-		// Update global order system
-		UpdateElevatorsOnNetwork(fromElevator)
-	}
+	if !CheckIfGlobalOrderIsActive(newOrder) { // Check if the order is already active
 
-	if e.isMaster && toElevatorID == e.ID {
+		UpdateGlobalOrderSystem(newOrder, e, true)  // Update the global order system
 
-		fmt.Println("I am master. I got a new order to delegate")
-
-		// Update global order system locally
-		// Find the best elevator for the order
-		// Send the order to the best elevator ( if hall order )
-		UpdateElevatorsOnNetwork(fromElevator)
-		bestElevator := chooseElevator(Elevators, newOrder)
-		fmt.Println("The best elevator for this order is", bestElevator.ID)
-
-		if bestElevator.ID == e.ID {
-			e.ProcessElevatorOrders(newOrder, orderCompleteTx)
-		} else {
-
-			newOrder := MessageNewOrder{
-				Type:         "MessageNewOrder",
-				NewOrder:     newOrder,
-				E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
-				ToElevatorID: bestElevator.ID}
-
-			newOrderTx <- newOrder
+		if toElevatorID == NotDefined && fromElevator.ID != e.ID {
+			fmt.Println("Update global order system. Order update for all")
+			// Update global order system
+			UpdateElevatorsOnNetwork(fromElevator)
 		}
 
-	} else if !e.isMaster && toElevatorID == e.ID {
+		if e.isMaster && toElevatorID == e.ID {
 
-		fmt.Println("New order received: ", newOrder)
-		UpdateElevatorsOnNetwork(fromElevator)
+			fmt.Println("I am master. I got a new order to delegate")
 
-		e.UpdateOrderSystem(newOrder) // Update the local order array
+			// Update global order system locally
+			// Find the best elevator for the order
+			// Send the order to the best elevator ( if hall order )
+			UpdateElevatorsOnNetwork(fromElevator)
+			bestElevator := chooseElevator(Elevators, newOrder)
+			fmt.Println("The best elevator for this order is", bestElevator.ID)
 
-		e.PrintLocalOrderSystem()
+			if bestElevator.ID == e.ID {
+				e.ProcessElevatorOrders(newOrder, orderCompleteTx)
+			} else {
 
-		bestOrder = e.ChooseBestOrder() // Choose the best order
-		fmt.Println("Best order: ", bestOrder)
+				newOrder := MessageNewOrder{
+					Type:         "MessageNewOrder",
+					NewOrder:     newOrder,
+					E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
+					ToElevatorID: bestElevator.ID}
 
-		if bestOrder.Floor == e.CurrentFloor { // If the best order is at the current floor
-			e.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Complete orders at the floor
-		} else {
-			e.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
+				newOrderTx <- newOrder
+			}
+
+		} else if !e.isMaster && toElevatorID == e.ID {
+
+			fmt.Println("New order received: ", newOrder)
+			UpdateElevatorsOnNetwork(fromElevator)
+
+			e.UpdateOrderSystem(newOrder) // Update the local order array
+
+			e.PrintLocalOrderSystem()
+
+			bestOrder = e.ChooseBestOrder() // Choose the best order
+			fmt.Println("Best order: ", bestOrder)
+
+			if bestOrder.Floor == e.CurrentFloor { // If the best order is at the current floor
+				e.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Complete orders at the floor
+			} else {
+				e.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
+			}
+		} else if !e.isMaster && toElevatorID != e.ID {
+			// Update global order system locally
+			// Remember to set lights (if hall order)
+			UpdateElevatorsOnNetwork(fromElevator)
+
 		}
-	} else if !e.isMaster && toElevatorID != e.ID {
-		// Update global order system locally
-		// Remember to set lights (if hall order)
-		UpdateElevatorsOnNetwork(fromElevator)
-
 	}
 }
 
@@ -300,8 +313,29 @@ func (e *Elevator) HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan E
 			peerID, _ := strconv.Atoi(peer)
 			if Elevators[i].ID == peerID {
 				Elevators[i].isActive = false
+				RedistributeHallOrders(Elevators[i])
 			}
 		}
+	}
+
+	if p.New != "" {
+		peerID, _ := strconv.Atoi(p.New)
+		
+		for i, _ := range Elevators {
+			if Elevators[i].ID == peerID {
+				LocalOrderArray := Elevators[i].LocalOrderArray
+				break
+			}
+		}
+
+		MessageOrderArrays := MessageOrderArrays{
+			Type:            "MessageOrderArrays",
+			GlobalOrders:    globalOrderArray,
+			LocalOrderArray: LocalOrderArray,
+			ToElevatorID:    peerID,}
+
+
+		orderArraysTx <- MessageOrderArrays
 	}
 
 	e.DetermineMaster() // Determine the master elevator
