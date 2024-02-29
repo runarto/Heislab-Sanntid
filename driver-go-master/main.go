@@ -1,129 +1,168 @@
 package main
 
 import (
-    "github.com/runarto/Heislab-Sanntid/elevio"
-    "fmt"
+	"flag"
+	"fmt"
+	"strconv"
+
+	"github.com/runarto/Heislab-Sanntid/Network/bcast"
+	"github.com/runarto/Heislab-Sanntid/Network/peers"
+	"github.com/runarto/Heislab-Sanntid/elevio"
 )
-
-
 
 func main() {
 
-    // Initialize the elevator
-    elevio.Init("localhost:15658", numFloors)
-  
-    var myElevator Elevator = Elevator{
-        CurrentState:     Still, // Assuming Still is a defined constant in the State type
-        CurrentDirection: elevio.MD_Stop,
-        GeneralDirection // Example, use a valid value from elevio.MotorDirection
-        CurrentFloor:     elevio.GetFloor(), // Starts at floor 0
-        doorOpen:         false, // Door starts closed
-        Obstruction:      false, // No obstruction initially
-        stopButton:       false, // Stop button not pressed initially
-        LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
-        isMaster:         false, // Not master initially
-        ElevatorIP:       "localhost"+_ListeningPort, // Set to the IP of the elevator
-        ElevatorID:       0, // Set to the ID of the elevator
-        isActive:         true, // Elevator is active initially
-    }
+	// Initialize the elevator
+	var port = flag.String("port", "15657", "define the port number")
+	flag.Parse()
+	elevio.Init("localhost:"+*port, numFloors)
 
+	var myElevator Elevator = Elevator{
+		CurrentState:     Still, // Assuming Still is a defined constant in the State type
+		CurrentDirection: elevio.MD_Stop,
+		GeneralDirection: Stopped,             // Example, use a valid value from elevio.MotorDirection
+		CurrentFloor:     elevio.GetFloor(),   // Starts at floor 0
+		doorOpen:         false,               // Door starts closed
+		Obstruction:      false,               // No obstruction initially
+		stopButton:       false,               // Stop button not pressed initially
+		LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
+		isMaster:         false,               // Not master initially
+		ID:               2,                   // Set to the ID of the elevator
+		isActive:         true,                // Elevator is active initially
+	}
 
-    if err != nil {
-        fmt.Println("Error setting up broadcast listener: ", err)
-    }
-    conn, err := SetUpBroadcastListener() // Set up the broadcast listener
-    drv_Message := make(chan Data)
+	Elevators = append(Elevators, myElevator) // Add the elevator to the list of active elevators
+	myElevator.InitLocalOrderSystem()         // Initialize the local order system
+	myElevator.InitElevator()                 // Initialize the elevator
 
-    time.Sleep(3 * time.Second) // Wait for 3 seconds
+	peerUpdateCh := make(chan peers.PeerUpdate)
+	peerTxEnable := make(chan bool)
 
-    go HandleMessages(conn, drv_NewOrder, drv_OrderComplete) // Start handling messages in a separate goroutine
-    msg := MessageElevator{myElevator} // Create a new elevator instance message
-    SendMessage(_broadcastAddr, msg) // Broadcast the elevator instance message 
+	go peers.Transmitter(_ListeningPort+1, strconv.Itoa(myElevator.ID), peerTxEnable)
+	go peers.Receiver(_ListeningPort+1, peerUpdateCh)
 
+	newOrderTx := make(chan MessageNewOrder)
+	newOrderRx := make(chan MessageNewOrder)
 
+	orderCompleteTx := make(chan MessageOrderComplete)
+	orderCompleteRx := make(chan MessageOrderComplete)
 
-    myElevator.InitLocalOrderSystem() // Initialize the local order system
-    myElevator.InitElevator() // Initialize the elevator
-   
+	elevatorStatusTx := make(chan ElevatorStatus) // Channel to transmit elevator status
+	elevatorStatusRx := make(chan ElevatorStatus) // Channel to receive elevator status (if needed)
 
+	orderArraysTx := make(chan MessageOrderArrays) // Channel to transmit global order array
+	orderArraysRx := make(chan MessageOrderArrays) // Channel to receive global order array (if needed)
 
-    drv_buttons := make(chan elevio.ButtonEvent)
-    drv_floors := make(chan int)
-    drv_obstr := make(chan bool)
-    drv_stop := make(chan bool)
+	go bcast.Transmitter(_ListeningPort, newOrderTx, orderCompleteTx, elevatorStatusTx, orderArraysTx) // You can add more channels as needed
+	go bcast.Receiver(_ListeningPort, newOrderRx, orderCompleteRx, elevatorStatusRx, orderArraysRx)    // You can add more channels as needed
+	go BroadcastElevatorStatus(myElevator, elevatorStatusTx)                                           // Start broadcasting the elevator status
 
-    // Start polling functions in separate goroutines
-    go elevio.PollButtons(drv_buttons)
-    go elevio.PollFloorSensor(drv_floors)
-    go elevio.PollObstructionSwitch(drv_obstr)
-    go elevio.PollStopButton(drv_stop)
+	drv_buttons := make(chan elevio.ButtonEvent)
+	drv_floors := make(chan int)
+	drv_obstr := make(chan bool)
+	drv_stop := make(chan bool)
 
+	// Start polling functions in separate goroutines
+	go elevio.PollButtons(drv_buttons)
+	go elevio.PollFloorSensor(drv_floors)
+	go elevio.PollObstructionSwitch(drv_obstr)
+	go elevio.PollStopButton(drv_stop)
 
-    for {
-        select {
+	fmt.Println("Elevator initialized")
 
-        case msg := <-drv_Message:
-            messageType := msg.Message[0]
-            messageBytes := msg.Message[1:]
-            conn = msg.Address
+	for {
+		select {
 
-            myElevator.MessageType(messageType, messageBytes, conn) // Handle the message type
+		case orderArrays := <-orderArraysRx:
 
-        case btn := <-drv_buttons:
+			toElevatorID := orderArrays.ToElevatorID
 
-            floor := btn.Floor
-            button := btn.Button
-            newOrder := Order{floor, button}
-            fmt.Println("New order: ", newOrder)
+			if toElevatorID == myElevator.ID {
 
-            if myElevator.CheckIfOrderIsActive(newOrder) { // Check if the order is active
-                if bestOrder.Floor == myElevator.CurrentFloor {
-                    myElevator.HandleElevatorAtFloor(bestOrder.Floor) // Handle the elevator at the floor
-                } else {
-                    myElevator.DoOrder(bestOrder) // Move the elevator to the best order
-                }
-                
-            } else {
-                // if myElevator.isMaster -> update global order system locally
-                // else, send order to master
+				fmt.Println("Received order arrays")
+				// Overwrite existing global order array
+				//CompareAndOverwriteLocalOrrderArray() // Compare and overwrite the local order array
+			}
 
-                //newOrderToSend := MessageNewOrder{newOrder, myElevator} // Create a new order message
-                //SendOrder(masterAddress, newOrderToSend) // Send the order to master
+		case elevatorStatus := <-elevatorStatusRx:
 
-                // SendOrder(address, newOrder) // Send the order to master
+			elevator := elevatorStatus.E
 
-                myElevator.UpdateOrderSystem(newOrder) // Update the local order array
-                myElevator.PrintLocalOrderSystem()
-                bestOrder = myElevator.ChooseBestOrder() // Choose the best order
-                fmt.Println("Best order: ", bestOrder)
-    
-                if bestOrder.Floor == myElevator.CurrentFloor {
-                    myElevator.HandleElevatorAtFloor(bestOrder.Floor) // Handle the elevator at the floor
-                } else {
-                    myElevator.DoOrder(bestOrder) // Move the elevator to the best order
-                }
+			if elevator.ID != myElevator.ID {
 
-            }
-            
+				fmt.Println("Received elevator status: ", elevator.ID) // Update the elevator status
+				UpdateElevatorsOnNetwork(elevator)                     // Update the active elevators
+				myElevator.DetermineMaster()                           // Determine the master elevator
+				// fromElevator := elevatorStatus.E
 
-        case floor := <-drv_floors:
+				// if fromElevator.ID != myElevator.ID {
+				//     UpdateElevatorsOnNetwork(fromElevator) // Update the active elevators
+				//     // Get the elevator status from the received message
+				//     fmt.Println("Received elevator status: ", fromElevator.ID) // Update the elevator status
+				//     myElevator.DetermineMaster()
 
-            fmt.Println("Arrived at floor: ", floor)
+				// }
+			}
 
-            myElevator.floorLights(floor) // Update the floor lights
-            myElevator.HandleElevatorAtFloor(floor) // Handle the elevator at the floor
+		case p := <-peerUpdateCh:
 
+            e.HandlePeersUpdate(p, elevatorStatusTx)
 
+		case Order := <-newOrderRx:
 
+			newOrder := Order.NewOrder
+            fromElevator := Order.E
+			toElevatorID := Order.ToElevatorID
 
-        case obstr := <-drv_obstr:
-            myElevator.isObstruction(obstr)
+            myElevator.HandleNewOrder(newOrder, fromElevator, toElevatorID, orderCompleteTx)
 
+		case orderComplete := <-orderCompleteRx:
 
-        case stop := <-drv_stop:
-            myElevator.StopButton(stop)
-          
-        }
-        
-    }
+			orders := orderComplete.Orders
+			fromElevatorID := orderComplete.FromElevatorID
+
+			if fromElevatorID != myElevator.ID {
+				// Update the elevator status
+				fmt.Println("Order completed: ", orders, "by elevator", fromElevatorID)
+				// Update global order system
+			}
+
+			if myElevator.CheckAmountOfActiveOrders() > 0 {
+
+				bestOrder = myElevator.ChooseBestOrder() // Choose the best order
+				fmt.Println("Best order: ", bestOrder)
+
+				if bestOrder.Floor == myElevator.CurrentFloor {
+					myElevator.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Handle the elevator at the floor
+				} else {
+					myElevator.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
+				}
+			} else {
+				myElevator.StopElevator()
+			}
+
+		case btn := <-drv_buttons:
+
+			floor := btn.Floor
+			button := btn.Button
+			newOrder := Order{floor, button}
+			fmt.Println("New order: ", newOrder)
+
+            myElevator.HandleButtonEvent(newOrderTx, orderCompleteTx, newOrder)
+
+		case floor := <-drv_floors:
+
+			fmt.Println("Arrived at floor: ", floor)
+
+			myElevator.floorLights(floor)                            // Update the floor lights
+			myElevator.HandleElevatorAtFloor(floor, orderCompleteTx) // Handle the elevator at the floor
+
+		case obstr := <-drv_obstr:
+			myElevator.isObstruction(obstr)
+
+		case stop := <-drv_stop:
+			myElevator.StopButton(stop)
+
+		}
+	}
 }

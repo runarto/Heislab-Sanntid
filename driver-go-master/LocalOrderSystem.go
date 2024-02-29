@@ -81,6 +81,8 @@ func (e *Elevator) CheckAbove(floor int) Order {
 
 				fmt.Println("Button: ", button, "Floor: ", floorOrder)
 
+				
+
 				if button == HallUp || button == Cab { // If the order is an up order or a cab order
 					if CurrentBestOrder.Floor == NotDefined { // If the best order is not defined
 						Order := Order{floorOrder, elevio.ButtonType(button)} 
@@ -204,6 +206,7 @@ func (e *Elevator) CheckHallOrdersAbove(floor int) Order {
 	}
 }
 
+
 func (e *Elevator) CheckHallOrdersBelow(floor int) Order {
 	// Check if there are any orders above the elevator
 	var CurrentBestOrder = Order{NotDefined, 2} // Initialize the best order
@@ -251,38 +254,48 @@ func (e *Elevator) CheckHallOrdersBelow(floor int) Order {
 
 
 func (e *Elevator) UpdateOrderSystem(order Order) {
+
 	floor := order.Floor // The floor the order is at 
 	button := order.Button // Type of order (Up, Down, Cab)
 
 	if e.LocalOrderArray[button][floor] == True { // If the order is already in the local order array
+
 		e.LocalOrderArray[button][floor] = False // Remove the order from the local order array
 		elevio.SetButtonLamp(button, floor, false) // Turn off the button lamp
+
 	} else {
+
 		e.LocalOrderArray[button][floor] =  True // Add the order to the local order array
 		elevio.SetButtonLamp(button, floor, true) // Turn on the button lamp
+
 	}
 
 
 }
 
-func (e* Elevator) DoOrder(order Order)  {
+func (e* Elevator) DoOrder(order Order, OrderCompleteTx chan MessageOrderComplete)  {
 	// Do the order
 	if order.Floor > e.CurrentFloor {
+
 		e.GoUp()
+
 	} else if order.Floor < e.CurrentFloor {
+
 		e.GoDown()
+
 	} else {
 		// The order is at the current floor
-		go e.WaitForPossibleOrder(order)
+		go e.WaitForPossibleOrder(order, OrderCompleteTx)
+
 	}
 	
 }
 
-func (e* Elevator) WaitForPossibleOrder(order Order) {
+func (e* Elevator) WaitForPossibleOrder(order Order, OrderCompleteTx chan MessageOrderComplete) {
 	time.Sleep(3 * time.Second) // Insert delay in case cab-orders come in. 
 	if e.CurrentFloor == order.Floor {
 		e.StopElevator()
-		e.HandleElevatorAtFloor(order.Floor)
+		e.HandleElevatorAtFloor(order.Floor, OrderCompleteTx)
 	}
 	
 }

@@ -2,6 +2,7 @@ package main
 
 import (
     "github.com/runarto/Heislab-Sanntid/elevio"
+    "time"
 )
 
 
@@ -12,6 +13,7 @@ const (
     numOfElevators = 3
     NotDefined = -1
     numButtons = 3
+    _ListeningPort = 29876
 )
 
 const (
@@ -26,6 +28,7 @@ const (
     Off = 0
 
     Up = 1
+    Stopped = 0
     Down = -1
 )
 
@@ -34,9 +37,7 @@ const (
     Close = false
 )
 
-var _ListeningPort = "29876"
-var _broadcastAddr = "255.255.255.255:29876"
-// Can we assume that we know the IP of the elevators initially?
+var masterElevatorID = -1
 
 type State int
 
@@ -52,11 +53,27 @@ type Order struct {
 	// An order contains the floor (from/to), and the type of button.
 }
 
+type Ack struct {
+    active bool // True if the order is active. Once completed (!) it is set to false
+    // If a certain amount of time passes without active being set to false, redistribute order.
+
+    received bool // True if the order is received. Once completed, it is set to false
+    // If a certain amount of time passes without received being set to true, redistribute order. 
+
+    time time.Time() // The time the order was sent and received. 
+}
+
 
 
 type GlobalOrderArray struct {
     HallOrderArray [2][numFloors]int // Represents the hall orders
     CabOrderArray [numOfElevators][numFloors]int // Represents the cab orders
+}
+
+type GlobalOrderArrayAcks struct {
+    HallOrderArray [2][numFloors]Ack // Represents the hall orders, true if received
+    CabOrderArray [numOfElevators][numFloors]Ack // Represents the cab orders, true if received
+    // May not need the cab-orders. These are all received locally anyway. 
 }
 
 
@@ -65,29 +82,34 @@ var globalOrderArray = GlobalOrderArray{
     CabOrderArray: [numOfElevators][numFloors]int{},
 }
 
-type MessageGlobalOrderArray struct { // Send periodically to update the global order system
-    // 0x01
-    globalOrders GlobalOrderArray
+
+
+type MessageOrderArrays struct { // Send periodically to update the global order system
+    Type         string `json:"type"` // Explicitly indicate the message type
+    GlobalOrders GlobalOrderArray `json:"globalOrders"`
+    LocalOrderArray [numButtons][numFloors]int `json:"localOrderArray"` // The local order array of the elevator
+    ToElevatorID int `json:"toElevatorID"` // The elevator to send the order to
 }
 
 type MessageNewOrder struct { // Send when a new order is received
-    // 0x02 
-    newOrder Order
-    e Elevator
-    toElevatorID int // The elevator to send the order to
+    Type          string `json:"type"` // Explicitly indicate the message type
+    NewOrder      Order `json:"newOrder"`
+    E             Elevator `json:"elevator"`
+    ToElevatorID  int `json:"toElevatorID"` // The elevator to send the order to
 }
 
 type MessageOrderComplete struct { // Send when an order is completed
-    // 0x03
-    order Order
-    e Elevator
-    fromElevatorID int // The elevator that completed the order
+    Type            string `json:"type"` // Explicitly indicate the message type
+    Orders          []Order `json:"order"`
+    E               Elevator `json:"elevator"`
+    FromElevatorID  int `json:"fromElevatorID"` // The elevator that completed the order
 }
 
-type MessageElevator struct {
-    s string
-    e Elevator
+type ElevatorStatus struct {
+    Type     string  `json:"type"` // A type identifier for decoding on the receiving end
+    E Elevator `json:"elevator"` // The Elevator instance
 }
+
 
 
 // Thought: This should work, because the last updated "e" instance from 
@@ -95,8 +117,9 @@ type MessageElevator struct {
 
 var Elevators []Elevator
 
-var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
 
+var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
+var LocallyCompletedOrders [numButtons][numFloors]int
 
 
 

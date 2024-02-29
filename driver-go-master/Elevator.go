@@ -14,26 +14,29 @@ type Elevator struct {
 	stopButton       bool                  // Stop button pressed or not
 	LocalOrderArray [3][numFloors]int       // Array of active orders. First row is HallUp, second is HallDown, third is Cab
 	isMaster 		bool				   // Is the elevator master or not
-	ElevatorIP		string				   // IP:port of the elevator
 	ID				int					   // ID of the elevator		
-	isActive 		bool				   // Is the elevator active or not    
-	timeSinceLastPong int 				// Time since last ping from the elevator                 	              
+	isActive 		bool				   // Is the elevator active or not                   	              
 }
 
 func (e *Elevator) GoUp() {
+
 	e.CurrentDirection = Up
+	e.GeneralDirection = Up
 	elevio.SetMotorDirection(e.CurrentDirection)
 	e.SetState(Moving)
 }
 
 func (e *Elevator) GoDown() {
+
 	e.CurrentDirection = Down
+	e.GeneralDirection = Down
 	elevio.SetMotorDirection(e.CurrentDirection)
 	e.SetState(Moving)
 }
 
 func (e *Elevator) StopElevator() {
 	// e.CurrentDirection = elevio.MD_Stop
+	e.GeneralDirection = Stopped
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	e.SetState(Still)
 }
