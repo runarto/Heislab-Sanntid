@@ -27,7 +27,7 @@ func main() {
 		stopButton:       false,               // Stop button not pressed initially
 		LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
 		isMaster:         false,               // Not master initially
-		ID:               2,                   // Set to the ID of the elevator
+		ID:               0,                   // Set to the ID of the elevator
 		isActive:         true,                // Elevator is active initially
 	}
 
@@ -106,15 +106,17 @@ func main() {
 
 		case p := <-peerUpdateCh:
 
-            e.HandlePeersUpdate(p, elevatorStatusTx)
+			myElevator.HandlePeersUpdate(p, elevatorStatusTx)
 
 		case Order := <-newOrderRx:
 
 			newOrder := Order.NewOrder
-            fromElevator := Order.E
+			fromElevator := Order.E
 			toElevatorID := Order.ToElevatorID
 
-            myElevator.HandleNewOrder(newOrder, fromElevator, toElevatorID, orderCompleteTx)
+			fmt.Println("Received order from elevator", fromElevator.ID)
+
+			myElevator.HandleNewOrder(newOrder, fromElevator, toElevatorID, orderCompleteTx, newOrderTx)
 
 		case orderComplete := <-orderCompleteRx:
 
@@ -133,12 +135,17 @@ func main() {
 				fmt.Println("Best order: ", bestOrder)
 
 				if bestOrder.Floor == myElevator.CurrentFloor {
+
 					myElevator.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Handle the elevator at the floor
+
 				} else {
+
 					myElevator.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
 				}
 			} else {
+
 				myElevator.StopElevator()
+
 			}
 
 		case btn := <-drv_buttons:
@@ -146,9 +153,9 @@ func main() {
 			floor := btn.Floor
 			button := btn.Button
 			newOrder := Order{floor, button}
-			fmt.Println("New order: ", newOrder)
+			fmt.Println("New local order: ", newOrder)
 
-            myElevator.HandleButtonEvent(newOrderTx, orderCompleteTx, newOrder)
+			myElevator.HandleButtonEvent(newOrderTx, orderCompleteTx, newOrder)
 
 		case floor := <-drv_floors:
 

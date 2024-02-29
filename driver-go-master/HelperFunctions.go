@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	"github.com/runarto/Heislab-Sanntid/elevio"
 )
 
 func AbsValue(x int, y int) int {
@@ -12,7 +14,7 @@ func AbsValue(x int, y int) int {
 
 func (e *Elevator) HandleElevatorAtFloor(floor int, OrderCompleteTx chan MessageOrderComplete) {
 
-	if e.HandleOrdersAtFloor(floor, OrderCompleteTx) { // If true, orders have been handled at the floor
+	if e.HandleOrdersAtFloor(floor, OrderCompleteTx) && elevio.GetFloor() != -1 { // If true, orders have been handled at the floor
 
 		e.StopElevator()                    // Stop the elevator
 		e.SetDoorState(Open)                // Open the door
@@ -83,6 +85,14 @@ func (e *Elevator) DetermineMaster() {
 		}
 	}
 
+	for i, _ := range Elevators {
+		if masterCandidate.ID != Elevators[i].ID {
+			if e.isMaster {
+				e.isMaster = false
+			}
+		}
+	}
+
 	// Set the masterCandidate as the master and update the local state as needed
 	// This is a simplified representation; actual implementation may require additional synchronization and communication
 	masterCandidate.isMaster = true
@@ -105,7 +115,7 @@ func UpdateElevatorsOnNetwork(e Elevator) {
 
 	for i, _ := range Elevators {
 		if Elevators[i].ID == elevatorID {
-			Elevators[i] = e           // Update the elevator
+			Elevators[i] = e      // Update the elevator
 			elevatorExists = true // Set the elevatorExists flag to true
 			break
 		}
