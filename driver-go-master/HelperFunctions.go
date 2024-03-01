@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math"
 	"time"
-
-	"github.com/runarto/Heislab-Sanntid/elevio"
 )
 
 func AbsValue(x int, y int) int {
@@ -14,11 +12,11 @@ func AbsValue(x int, y int) int {
 
 func (e *Elevator) HandleElevatorAtFloor(floor int, OrderCompleteTx chan MessageOrderComplete) {
 
-	if e.HandleOrdersAtFloor(floor, OrderCompleteTx) && elevio.GetFloor() != -1 { // If true, orders have been handled at the floor
+	if e.HandleOrdersAtFloor(floor, OrderCompleteTx) { // If true, orders have been handled at the floor
 
 		e.StopElevator()                    // Stop the elevator
 		e.SetDoorState(Open)                // Open the door
-		time.Sleep(1000 * time.Millisecond) // Wait for a second
+		time.Sleep(1500 * time.Millisecond) // Wait for a second
 		e.SetDoorState(Close)               // Close the door
 
 		fmt.Println("Order system: ")
@@ -38,6 +36,7 @@ func (e *Elevator) HandleElevatorAtFloor(floor int, OrderCompleteTx chan Message
 
 		} else {
 
+			fmt.Println("No orders, stopped elevator.")
 			e.SetState(Still) // If no orders, set the state to still
 			e.GeneralDirection = Stopped
 		}

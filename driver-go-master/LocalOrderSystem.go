@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/runarto/Heislab-Sanntid/elevio"
 	"fmt"
 	"time"
+
+	"github.com/runarto/Heislab-Sanntid/elevio"
 )
 
 func (e *Elevator) PrintLocalOrderSystem() {
@@ -19,11 +20,11 @@ func (e *Elevator) PrintLocalOrderSystem() {
 func (e *Elevator) InitLocalOrderSystem() {
 	for i := 0; i < numButtons; i++ {
 		for j := 0; j < numFloors; j++ {
-			e.LocalOrderArray[i][j] = False // 
+			e.LocalOrderArray[i][j] = False //
 		}
-	}  
+	}
 
-	// Initialies the order system with all zeros. 
+	// Initialies the order system with all zeros.
 }
 
 func (e *Elevator) CheckAmountOfActiveOrders() int {
@@ -38,7 +39,6 @@ func (e *Elevator) CheckAmountOfActiveOrders() int {
 	return ActiveOrders // Return the number of active orders
 }
 
-
 func (e *Elevator) ChooseBestOrder() Order {
 
 	orderAbove := e.CheckAbove(e.CurrentFloor)
@@ -46,21 +46,22 @@ func (e *Elevator) ChooseBestOrder() Order {
 
 	if e.CurrentDirection == Up {
 		if e.CurrentFloor == 3 {
-			fmt.Println("Check below")
+			fmt.Println("Check below (Up)")
 			return orderBelow
 		} else {
-			fmt.Println("Check above")
+			fmt.Println("Check above (Up)")
 			if orderAbove.Floor == NotDefined {
 				return orderBelow
 			}
 			return orderAbove
 		}
+
 	} else {
 		if e.CurrentFloor == 0 {
-			fmt.Println("Check above")
+			fmt.Println("Check above (Down)")
 			return orderAbove
 		} else {
-			fmt.Println("Check below")
+			fmt.Println("Check below (Down)")
 			if orderBelow.Floor == NotDefined {
 				return orderAbove
 			}
@@ -79,35 +80,30 @@ func (e *Elevator) CheckAbove(floor int) Order {
 		for floorOrder := floor; floorOrder < numFloors; floorOrder++ { // Iterate over LocalOrderArray
 			if e.LocalOrderArray[button][floorOrder] == True { // If there is an active order
 
-				fmt.Println("Button: ", button, "Floor: ", floorOrder)
-
-				
-
 				if button == HallUp || button == Cab { // If the order is an up order or a cab order
 					if CurrentBestOrder.Floor == NotDefined { // If the best order is not defined
-						Order := Order{floorOrder, elevio.ButtonType(button)} 
+						Order := Order{floorOrder, elevio.ButtonType(button)}
 						CurrentBestOrder = Order // Set the best order to the current order
-						continue // Continue to the next iteration
+						continue                 // Continue to the next iteration
 					} else if AbsValue(floorOrder, floor) <= AbsValue(CurrentBestOrder.Floor, floor) {
 						Order := Order{floorOrder, elevio.ButtonType(button)}
 						CurrentBestOrder = Order
 						continue
-						}
-					} else {
-						if CurrentSecondBestOrder.Floor == NotDefined {
-							Order := Order{floorOrder, elevio.ButtonType(button)}
-							CurrentSecondBestOrder = Order
-							continue
-						} else if AbsValue(floorOrder, floor) >= AbsValue(CurrentSecondBestOrder.Floor, floor) {
-							Order := Order{floorOrder, elevio.ButtonType(button)}
-							CurrentSecondBestOrder = Order
-							continue
-						}
-
+					}
+				} else {
+					if CurrentSecondBestOrder.Floor == NotDefined {
+						Order := Order{floorOrder, elevio.ButtonType(button)}
+						CurrentSecondBestOrder = Order
+						continue
+					} else if AbsValue(floorOrder, floor) >= AbsValue(CurrentSecondBestOrder.Floor, floor) {
+						Order := Order{floorOrder, elevio.ButtonType(button)}
+						CurrentSecondBestOrder = Order
+						continue
+					}
 
 				}
 			}
-		} 
+		}
 	}
 	if CurrentBestOrder.Floor != NotDefined {
 		return CurrentBestOrder
@@ -116,17 +112,14 @@ func (e *Elevator) CheckAbove(floor int) Order {
 	}
 }
 
-
 func (e *Elevator) CheckBelow(floor int) Order {
 	// Check if there are any orders above the elevator
 	var CurrentBestOrder = Order{NotDefined, 2} // Initialize the best order
 	var CurrentSecondBestOrder = Order{NotDefined, 2}
 
 	for button := 0; button < numButtons; button++ {
-		fmt.Println("Button: ", button)
 		for floorOrder := 0; floorOrder <= floor; floorOrder++ {
-			fmt.Println("Floor: ", floorOrder)
-			if e.LocalOrderArray[button][floorOrder] == True { 
+			if e.LocalOrderArray[button][floorOrder] == True {
 				if button == HallDown || button == Cab {
 					if CurrentBestOrder.Floor == NotDefined {
 						Order := Order{floorOrder, elevio.ButtonType(button)}
@@ -136,22 +129,21 @@ func (e *Elevator) CheckBelow(floor int) Order {
 						Order := Order{floorOrder, elevio.ButtonType(button)}
 						CurrentBestOrder = Order
 						continue
-						}
-					} else {
-						if CurrentSecondBestOrder.Floor == NotDefined {
-							Order := Order{floorOrder, elevio.ButtonType(button)}
-							CurrentSecondBestOrder = Order
-							continue
-						} else if AbsValue(floorOrder, floor) >= AbsValue(CurrentSecondBestOrder.Floor, floor) {
-							Order := Order{floorOrder, elevio.ButtonType(button)}
-							CurrentSecondBestOrder = Order
-							continue
-						}
-
+					}
+				} else {
+					if CurrentSecondBestOrder.Floor == NotDefined {
+						Order := Order{floorOrder, elevio.ButtonType(button)}
+						CurrentSecondBestOrder = Order
+						continue
+					} else if AbsValue(floorOrder, floor) >= AbsValue(CurrentSecondBestOrder.Floor, floor) {
+						Order := Order{floorOrder, elevio.ButtonType(button)}
+						CurrentSecondBestOrder = Order
+						continue
+					}
 
 				}
 			}
-		} 
+		}
 	}
 	if CurrentBestOrder.Floor != NotDefined {
 		return CurrentBestOrder
@@ -159,8 +151,6 @@ func (e *Elevator) CheckBelow(floor int) Order {
 		return CurrentSecondBestOrder
 	}
 }
-
-
 
 func (e *Elevator) CheckHallOrdersAbove(floor int) Order {
 	// Check if there are any orders above the elevator
@@ -171,33 +161,30 @@ func (e *Elevator) CheckHallOrdersAbove(floor int) Order {
 		for floorOrder := floor; floorOrder < numFloors; floorOrder++ { // Iterate over LocalOrderArray
 			if e.LocalOrderArray[button][floorOrder] == True { // If there is an active order
 
-				fmt.Println("Button: ", button, "Floor: ", floorOrder)
-
 				if button == HallUp { // If the order is an up order or a cab order
 					if CurrentBestOrder.Floor == NotDefined { // If the best order is not defined
-						Order := Order{floorOrder, elevio.ButtonType(button)} 
+						Order := Order{floorOrder, elevio.ButtonType(button)}
 						CurrentBestOrder = Order // Set the best order to the current order
-						continue // Continue to the next iteration
+						continue                 // Continue to the next iteration
 					} else if AbsValue(floorOrder, floor) <= AbsValue(CurrentBestOrder.Floor, floor) {
 						Order := Order{floorOrder, elevio.ButtonType(button)}
 						CurrentBestOrder = Order
 						continue
-						}
-					} else {
-						if CurrentSecondBestOrder.Floor == NotDefined {
-							Order := Order{floorOrder, elevio.ButtonType(button)}
-							CurrentSecondBestOrder = Order
-							continue
-						} else if AbsValue(floorOrder, floor) >= AbsValue(CurrentSecondBestOrder.Floor, floor) {
-							Order := Order{floorOrder, elevio.ButtonType(button)}
-							CurrentSecondBestOrder = Order
-							continue
-						}
-
+					}
+				} else {
+					if CurrentSecondBestOrder.Floor == NotDefined {
+						Order := Order{floorOrder, elevio.ButtonType(button)}
+						CurrentSecondBestOrder = Order
+						continue
+					} else if AbsValue(floorOrder, floor) >= AbsValue(CurrentSecondBestOrder.Floor, floor) {
+						Order := Order{floorOrder, elevio.ButtonType(button)}
+						CurrentSecondBestOrder = Order
+						continue
+					}
 
 				}
 			}
-		} 
+		}
 	}
 	if CurrentBestOrder.Floor != NotDefined {
 		return CurrentBestOrder
@@ -206,17 +193,14 @@ func (e *Elevator) CheckHallOrdersAbove(floor int) Order {
 	}
 }
 
-
 func (e *Elevator) CheckHallOrdersBelow(floor int) Order {
 	// Check if there are any orders above the elevator
 	var CurrentBestOrder = Order{NotDefined, 2} // Initialize the best order
 	var CurrentSecondBestOrder = Order{NotDefined, 2}
 
 	for button := 0; button < numButtons-1; button++ {
-		fmt.Println("Button: ", button)
 		for floorOrder := 0; floorOrder <= floor; floorOrder++ {
-			fmt.Println("Floor: ", floorOrder)
-			if e.LocalOrderArray[button][floorOrder] == True { 
+			if e.LocalOrderArray[button][floorOrder] == True {
 				if button == HallDown {
 					if CurrentBestOrder.Floor == NotDefined {
 						Order := Order{floorOrder, elevio.ButtonType(button)}
@@ -226,22 +210,21 @@ func (e *Elevator) CheckHallOrdersBelow(floor int) Order {
 						Order := Order{floorOrder, elevio.ButtonType(button)}
 						CurrentBestOrder = Order
 						continue
-						}
-					} else {
-						if CurrentSecondBestOrder.Floor == NotDefined {
-							Order := Order{floorOrder, elevio.ButtonType(button)}
-							CurrentSecondBestOrder = Order
-							continue
-						} else if AbsValue(floorOrder, floor) >= AbsValue(CurrentSecondBestOrder.Floor, floor) {
-							Order := Order{floorOrder, elevio.ButtonType(button)}
-							CurrentSecondBestOrder = Order
-							continue
-						}
-
+					}
+				} else {
+					if CurrentSecondBestOrder.Floor == NotDefined {
+						Order := Order{floorOrder, elevio.ButtonType(button)}
+						CurrentSecondBestOrder = Order
+						continue
+					} else if AbsValue(floorOrder, floor) >= AbsValue(CurrentSecondBestOrder.Floor, floor) {
+						Order := Order{floorOrder, elevio.ButtonType(button)}
+						CurrentSecondBestOrder = Order
+						continue
+					}
 
 				}
 			}
-		} 
+		}
 	}
 	if CurrentBestOrder.Floor != NotDefined {
 		return CurrentBestOrder
@@ -250,30 +233,26 @@ func (e *Elevator) CheckHallOrdersBelow(floor int) Order {
 	}
 }
 
-
-
-
 func (e *Elevator) UpdateOrderSystem(order Order) {
 
-	floor := order.Floor // The floor the order is at 
+	floor := order.Floor   // The floor the order is at
 	button := order.Button // Type of order (Up, Down, Cab)
 
 	if e.LocalOrderArray[button][floor] == True { // If the order is already in the local order array
 
-		e.LocalOrderArray[button][floor] = False // Remove the order from the local order array
+		e.LocalOrderArray[button][floor] = False   // Remove the order from the local order array
 		elevio.SetButtonLamp(button, floor, false) // Turn off the button lamp
 
 	} else {
 
-		e.LocalOrderArray[button][floor] =  True // Add the order to the local order array
+		e.LocalOrderArray[button][floor] = True   // Add the order to the local order array
 		elevio.SetButtonLamp(button, floor, true) // Turn on the button lamp
 
 	}
 
-
 }
 
-func (e* Elevator) DoOrder(order Order, OrderCompleteTx chan MessageOrderComplete)  {
+func (e *Elevator) DoOrder(order Order, OrderCompleteTx chan MessageOrderComplete) {
 	// Do the order
 	if order.Floor > e.CurrentFloor {
 
@@ -288,14 +267,14 @@ func (e* Elevator) DoOrder(order Order, OrderCompleteTx chan MessageOrderComplet
 		go e.WaitForPossibleOrder(order, OrderCompleteTx)
 
 	}
-	
+
 }
 
-func (e* Elevator) WaitForPossibleOrder(order Order, OrderCompleteTx chan MessageOrderComplete) {
-	time.Sleep(3 * time.Second) // Insert delay in case cab-orders come in. 
+func (e *Elevator) WaitForPossibleOrder(order Order, OrderCompleteTx chan MessageOrderComplete) {
+	time.Sleep(3 * time.Second) // Insert delay in case cab-orders come in.
 	if e.CurrentFloor == order.Floor {
 		e.StopElevator()
 		e.HandleElevatorAtFloor(order.Floor, OrderCompleteTx)
 	}
-	
+
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
 	"github.com/runarto/Heislab-Sanntid/Network/bcast"
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -13,7 +14,7 @@ import (
 func main() {
 
 	// Initialize the elevator
-	var port = flag.String("port", "15658", "define the port number")
+	var port = flag.String("port", "15657", "define the port number")
 	flag.Parse()
 	elevio.Init("localhost:"+*port, numFloors)
 
@@ -55,16 +56,14 @@ func main() {
 
 	go bcast.Transmitter(_ListeningPort, newOrderTx, orderCompleteTx, elevatorStatusTx, orderArraysTx) // You can add more channels as needed
 	go bcast.Receiver(_ListeningPort, newOrderRx, orderCompleteRx, elevatorStatusRx, orderArraysRx)    // You can add more channels as needed
-	go BroadcastElevatorStatus(myElevator, elevatorStatusTx)  
-	                                         // Start broadcasting the elevator status
+	go BroadcastElevatorStatus(myElevator, elevatorStatusTx)
+	// Start broadcasting the elevator status
 	go func() {
 		for {
 			CheckIfOrderIsComplete(&myElevator, newOrderTx)
 			time.Sleep(1 * time.Second) // sleep for a while before checking again
 		}
-	}()                                      
-
-
+	}()
 
 	drv_buttons := make(chan elevio.ButtonEvent)
 	drv_floors := make(chan int)
@@ -103,19 +102,19 @@ func main() {
 
 					bestOrder = myElevator.ChooseBestOrder() // Choose the best order
 					fmt.Println("Best order: ", bestOrder)
-	
+
 					if bestOrder.Floor == myElevator.CurrentFloor {
-	
+
 						myElevator.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Handle the elevator at the floor
-	
+
 					} else {
-	
+
 						myElevator.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
 					}
 				} else {
-	
+
 					myElevator.StopElevator()
-	
+
 				}
 
 			}
@@ -134,7 +133,7 @@ func main() {
 				fmt.Println("Received elevator status: ", elevator.ID) // Update the elevator status
 				UpdateElevatorsOnNetwork(elevator)                     // Update the active elevators
 				myElevator.DetermineMaster()                           // Determine the master elevator
-		
+
 			}
 
 		case p := <-peerUpdateCh:
