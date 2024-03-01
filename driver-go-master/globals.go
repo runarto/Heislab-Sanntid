@@ -59,12 +59,17 @@ var globalOrderArray = GlobalOrderArray{
 	CabOrderArray:  [numOfElevators][numFloors]int{},
 }
 
+
+
 type MessageOrderArrays struct { // Send periodically to update the global order system
 	Type            string                     `json:"type"` // Explicitly indicate the message type
+	AckStruct	   GlobalOrderStruct           `json:"ackStruct"`
 	GlobalOrders    GlobalOrderArray           `json:"globalOrders"`
 	LocalOrderArray [numButtons][numFloors]int `json:"localOrderArray"` // The local order array of the elevator
 	ToElevatorID    int                        `json:"toElevatorID"`    // The elevator to send the order to
 }
+
+
 
 type MessageNewOrder struct { // Send when a new order is received
 	Type         string   `json:"type"` // Explicitly indicate the message type
@@ -73,6 +78,8 @@ type MessageNewOrder struct { // Send when a new order is received
 	ToElevatorID int      `json:"toElevatorID"` // The elevator to send the order to
 }
 
+
+
 type MessageOrderComplete struct { // Send when an order is completed
 	Type           string   `json:"type"` // Explicitly indicate the message type
 	Orders         []Order  `json:"order"`
@@ -80,15 +87,18 @@ type MessageOrderComplete struct { // Send when an order is completed
 	FromElevatorID int      `json:"fromElevatorID"` // The elevator that completed the order
 }
 
+
+
 type ElevatorStatus struct {
 	Type string   `json:"type"`     // A type identifier for decoding on the receiving end
 	E    Elevator `json:"elevator"` // The Elevator instance
+	AckStruct GlobalOrderStruct  `json:"ackStruct"`
 }
+
+
 
 // Thought: This should work, because the last updated "e" instance from
 // elevator is from when an order was received.
 
 var Elevators []Elevator
-
 var bestOrder Order = Order{NotDefined, elevio.BT_HallUp}
-var LocallyCompletedOrders [numButtons][numFloors]int

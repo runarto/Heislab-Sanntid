@@ -79,3 +79,13 @@ func (e* Elevator) CheckIfMaster() bool {
 	}
 }
 
+func (e* Elevator) SetLights() {
+	for button := 0; button < numButtons; button++ {
+		for floor := 0; floor < numFloors; floor ++ {
+			if e.LocalOrderArray[button][floor] == True {
+				elevio.SetButtonLamp(elevio.ButtonType(button), floor, true)
+			}
+		}
+	}
+}
+

@@ -1,5 +1,10 @@
 package main
 
+import (
+	"github.com/runarto/Heislab-Sanntid/elevio"
+	"fmt"
+)
+
 // Idea: calculate the cost of each elevator and choose the one with the lowest cost
 
 func CalculateCost(elevator Elevator, order Order) int {
@@ -18,10 +23,10 @@ func chooseElevator(elevators []Elevator, order Order) Elevator {
 	//Iterate through all elevators and calculate the cost for each. Update bestElevator if a lower cost is found
 	for i, _ := range elevators {
 		if Elevators[i].isActive {
-			cost := CalculateCost(elevator, order)
+			cost := CalculateCost(Elevators[i], order)
 			if cost <= lowestCost {
 				lowestCost = cost
-				bestElevator = elevator
+				bestElevator = Elevators[i]
 			}
 		}
 	}
@@ -30,16 +35,19 @@ func chooseElevator(elevators []Elevator, order Order) Elevator {
 }
 
 
-func CheckIfGlobalOrderIsActive(order Order) bool {
+func CheckIfGlobalOrderIsActive(order Order, Elevator Elevator) bool {
+
+	HallOrderArray := globalOrderArray.HallOrderArray
+	CabOrderArray := globalOrderArray.CabOrderArray
 
 	if order.Button == Cab {
-		if globalOrderArray.CabOrderArray[order.Floor] == True {
+		if CabOrderArray[Elevator.ID][order.Floor] == True {
 			return true
 		} else {
 			return false
 		}
 	} else {
-		if globalOrderArray.HallOrderArray[order.Button][order.Floor] == True {
+		if HallOrderArray[order.Button][order.Floor] == True {
 			return true
 		} else {
 			return false
@@ -49,24 +57,26 @@ func CheckIfGlobalOrderIsActive(order Order) bool {
 }
 
 
-func UpdateGlobalOrderSystem(order Order, e Elevator, value bool) {
+func UpdateGlobalOrderSystem(order Order, Elevator Elevator, value bool) {
 
 	HallOrderArray := globalOrderArray.HallOrderArray
 	CabOrderArray := globalOrderArray.CabOrderArray
 
 	if value {
 		if order.Button == Cab {
-			CabOrderArray[e.ID][order.Floor] = True
+			CabOrderArray[Elevator.ID][order.Floor] = True
 		} else {
 			HallOrderArray[order.Button][order.Floor] = True
-			e.SetButtonLamp(order.Button, order.Floor, true)
+			fmt.Println("Turning lamp on")
+			elevio.SetButtonLamp(order.Button, order.Floor, true)
 		}
 	} else {
 		if order.Button == Cab {
-			CabOrderArray[e.ID][order.Floor] = False
+			CabOrderArray[Elevator.ID][order.Floor] = False
 		} else {
 			HallOrderArray[order.Button][order.Floor] = False
-			e.SetButtonLamp(order.Button, order.Floor, false)
+			fmt.Println("Turning lamp off")
+			elevio.SetButtonLamp(order.Button, order.Floor, false)
 		}
 	}
 	
@@ -74,15 +84,15 @@ func UpdateGlobalOrderSystem(order Order, e Elevator, value bool) {
 }
 
 
-func (e *Elevator) RedistributeHallOrders(offlineElevator Elevator) {
+func (e *Elevator) RedistributeHallOrders(offlineElevator Elevator, newOrderTx chan MessageNewOrder) {
 
 	for button := 0; button < numButtons-1; button++ { // Don't change Cab-orders
 		for floor := 0; floor < numFloors; floor++ {
 			if offlineElevator.LocalOrderArray[button][floor] == True {
 
-				Order = Order{floor, elevio.ButtonType(button)}
+				Order := Order{floor, elevio.ButtonType(button)}
 
-				UpdateGlobalOrderSystem(Order, e, false)
+				UpdateGlobalOrderSystem(Order, offlineElevator, false)
 				offlineElevator.LocalOrderArray[button][floor] = False
 
 				bestElevator := chooseElevator(Elevators, Order)
@@ -95,13 +105,13 @@ func (e *Elevator) RedistributeHallOrders(offlineElevator Elevator) {
 
 				} else {
 
-					MessageNewOrder = MessageNewOrder{
+					newOrder := MessageNewOrder{
 						Type: "MessageNewOrder",
 						NewOrder: Order,
 						E: bestElevator,
 						ToElevatorID: bestElevator.ID,}
 
-					newOrderTx <- MessageNewOrder
+					newOrderTx <- newOrder
 				}
 
 			}

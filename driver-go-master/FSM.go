@@ -42,6 +42,7 @@ func (e *Elevator) floorLights(floor int) {
 }
 
 func (e *Elevator) HandleOrdersAtFloor(floor int, OrderCompleteTx chan MessageOrderComplete) bool {
+    fmt.Println("Function: HandleOrdersAtFloor")
 	// Update the current floor
 	var ordersDone []Order // Number of orders done
 
@@ -102,7 +103,8 @@ func (e *Elevator) HandleOrdersAtFloor(floor int, OrderCompleteTx chan MessageOr
 
 			fmt.Println("Order done: ", ordersDone[i])
 			e.UpdateOrderSystem(ordersDone[i]) // Update the local order array
-			UpdateGlobalOrderSystem(ordersDone[i], e) // Update the global order system
+			UpdateGlobalOrderSystem(ordersDone[i], *e, false) // Update the global order system
+			OrderCompleted(ordersDone[i], e) // Update the ackStruct
 
 		}
 
@@ -123,9 +125,12 @@ func (e *Elevator) HandleOrdersAtFloor(floor int, OrderCompleteTx chan MessageOr
 func (e *Elevator) HandleButtonEvent(newOrderTx chan MessageNewOrder, orderCompleteTx chan MessageOrderComplete, newOrder Order) {
 	fmt.Println("Function: HandleButtonEvent")
 
-	if !CheckIfGlobalOrderIsActive(newOrder) { // Check if the order is already active
+	if !CheckIfGlobalOrderIsActive(newOrder, *e) { // Check if the order is already active
 
-		UpdateGlobalOrderSystem(newOrder, e, true) // Update the global order system
+
+
+	    UpdateGlobalOrderSystem(newOrder, *e, true) // Update the global order system
+		OrderActive(newOrder, e) // Update the ackStruct
 
 
 		button := newOrder.Button
@@ -169,6 +174,7 @@ func (e *Elevator) HandleButtonEvent(newOrderTx chan MessageNewOrder, orderCompl
 						E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
 						ToElevatorID: NotDefined}
 
+                    fmt.Println("Sending order")
 					newOrderTx <- newOrder
 
 				} else {
@@ -201,6 +207,8 @@ func (e *Elevator) HandleButtonEvent(newOrderTx chan MessageNewOrder, orderCompl
 
 func (e *Elevator) ProcessElevatorOrders(newOrder Order, orderCompleteTx chan MessageOrderComplete) {
 
+    fmt.Println("Function: ProcessElevatorOrders")
+
 	e.UpdateOrderSystem(newOrder)
 
 	amountOfOrders := e.CheckAmountOfActiveOrders()
@@ -222,14 +230,19 @@ func (e *Elevator) ProcessElevatorOrders(newOrder Order, orderCompleteTx chan Me
 
 func (e *Elevator) HandleNewOrder(newOrder Order, fromElevator Elevator, toElevatorID int, orderCompleteTx chan MessageOrderComplete, newOrderTx chan MessageNewOrder) {
 
-	if !CheckIfGlobalOrderIsActive(newOrder) { // Check if the order is already active
+    fmt.Println("Function: HandleNewOrder")
 
-		UpdateGlobalOrderSystem(newOrder, e, true)  // Update the global order system
+	if !CheckIfGlobalOrderIsActive(newOrder, *e) { // Check if the order is already active
+
+	    UpdateGlobalOrderSystem(newOrder, *e, true)  // Update the global order system
+		OrderActive(newOrder, e) // Update the ackStruct
 
 		if toElevatorID == NotDefined && fromElevator.ID != e.ID {
-			fmt.Println("Update global order system. Order update for all")
+
+			fmt.Println("Update global order system. Order update for all.")
 			// Update global order system
 			UpdateElevatorsOnNetwork(fromElevator)
+
 		}
 
 		if e.isMaster && toElevatorID == e.ID {
@@ -282,7 +295,9 @@ func (e *Elevator) HandleNewOrder(newOrder Order, fromElevator Elevator, toEleva
 	}
 }
 
-func (e *Elevator) HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan ElevatorStatus) {
+func (e *Elevator) HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan ElevatorStatus, orderArraysTx chan MessageOrderArrays, newOrderTx chan MessageNewOrder) {
+
+    fmt.Println("Function: HandlePeersUpdate")
 
 	fmt.Printf("Peer update:\n")
 	fmt.Printf("  Peers:    %q\n", p.Peers)
@@ -313,30 +328,38 @@ func (e *Elevator) HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan E
 			peerID, _ := strconv.Atoi(peer)
 			if Elevators[i].ID == peerID {
 				Elevators[i].isActive = false
-				RedistributeHallOrders(Elevators[i])
+				e.RedistributeHallOrders(Elevators[i], newOrderTx)
 			}
 		}
 	}
 
-	if p.New != "" {
+	if p.New != ""  {
 		peerID, _ := strconv.Atoi(p.New)
-		
-		for i, _ := range Elevators {
-			if Elevators[i].ID == peerID {
-				LocalOrderArray := Elevators[i].LocalOrderArray
-				break
-			}
-		}
 
-		MessageOrderArrays := MessageOrderArrays{
-			Type:            "MessageOrderArrays",
-			GlobalOrders:    globalOrderArray,
-			LocalOrderArray: LocalOrderArray,
-			ToElevatorID:    peerID,}
+        if peerID != e.ID {
+            fmt.Println("New peer: ", peerID)
 
 
-		orderArraysTx <- MessageOrderArrays
-	}
+            var LocalOrders [numButtons][numFloors]int
+            
+            for i, _ := range Elevators {
+                if Elevators[i].ID == peerID {
+                    LocalOrders = Elevators[i].LocalOrderArray
+                    break
+                }
+            }
+
+            MessageOrderArrays := MessageOrderArrays{
+                Type:            "MessageOrderArrays",
+				AckStruct: ackStruct,
+                GlobalOrders:    globalOrderArray,
+                LocalOrderArray: LocalOrders,
+                ToElevatorID:    peerID,}
+
+
+            orderArraysTx <- MessageOrderArrays
+	    }
+    }
 
 	e.DetermineMaster() // Determine the master elevator
 }

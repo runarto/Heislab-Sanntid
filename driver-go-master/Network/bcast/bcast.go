@@ -2,14 +2,11 @@ package bcast
 
 import (
 	"github.com/runarto/Heislab-Sanntid/Network/conn"
+	//"github.com/runarto/Heislab-Sanntid/Network/localip"
 	"encoding/json"
 	"fmt"
 	"net"
 	"reflect"
-	"hash/crc32"
-	"log"
-	"os"
-	"time"
 )
 
 const bufSize = 1024
@@ -38,12 +35,10 @@ func Transmitter(port int, chans ...interface{}) error {
 	for {
 		chosen, value, _ := reflect.Select(selectCases)
 		jsonstr, _ := json.Marshal(value.Interface())
-		checksum := crc32.ChecksumIEEE(jsonstr)
 
 		ttj, _ := json.Marshal(typeTaggedJSON{
 			TypeId: typeNames[chosen],
 			JSON:   jsonstr,
-			Checksum: checksum,
 		})
 
 		if len(ttj) > bufSize {
@@ -54,7 +49,7 @@ func Transmitter(port int, chans ...interface{}) error {
 		        len(ttj), bufSize, string(ttj)))
 		}
 		conn.WriteTo(ttj, addr)
-		listenForConfirmations(conn, ttj, addr)
+		
 
     		
 	}
@@ -69,6 +64,8 @@ func Receiver(port int, chans ...interface{}) {
 		chansMap[reflect.TypeOf(ch).Elem().String()] = ch
 	}
 
+	
+
 	var buf [bufSize]byte
 	conn, err := conn.DialBroadcastUDP(port)
 
@@ -77,22 +74,15 @@ func Receiver(port int, chans ...interface{}) {
 	}
 
 	for {
-		n, addr, e := conn.ReadFrom(buf[0:])
+		n, _, e := conn.ReadFrom(buf[0:])
 		if e != nil {
 			fmt.Printf("bcast.Receiver(%d, ...):ReadFrom() failed: \"%+v\"\n", port, e)
 		}
 
+
 		var ttj typeTaggedJSON
 		json.Unmarshal(buf[0:n], &ttj)
 
-		calculatedChecksum := crc32.ChecksumIEEE(ttj.JSON)
-		if ttj.Checksum != calculatedChecksum {
-			fmt.Printf("bcast.Receiver(%d, ...): Checksum mismatch\n", port)
-			sendChecksumConfirmation(addr, conn, false) // Checksum invalid, request retransmission
-			continue
-		} else {
-			sendChecksumConfirmation(addr, conn, true) // Checksum valid
-		}
 
 		ch, ok := chansMap[ttj.TypeId]
 		if !ok {
@@ -112,7 +102,6 @@ func Receiver(port int, chans ...interface{}) {
 type typeTaggedJSON struct {
 	TypeId string
 	JSON   []byte
-	Checksum uint32
 }
 
 type ChecksumConfirmation struct {
@@ -184,58 +173,6 @@ func checkTypeRecursive(val reflect.Type, offsets []int){
 }
 
 // Assuming you have a way to send messages back to the transmitter, e.g., a response channel or connection
-func sendChecksumConfirmation(addr *net.UDPAddr, conn *net.UDPConn, validChecksum bool) {
-    confirmation := ChecksumConfirmation{ValidChecksum: validChecksum}
-    confirmationBytes, err := json.Marshal(confirmation)
 
-    if err != nil {
-        log.Printf("Error marshaling confirmation: %v", err)
-        return
-    }
-
-    _, err = conn.WriteToUDP(confirmationBytes, addr)
-    if err != nil {
-        log.Printf("Error sending confirmation: %v", err)
-    }
-}
-
-func listenForConfirmations(conn *net.UDPConn, ttj []byte, addr *net.UDPAddr) {
-    buffer := make([]byte, 1024) // Adjust buffer size as needed
-
-	timeoutDuration := 100 * time.Millisecond // Adjust timeout duration as needed
-    conn.SetReadDeadline(time.Now().Add(timeoutDuration)) // Set a read deadline for timeout
-
-    for {
-        n, _, err := conn.ReadFromUDP(buffer)
-        if err != nil {
-            if os.IsTimeout(err) {
-                fmt.Println("Timeout reached, no confirmation received")
-                
-            } else {
-                fmt.Println("Error listening for confirmations:", err)
-                // Handle other potential errors
-            }
-            return // Exit the function upon timeout or error
-        }
-
-        // Assuming the confirmation is a simple true/false encoded in the received message
-		var check ChecksumConfirmation
-		err = json.Unmarshal(buffer[:n], &check)
-		if err != nil {
-			log.Printf("Error unmarshaling confirmation: %v", err)
-			continue
-		}
-		if check.ValidChecksum {
-            fmt.Println("Confirmation received, checksum valid")
-            // Handle valid checksum confirmation
-        } else {
-            fmt.Println("Confirmation received, checksum invalid")
-            // Handle invalid checksum confirmation, possibly resend
-            conn.WriteTo(ttj, addr) // Example resend action
-            conn.SetReadDeadline(time.Now().Add(timeoutDuration)) // Reset the read deadline if resending
-        }
-        // Depending on protocol, might break here or continue listening
-    }
-}
 
 
