@@ -72,6 +72,7 @@ func (e *Elevator) ChooseBestOrder() Order {
 }
 
 func (e *Elevator) CheckAbove(floor int) Order {
+	fmt.Println("Function: CheckAbove")
 	// Check if there are any orders above the elevator
 	var CurrentBestOrder = Order{NotDefined, 2} // Initialize the best order
 	var CurrentSecondBestOrder = Order{NotDefined, 2}
@@ -113,6 +114,7 @@ func (e *Elevator) CheckAbove(floor int) Order {
 }
 
 func (e *Elevator) CheckBelow(floor int) Order {
+	fmt.Println("Function: CheckBelow")
 	// Check if there are any orders above the elevator
 	var CurrentBestOrder = Order{NotDefined, 2} // Initialize the best order
 	var CurrentSecondBestOrder = Order{NotDefined, 2}
@@ -153,6 +155,7 @@ func (e *Elevator) CheckBelow(floor int) Order {
 }
 
 func (e *Elevator) CheckHallOrdersAbove(floor int) Order {
+	fmt.Println("Function: CheckHallOrdersAbove")
 	// Check if there are any orders above the elevator
 	var CurrentBestOrder = Order{NotDefined, 2} // Initialize the best order
 	var CurrentSecondBestOrder = Order{NotDefined, 2}
@@ -194,6 +197,7 @@ func (e *Elevator) CheckHallOrdersAbove(floor int) Order {
 }
 
 func (e *Elevator) CheckHallOrdersBelow(floor int) Order {
+	fmt.Println("Function: CheckHallOrdersBelow")
 	// Check if there are any orders above the elevator
 	var CurrentBestOrder = Order{NotDefined, 2} // Initialize the best order
 	var CurrentSecondBestOrder = Order{NotDefined, 2}
@@ -253,6 +257,7 @@ func (e *Elevator) UpdateOrderSystem(order Order) {
 }
 
 func (e *Elevator) DoOrder(order Order, OrderCompleteTx chan MessageOrderComplete) {
+	fmt.Println("Function: DoOrder")
 	// Do the order
 	if order.Floor > e.CurrentFloor {
 

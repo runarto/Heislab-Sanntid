@@ -11,6 +11,7 @@ func AbsValue(x int, y int) int {
 }
 
 func (e *Elevator) HandleElevatorAtFloor(floor int, OrderCompleteTx chan MessageOrderComplete) {
+	fmt.Println("Function: HandleElevatorAtFloor")
 
 	if e.HandleOrdersAtFloor(floor, OrderCompleteTx) { // If true, orders have been handled at the floor
 
@@ -59,6 +60,7 @@ func (e *Elevator) CheckIfOrderIsActive(order Order) bool {
 // }
 
 func (e *Elevator) DetermineMaster() {
+	fmt.Println("Function: DetermineMaster")
 
 	if len(Elevators) == 0 {
 		return // No elevators available
