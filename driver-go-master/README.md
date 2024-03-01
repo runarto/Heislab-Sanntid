@@ -1,16 +1,7 @@
 Elevator driver for Go
 ======================
 
-See [`main.go`](main.go) for usage example. The code is runnable with just `go run main.go`
-
----
-
-Add these lines to your `go.mod` file:
-```
-require Driver-go v0.0.0
-replace Driver-go => ./Driver-go
-```
-Where `./Driver-go` is the relative path to this folder, after you have downloaded it.
+In order to run, first connect to the elevatorserver by typing ´elevatorserver´ in the terminal. Then, type ´go run .´ in another terminal. If you are running from the simulator, you can do ´./SimElevatorServer --port=xxxx´, followed by ´go run . -port=xxxx´ in order to connect multiple elevators to the same network through the simulator. 
 
 
 
