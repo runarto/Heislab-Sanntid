@@ -9,6 +9,9 @@ import (
 	"github.com/runarto/Heislab-Sanntid/Network/bcast"
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/elevio"
+	"github.com/runarto/Heislab-Sanntid/pkg/elev"
+	"github.com/runarto/Heislab-Sanntid/pkg/orders"
+	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
 func main() {
@@ -16,51 +19,51 @@ func main() {
 	// Initialize the elevator
 	var port = flag.String("port", "15657", "define the port number")
 	flag.Parse()
-	elevio.Init("localhost:"+*port, numFloors)
+	elevio.Init("localhost:"+*port, utils.NumFloors)
 
-	var myElevator Elevator = Elevator{
-		CurrentState:     Still, // Assuming Still is a defined constant in the State type
+	var myElevator utils.Elevator = utils.Elevator{
+		CurrentState:     utils.Still, // Assuming Still is a defined constant in the State type
 		CurrentDirection: elevio.MD_Stop,
-		GeneralDirection: Stopped,             // Example, use a valid value from elevio.MotorDirection
-		CurrentFloor:     elevio.GetFloor(),   // Starts at floor 0
-		doorOpen:         false,               // Door starts closed
-		Obstruction:      false,               // No obstruction initially
-		stopButton:       false,               // Stop button not pressed initially
-		LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
-		isMaster:         false,               // Not master initially
-		ID:               1,                   // Set to the ID of the elevator
-		isActive:         true,                // Elevator is active initially
+		GeneralDirection: utils.Stopped,                            // Example, use a valid value from elevio.MotorDirection
+		CurrentFloor:     elevio.GetFloor(),                        // Starts at floor 0
+		DoorOpen:         false,                                    // Door starts closed
+		Obstructed:       false,                                    // No obstruction initially
+		StopButton:       false,                                    // Stop button not pressed initially
+		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]int{}, // Initialize with zero values
+		IsMaster:         false,                                    // Not master initially
+		ID:               1,                                        // Set to the ID of the elevator
+		IsActive:         true,                                     // Elevator is active initially
 	}
 
-	Elevators = append(Elevators, myElevator) // Add the elevator to the list of active elevators
-	myElevator.InitLocalOrderSystem()         // Initialize the local order system
-	myElevator.InitElevator()                 // Initialize the elevator
+	utils.Elevators = append(utils.Elevators, myElevator) // Add the elevator to the list of active elevators
+	orders.InitLocalOrderSystem(&myElevator)              // Initialize the local order system
+	elev.InitElevator(&myElevator)                        // Initialize the elevator
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool)
 
-	go peers.Transmitter(_ListeningPort+1, strconv.Itoa(myElevator.ID), peerTxEnable)
-	go peers.Receiver(_ListeningPort+1, peerUpdateCh)
+	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(myElevator.ID), peerTxEnable)
+	go peers.Receiver(utils.ListeningPort+1, peerUpdateCh)
 
-	newOrderTx := make(chan MessageNewOrder)
-	newOrderRx := make(chan MessageNewOrder)
+	newOrderTx := make(chan utils.MessageNewOrder)
+	newOrderRx := make(chan utils.MessageNewOrder)
 
-	orderCompleteTx := make(chan MessageOrderComplete)
-	orderCompleteRx := make(chan MessageOrderComplete)
+	orderCompleteTx := make(chan utils.MessageOrderComplete)
+	orderCompleteRx := make(chan utils.MessageOrderComplete)
 
-	elevatorStatusTx := make(chan ElevatorStatus) // Channel to transmit elevator status
-	elevatorStatusRx := make(chan ElevatorStatus) // Channel to receive elevator status (if needed)
+	elevatorStatusTx := make(chan utils.ElevatorStatus) // Channel to transmit elevator status
+	elevatorStatusRx := make(chan utils.ElevatorStatus) // Channel to receive elevator status (if needed)
 
-	orderArraysTx := make(chan MessageOrderArrays) // Channel to transmit global order array
-	orderArraysRx := make(chan MessageOrderArrays) // Channel to receive global order array (if needed)
+	orderArraysTx := make(chan utils.MessageOrderArrays) // Channel to transmit global order array
+	orderArraysRx := make(chan utils.MessageOrderArrays) // Channel to receive global order array (if needed)
 
-	go bcast.Transmitter(_ListeningPort, newOrderTx, orderCompleteTx, elevatorStatusTx, orderArraysTx) // You can add more channels as needed
-	go bcast.Receiver(_ListeningPort, newOrderRx, orderCompleteRx, elevatorStatusRx, orderArraysRx)    // You can add more channels as needed
-	go BroadcastElevatorStatus(myElevator, elevatorStatusTx)
+	go bcast.Transmitter(utils.ListeningPort, newOrderTx, orderCompleteTx, elevatorStatusTx, orderArraysTx) // You can add more channels as needed
+	go bcast.Receiver(utils.ListeningPort, newOrderRx, orderCompleteRx, elevatorStatusRx, orderArraysRx)    // You can add more channels as needed
+	go elev.BroadcastElevatorStatus(myElevator, elevatorStatusTx)
 	// Start broadcasting the elevator status
 	go func() {
 		for {
-			CheckIfOrderIsComplete(&myElevator, newOrderTx)
+			elev.CheckIfOrderIsComplete(&myElevator, newOrderTx)
 			time.Sleep(1 * time.Second) // sleep for a while before checking again
 		}
 	}()
@@ -93,34 +96,38 @@ func main() {
 				fmt.Println("Received order arrays")
 
 				myElevator.LocalOrderArray = orderArrays.LocalOrderArray
-				myElevator.PrintLocalOrderSystem()
-				globalOrderArray = orderArrays.GlobalOrders
+				orders.PrintLocalOrderSystem(&myElevator)
 
-				CabOrders := globalOrderArray.CabOrderArray
-				for floor := 0; floor < numFloors; floor++ {
-					if CabOrders[myElevator.ID][floor] == True {
-						Order := Order{floor, elevio.ButtonType(Cab)}
-						myElevator.UpdateOrderSystem(Order)
+				utils.GlobalOrders = orderArrays.GlobalOrders
+
+				CabOrders := utils.GlobalOrders.CabOrderArray
+
+				for floor := 0; floor < utils.NumFloors; floor++ {
+					if CabOrders[myElevator.ID][floor] == utils.True {
+						Order := utils.Order{
+							Floor:  floor,
+							Button: elevio.ButtonType(utils.Cab)}
+
+						orders.UpdateOrderSystem(Order, &myElevator)
 					}
 				}
 
-
-				ackStruct = newAckStruct
+				utils.OrderWatcher = newAckStruct
 
 				myElevator.SetLights()
 
-				if myElevator.CheckAmountOfActiveOrders() > 0 {
+				if orders.CheckAmountOfActiveOrders(&myElevator) > 0 {
 
-					bestOrder = myElevator.ChooseBestOrder() // Choose the best order
-					fmt.Println("Best order: ", bestOrder)
+					elev.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order
+					fmt.Println("Best order: ", elev.BestOrder)
 
-					if bestOrder.Floor == myElevator.CurrentFloor {
+					if elev.BestOrder.Floor == myElevator.CurrentFloor {
 
-						myElevator.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Handle the elevator at the floor
+						elev.HandleElevatorAtFloor(elev.BestOrder.Floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
 
 					} else {
 
-						myElevator.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
+						elev.DoOrder(elev.BestOrder, orderCompleteTx, &myElevator) // Move the elevator to the best order
 					}
 				} else {
 
@@ -137,13 +144,13 @@ func main() {
 			if elevator.ID != myElevator.ID {
 				fmt.Println("---ELEVATOR STATUS RECEIVED---")
 
-				if elevator.ID == masterElevatorID {
-					ackStruct = elevatorStatus.AckStruct
+				if elevator.ID == utils.MasterElevatorID {
+					utils.OrderWatcher = elevatorStatus.AckStruct
 				}
 
 				fmt.Println("Received elevator status: ", elevator.ID) // Update the elevator status
-				UpdateElevatorsOnNetwork(elevator)                     // Update the active elevators
-				myElevator.DetermineMaster()                           // Determine the master elevator
+				elev.UpdateElevatorsOnNetwork(&elevator)               // Update the active elevators
+				elev.DetermineMaster(&myElevator)                      // Determine the master elevator
 
 			}
 
@@ -151,7 +158,7 @@ func main() {
 
 			fmt.Println("---PEER UPDATE RECEIVED---")
 
-			myElevator.HandlePeersUpdate(p, elevatorStatusTx, orderArraysTx, newOrderTx)
+			elev.HandlePeersUpdate(p, elevatorStatusTx, orderArraysTx, newOrderTx, &myElevator) // Handle the peer update
 
 		case Order := <-newOrderRx:
 
@@ -163,11 +170,11 @@ func main() {
 
 			fmt.Println("Received order from elevator", fromElevator.ID)
 
-			myElevator.HandleNewOrder(newOrder, fromElevator, toElevatorID, orderCompleteTx, newOrderTx)
+			elev.HandleNewOrder(newOrder, &fromElevator, toElevatorID, orderCompleteTx, newOrderTx, &myElevator) // Handle the new order
 
 		case orderComplete := <-orderCompleteRx:
 
-			orders := orderComplete.Orders
+			completedOrders := orderComplete.Orders
 			fromElevatorID := orderComplete.FromElevatorID
 			fromElevator := orderComplete.E
 
@@ -175,28 +182,28 @@ func main() {
 
 				fmt.Println("---ORDER COMPLETE RECEIVED---")
 				// Update the elevator status
-				fmt.Println("Order completed: ", orders, "by elevator", fromElevatorID)
+				fmt.Println("Order completed: ", completedOrders, "by elevator", fromElevatorID)
 
-				for i, _ := range orders {
-					value := CheckIfGlobalOrderIsActive(orders[i], myElevator)
+				for i, _ := range completedOrders {
+					value := orders.CheckIfGlobalOrderIsActive(completedOrders[i], &myElevator)
 					fmt.Println("Value: ", value)
-					UpdateGlobalOrderSystem(orders[i], myElevator, false)
-					OrderCompleted(orders[i], &fromElevator)
+					orders.UpdateGlobalOrderSystem(completedOrders[i], &myElevator, false)
+					elev.OrderCompleted(completedOrders[i], &fromElevator)
 				}
 			}
 
-			if myElevator.CheckAmountOfActiveOrders() > 0 {
+			if orders.CheckAmountOfActiveOrders(&myElevator) > 0 {
 
-				bestOrder = myElevator.ChooseBestOrder() // Choose the best order
-				fmt.Println("Best order: ", bestOrder)
+				elev.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order
+				fmt.Println("Best order: ", elev.BestOrder)
 
-				if bestOrder.Floor == myElevator.CurrentFloor {
+				if elev.BestOrder.Floor == myElevator.CurrentFloor {
 
-					myElevator.HandleElevatorAtFloor(bestOrder.Floor, orderCompleteTx) // Handle the elevator at the floor
+					elev.HandleElevatorAtFloor(elev.BestOrder.Floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
 
 				} else {
 
-					myElevator.DoOrder(bestOrder, orderCompleteTx) // Move the elevator to the best order
+					elev.DoOrder(elev.BestOrder, orderCompleteTx, &myElevator) // Move the elevator to the best order
 				}
 			} else {
 
@@ -210,10 +217,12 @@ func main() {
 
 			floor := btn.Floor
 			button := btn.Button
-			newOrder := Order{floor, button}
+			newOrder := utils.Order{
+				Floor:  floor,
+				Button: button}
 			fmt.Println("New local order: ", newOrder)
 
-			myElevator.HandleButtonEvent(newOrderTx, orderCompleteTx, newOrder)
+			elev.HandleButtonEvent(newOrderTx, orderCompleteTx, newOrder, &myElevator)
 
 		case floor := <-drv_floors:
 
@@ -221,14 +230,15 @@ func main() {
 
 			fmt.Println("Arrived at floor: ", floor)
 
-			myElevator.floorLights(floor)                            // Update the floor lights
-			myElevator.HandleElevatorAtFloor(floor, orderCompleteTx) // Handle the elevator at the floor
+			elev.FloorLights(floor, &myElevator)                            // Update the floor lights
+			elev.HandleElevatorAtFloor(floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
 
 		case obstr := <-drv_obstr:
-			myElevator.isObstruction(obstr)
+			myElevator.Obstruction(obstr)
 
 		case stop := <-drv_stop:
-			myElevator.StopButton(stop)
+			myElevator.StopBtnPressed(stop)
+			//StopButton(stop)
 
 		}
 	}
