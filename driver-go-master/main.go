@@ -28,7 +28,7 @@ func main() {
 		stopButton:       false,               // Stop button not pressed initially
 		LocalOrderArray:  [3][numFloors]int{}, // Initialize with zero values
 		isMaster:         false,               // Not master initially
-		ID:               0,                   // Set to the ID of the elevator
+		ID:               1,                   // Set to the ID of the elevator
 		isActive:         true,                // Elevator is active initially
 	}
 
@@ -93,7 +93,18 @@ func main() {
 				fmt.Println("Received order arrays")
 
 				myElevator.LocalOrderArray = orderArrays.LocalOrderArray
+				myElevator.PrintLocalOrderSystem()
 				globalOrderArray = orderArrays.GlobalOrders
+
+				CabOrders := globalOrderArray.CabOrderArray
+				for floor := 0; floor < numFloors; floor++ {
+					if CabOrders[myElevator.ID][floor] == True {
+						Order := Order{floor, elevio.ButtonType(Cab)}
+						myElevator.UpdateOrderSystem(Order)
+					}
+				}
+
+
 				ackStruct = newAckStruct
 
 				myElevator.SetLights()
