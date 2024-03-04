@@ -58,6 +58,7 @@ func CheckIfGlobalOrderIsActive(order utils.Order, e *utils.Elevator) bool {
 }
 
 func UpdateGlobalOrderSystem(order utils.Order, e *utils.Elevator, value bool) {
+
 	if value {
 		if order.Button == utils.Cab {
 			utils.GlobalOrders.CabOrderArray[e.ID][order.Floor] = utils.True
@@ -75,9 +76,14 @@ func UpdateGlobalOrderSystem(order utils.Order, e *utils.Elevator, value bool) {
 			elevio.SetButtonLamp(order.Button, order.Floor, false)
 		}
 	}
+
 }
 
 func RedistributeHallOrders(offlineElevator *utils.Elevator, newOrderTx chan utils.MessageNewOrder, e *utils.Elevator) { // Should this perhaps be a pointer
+
+	if CheckAmountOfActiveOrders(offlineElevator) == 0 {
+		return
+	}
 
 	for button := 0; button < utils.NumButtons-1; button++ { // Don't change Cab-orders
 		for floor := 0; floor < utils.NumFloors; floor++ {

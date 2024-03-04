@@ -17,7 +17,6 @@ type GlobalOrderStruct struct {
 
 type MessageOrderArrays struct { // Send periodically to update the global order system
 	Type            string                     `json:"type"` // Explicitly indicate the message type
-	AckStruct       GlobalOrderStruct          `json:"ackStruct"`
 	GlobalOrders    GlobalOrderArray           `json:"globalOrders"`
 	LocalOrderArray [NumButtons][NumFloors]int `json:"localOrderArray"` // The local order array of the elevator
 	ToElevatorID    int                        `json:"toElevatorID"`    // The elevator to send the order to
@@ -40,5 +39,4 @@ type MessageNewOrder struct { // Send when a new order is received
 type ElevatorStatus struct {
 	Type      string            `json:"type"`     // A type identifier for decoding on the receiving end
 	E         Elevator          `json:"elevator"` // The Elevator instance
-	AckStruct GlobalOrderStruct `json:"ackStruct"`
 }

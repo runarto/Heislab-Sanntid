@@ -59,12 +59,12 @@ func main() {
 
 	go bcast.Transmitter(utils.ListeningPort, newOrderTx, orderCompleteTx, elevatorStatusTx, orderArraysTx) // You can add more channels as needed
 	go bcast.Receiver(utils.ListeningPort, newOrderRx, orderCompleteRx, elevatorStatusRx, orderArraysRx)    // You can add more channels as needed
-	go elev.BroadcastElevatorStatus(myElevator, elevatorStatusTx)
+	go elev.BroadcastElevatorStatus(&myElevator, elevatorStatusTx)
 	// Start broadcasting the elevator status
 	go func() {
 		for {
 			elev.CheckIfOrderIsComplete(&myElevator, newOrderTx)
-			time.Sleep(1 * time.Second) // sleep for a while before checking again
+			time.Sleep(3 * time.Second) // sleep for a while before checking again
 		}
 	}()
 
@@ -87,7 +87,6 @@ func main() {
 		case orderArrays := <-orderArraysRx:
 
 			toElevatorID := orderArrays.ToElevatorID
-			newAckStruct := orderArrays.AckStruct
 
 			if toElevatorID == myElevator.ID {
 
@@ -112,22 +111,21 @@ func main() {
 					}
 				}
 
-				utils.OrderWatcher = newAckStruct
 
 				myElevator.SetLights()
 
 				if orders.CheckAmountOfActiveOrders(&myElevator) > 0 {
 
-					elev.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order
-					fmt.Println("Best order: ", elev.BestOrder)
+					utils.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order
+					fmt.Println("Best order: ", utils.BestOrder)
 
-					if elev.BestOrder.Floor == myElevator.CurrentFloor {
+					if utils.BestOrder.Floor == myElevator.CurrentFloor {
 
-						elev.HandleElevatorAtFloor(elev.BestOrder.Floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
+						elev.HandleElevatorAtFloor(utils.BestOrder.Floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
 
 					} else {
 
-						elev.DoOrder(elev.BestOrder, orderCompleteTx, &myElevator) // Move the elevator to the best order
+						elev.DoOrder(utils.BestOrder, orderCompleteTx, &myElevator) // Move the elevator to the best order
 					}
 				} else {
 
@@ -144,9 +142,9 @@ func main() {
 			if elevator.ID != myElevator.ID {
 				fmt.Println("---ELEVATOR STATUS RECEIVED---")
 
-				if elevator.ID == utils.MasterElevatorID {
-					utils.OrderWatcher = elevatorStatus.AckStruct
-				}
+				fmt.Println("Local order system from elevator ", elevator.ID)
+				orders.PrintLocalOrderSystem(&elevator)
+
 
 				fmt.Println("Received elevator status: ", elevator.ID) // Update the elevator status
 				elev.UpdateElevatorsOnNetwork(&elevator)               // Update the active elevators
@@ -162,15 +160,18 @@ func main() {
 
 		case Order := <-newOrderRx:
 
-			fmt.Println("---NEW ORDER RECEIVED---")
 
 			newOrder := Order.NewOrder
 			fromElevator := Order.E
 			toElevatorID := Order.ToElevatorID
 
-			fmt.Println("Received order from elevator", fromElevator.ID)
+			fmt.Println("---NEW ORDER RECEIVED---")
 
-			elev.HandleNewOrder(newOrder, &fromElevator, toElevatorID, orderCompleteTx, newOrderTx, &myElevator) // Handle the new order
+			fmt.Println("Received order from elevator", fromElevator.ID, "meant for ", toElevatorID)
+
+			fmt.Println("I am elevator", myElevator.ID)
+
+			elev.HandleNewOrder(newOrder, &fromElevator, toElevatorID, orderCompleteTx, newOrderTx, &myElevator) // Handle the new orde
 
 		case orderComplete := <-orderCompleteRx:
 
@@ -183,6 +184,7 @@ func main() {
 				fmt.Println("---ORDER COMPLETE RECEIVED---")
 				// Update the elevator status
 				fmt.Println("Order completed: ", completedOrders, "by elevator", fromElevatorID)
+				elev.UpdateElevatorsOnNetwork(&fromElevator)
 
 				for i, _ := range completedOrders {
 					value := orders.CheckIfGlobalOrderIsActive(completedOrders[i], &myElevator)
@@ -194,16 +196,16 @@ func main() {
 
 			if orders.CheckAmountOfActiveOrders(&myElevator) > 0 {
 
-				elev.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order
-				fmt.Println("Best order: ", elev.BestOrder)
+				utils.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order
+				fmt.Println("Best order: ", utils.BestOrder)
 
-				if elev.BestOrder.Floor == myElevator.CurrentFloor {
+				if utils.BestOrder.Floor == myElevator.CurrentFloor {
 
-					elev.HandleElevatorAtFloor(elev.BestOrder.Floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
+					elev.HandleElevatorAtFloor(utils.BestOrder.Floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
 
 				} else {
 
-					elev.DoOrder(elev.BestOrder, orderCompleteTx, &myElevator) // Move the elevator to the best order
+					elev.DoOrder(utils.BestOrder, orderCompleteTx, &myElevator) // Move the elevator to the best order
 				}
 			} else {
 
@@ -217,6 +219,7 @@ func main() {
 
 			floor := btn.Floor
 			button := btn.Button
+
 			newOrder := utils.Order{
 				Floor:  floor,
 				Button: button}

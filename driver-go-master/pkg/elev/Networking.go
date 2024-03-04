@@ -2,17 +2,17 @@ package elev
 
 import (
 	"time"
-
+	"fmt"
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
+	"github.com/runarto/Heislab-Sanntid/pkg/orders"
 )
 
-func BroadcastElevatorStatus(elevator utils.Elevator, statusTx chan utils.ElevatorStatus) {
+func BroadcastElevatorStatus(elevator *utils.Elevator, statusTx chan utils.ElevatorStatus) {
 
 	if len(utils.Elevators) > 1 {
 		elevatorStatusMessage := utils.ElevatorStatus{
 			Type:      "ElevatorStatus",
-			E:         elevator, // Use the correct field name as defined in your ElevatorStatus struct
-			AckStruct: utils.OrderWatcher,
+			E:         *elevator, // Use the correct field name as defined in your ElevatorStatus struct
 		}
 
 		// Initial broadcast
@@ -43,5 +43,8 @@ func UpdateElevatorsOnNetwork(e *utils.Elevator) {
 	if !elevatorExists { // If the elevator does not exist in the ActiveElevators array
 		utils.Elevators = append(utils.Elevators, *e) // Add the elevator to the ActiveElevators array
 	}
+
+	fmt.Println("Local order array for elevator", e.ID)
+	orders.PrintLocalOrderSystem(e)
 
 }

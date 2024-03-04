@@ -1,5 +1,9 @@
 package utils
 
+import (
+	"github.com/runarto/Heislab-Sanntid/elevio"
+)
+
 const (
 	NumFloors      = 4
 	NumOfElevators = 3
@@ -53,3 +57,7 @@ var OrderWatcher = GlobalOrderStruct{
 	HallOrderArray: [2][NumFloors]Ack{},
 	CabOrderArray:  [NumOfElevators][NumFloors]Ack{},
 }
+
+var BestOrder = Order{
+	Floor:  NotDefined,
+	Button: elevio.BT_HallUp}
