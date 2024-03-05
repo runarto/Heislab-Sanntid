@@ -151,6 +151,7 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 		}
 
 		OrderActive(ordersToBeReAssigned[i], e, time.Now())
+		HallOrderArray[ordersToBeReAssigned[i].Button][ordersToBeReAssigned[i].Floor].Time = time.Now()
 
 	}
 
