@@ -403,7 +403,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 
 	// Check if the order is already active
 
-	orders.UpdateGlobalOrderSystem(newOrder, e, true) // Update the global order system
+	orders.UpdateGlobalOrderSystem(newOrder, fromElevator, true) // Update the global order system
 	OrderActive(newOrder, e, time.Now())              // Update the ackStruct
 
 	if toElevatorID == utils.NotDefined && fromElevator.ID != e.ID {

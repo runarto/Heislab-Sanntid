@@ -129,7 +129,7 @@ func main() {
 								Button: elevio.ButtonType(button)}
 
 							orders.UpdateGlobalOrderSystem(Order, &myElevator, true)
-							
+
 						} else {
 
 							Order := utils.Order{

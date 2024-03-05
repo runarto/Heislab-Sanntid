@@ -74,7 +74,7 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 
 	HallOrderArray := utils.OrderWatcher.HallOrderArray
 
-	for button := 0; button < 2; button++ {
+	for button := 0; button < utils.NumButtons-1; button++ {
 		for floor := 0; floor < utils.NumFloors; floor++ {
 			if HallOrderArray[button][floor].Active == true && HallOrderArray[button][floor].Completed == false {
 				if currentTime.Sub(HallOrderArray[button][floor].Time) > 15*time.Second {
