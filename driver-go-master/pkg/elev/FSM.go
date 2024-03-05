@@ -312,17 +312,10 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 					fmt.Println("Sending order")
 
-					var toElevator *utils.Elevator
+					
 
-					for i, _ := range utils.Elevators {
-						if utils.Elevators[i].ID == toElevatorID {
-							toElevator = &utils.Elevators[i]
-							break
-						}
-					}
-
-					orders.UpdateGlobalOrderSystem(newOrder, toElevator, true)
-					OrderActive(newOrder, toElevator, time.Now())
+					orders.UpdateGlobalOrderSystem(newOrder, bestElevator, true)
+					OrderActive(newOrder, bestElevator, time.Now())
 
 
 					newOrder := utils.MessageNewOrder{
