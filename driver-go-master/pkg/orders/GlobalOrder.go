@@ -2,6 +2,7 @@ package orders
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/runarto/Heislab-Sanntid/elevio"
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
@@ -11,7 +12,41 @@ import (
 
 func CalculateCost(e utils.Elevator, order utils.Order) int {
 
-	cost := CheckAmountOfActiveOrders(&e)
+	cost := 0
+
+	switch e.CurrentDirection {
+
+	case utils.Up:
+
+		if order.Floor > e.CurrentFloor {
+			cost += order.Floor - e.CurrentFloor
+		} else if order.Floor < e.CurrentFloor {
+			cost += 2*utils.NumFloors - order.Floor - e.CurrentFloor
+		} else {
+			cost += 0
+		}
+
+	case utils.Down:
+		if order.Floor < e.CurrentFloor {
+			cost += e.CurrentFloor - order.Floor
+		} else if order.Floor > e.CurrentFloor {
+			cost += 2*utils.NumFloors - e.CurrentFloor - order.Floor
+		} else {
+			cost += 0
+		}
+
+	case utils.Stopped:
+		cost += int(math.Abs(float64(order.Floor - e.CurrentFloor)))
+	}
+
+	for button := 0; button < utils.NumButtons; button++ {
+		for floor := 0; floor < utils.NumFloors; floor++ {
+			if e.LocalOrderArray[button][floor] == utils.True {
+				cost += 2
+			}
+		}
+	}
+
 	return cost
 
 }
@@ -93,14 +128,14 @@ func RedistributeHallOrders(offlineElevator *utils.Elevator, newOrderTx chan uti
 					Floor:  floor,
 					Button: elevio.ButtonType(button)}
 
-				UpdateGlobalOrderSystem(Order, offlineElevator, false)
+				utils.GlobalOrders.HallOrderArray[button][floor] = utils.False
 				offlineElevator.LocalOrderArray[button][floor] = utils.False
 
-				bestElevator := ChooseElevator(Order)
+				BestElevator := ChooseElevator(Order)
 
-				UpdateGlobalOrderSystem(Order, bestElevator, true)
+				UpdateGlobalOrderSystem(Order, BestElevator, true)
 
-				if bestElevator.ID == e.ID {
+				if BestElevator.ID == e.ID {
 
 					e.LocalOrderArray[button][floor] = utils.True
 					elevio.SetButtonLamp(elevio.ButtonType(button), floor, true)
@@ -110,8 +145,8 @@ func RedistributeHallOrders(offlineElevator *utils.Elevator, newOrderTx chan uti
 					newOrder := utils.MessageNewOrder{
 						Type:         "MessageNewOrder",
 						NewOrder:     Order,
-						E:            *bestElevator,
-						ToElevatorID: bestElevator.ID}
+						FromElevator: *BestElevator,
+						ToElevatorID: BestElevator.ID}
 
 					newOrderTx <- newOrder
 				}

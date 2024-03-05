@@ -25,18 +25,23 @@ type MessageOrderArrays struct { // Send periodically to update the global order
 type MessageOrderComplete struct { // Send when an order is completed
 	Type           string   `json:"type"` // Explicitly indicate the message type
 	Orders         []Order  `json:"order"`
-	E              Elevator `json:"elevator"`
+	FromElevator   Elevator `json:"elevator"`
 	FromElevatorID int      `json:"fromElevatorID"` // The elevator that completed the order
 }
 
 type MessageNewOrder struct { // Send when a new order is received
 	Type         string   `json:"type"` // Explicitly indicate the message type
 	NewOrder     Order    `json:"newOrder"`
-	E            Elevator `json:"elevator"`
+	FromElevator Elevator `json:"elevator"`
 	ToElevatorID int      `json:"toElevatorID"` // The elevator to send the order to
 }
 
 type ElevatorStatus struct {
-	Type      string            `json:"type"`     // A type identifier for decoding on the receiving end
-	E         Elevator          `json:"elevator"` // The Elevator instance
+	Type         string   `json:"type"`     // A type identifier for decoding on the receiving end
+	FromElevator Elevator `json:"elevator"` // The Elevator instance
+}
+
+type AckMatrix struct {
+	Type         string            `json:"type"`      // A type identifier for decoding on the receiving end
+	OrderWatcher GlobalOrderStruct `json:"ackStruct"` // The Elevator instance
 }

@@ -80,12 +80,12 @@ func CheckAbove(floor int, e *utils.Elevator) utils.Order {
 	fmt.Println("Function: CheckAbove")
 	// Check if there are any orders above the elevator
 	CurrentBestOrder := utils.Order{
-		Floor: utils.NotDefined,
-		Button : utils.NotDefined,}
+		Floor:  utils.NotDefined,
+		Button: utils.NotDefined}
 
 	CurrentSecondBestOrder := utils.Order{
-		Floor: utils.NotDefined,
-		Button : utils.NotDefined,}
+		Floor:  utils.NotDefined,
+		Button: utils.NotDefined}
 
 	for button := 0; button < utils.NumButtons; button++ {
 		for floorOrder := floor; floorOrder < utils.NumFloors; floorOrder++ { // Iterate over LocalOrderArray
@@ -142,12 +142,12 @@ func CheckBelow(floor int, e *utils.Elevator) utils.Order {
 	fmt.Println("Function: CheckBelow")
 	// Check if there are any orders above the elevator
 	CurrentBestOrder := utils.Order{
-		Floor: utils.NotDefined,
-		Button : utils.NotDefined,}
+		Floor:  utils.NotDefined,
+		Button: utils.NotDefined}
 
 	CurrentSecondBestOrder := utils.Order{
-		Floor: utils.NotDefined,
-		Button : utils.NotDefined,}
+		Floor:  utils.NotDefined,
+		Button: utils.NotDefined}
 
 	for button := 0; button < utils.NumButtons; button++ {
 		for floorOrder := 0; floorOrder <= floor; floorOrder++ {
@@ -202,13 +202,13 @@ func CheckBelow(floor int, e *utils.Elevator) utils.Order {
 func CheckHallOrdersAbove(floor int, e *utils.Elevator) utils.Order {
 	fmt.Println("Function: CheckHallOrdersAbove")
 	// Check if there are any orders above the elevator
-	CurrentBestOrder := utils.Order {
-		Floor: utils.NotDefined,
-		Button: utils.NotDefined,}  // Initialize the best order
+	CurrentBestOrder := utils.Order{
+		Floor:  utils.NotDefined,
+		Button: utils.NotDefined} // Initialize the best order
 
-	CurrentSecondBestOrder := utils.Order {
-		Floor: utils.NotDefined,
-		Button: utils.NotDefined,}
+	CurrentSecondBestOrder := utils.Order{
+		Floor:  utils.NotDefined,
+		Button: utils.NotDefined}
 
 	for button := 0; button < utils.NumButtons-1; button++ {
 		for floorOrder := floor; floorOrder < utils.NumFloors; floorOrder++ { // Iterate over LocalOrderArray
@@ -267,12 +267,12 @@ func CheckHallOrdersBelow(floor int, e *utils.Elevator) utils.Order {
 	fmt.Println("Function: CheckHallOrdersBelow")
 	// Check if there are any orders above the elevator
 	CurrentBestOrder := utils.Order{
-		Floor: utils.NotDefined,
-		Button : utils.NotDefined,}
+		Floor:  utils.NotDefined,
+		Button: utils.NotDefined}
 
 	CurrentSecondBestOrder := utils.Order{
-		Floor: utils.NotDefined,
-		Button : utils.NotDefined,}
+		Floor:  utils.NotDefined,
+		Button: utils.NotDefined}
 
 	for button := 0; button < utils.NumButtons-1; button++ {
 		for floorOrder := 0; floorOrder <= floor; floorOrder++ {
@@ -325,7 +325,7 @@ func CheckHallOrdersBelow(floor int, e *utils.Elevator) utils.Order {
 	}
 }
 
-func UpdateOrderSystem(order utils.Order, e *utils.Elevator) {
+func UpdateLocalOrderSystem(order utils.Order, e *utils.Elevator) {
 
 	floor := order.Floor   // The floor the order is at
 	button := order.Button // Type of order (Up, Down, Cab)

@@ -1,28 +1,41 @@
 package elev
 
 import (
-	"time"
 	"fmt"
-	"github.com/runarto/Heislab-Sanntid/pkg/utils"
+	"time"
+
 	"github.com/runarto/Heislab-Sanntid/pkg/orders"
+	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
-func BroadcastElevatorStatus(elevator *utils.Elevator, statusTx chan utils.ElevatorStatus) {
+func BroadcastElevatorStatus(e *utils.Elevator, statusTx chan utils.ElevatorStatus) {
 
-	if len(utils.Elevators) > 1 {
-		elevatorStatusMessage := utils.ElevatorStatus{
-			Type:      "ElevatorStatus",
-			E:         *elevator, // Use the correct field name as defined in your ElevatorStatus struct
-		}
+	ticker := time.NewTicker(time.Second * 5)
+	defer ticker.Stop()
+	for range ticker.C {
+		if len(utils.Elevators) > 1 {
+			elevatorStatusMessage := utils.ElevatorStatus{
+				Type:         "ElevatorStatus",
+				FromElevator: *e, // Use the correct field name as defined in your ElevatorStatus struct
+			}
 
-		// Initial broadcast
-		statusTx <- elevatorStatusMessage
-
-		// Optional: Periodic updates
-		ticker := time.NewTicker(time.Second * 5)
-		defer ticker.Stop()
-		for range ticker.C {
 			statusTx <- elevatorStatusMessage // Broadcast the current status
+		}
+	}
+}
+
+func BroadcastAckMatrix(e *utils.Elevator, ackTx chan utils.AckMatrix) {
+
+	ticker := time.NewTicker(time.Second * 5)
+	defer ticker.Stop()
+	for range ticker.C {
+		if len(utils.Elevators) > 1 && e.IsMaster {
+			ackStruct := utils.AckMatrix{
+				Type:         "AckMatrix",
+				OrderWatcher: utils.OrderWatcher, // Use the correct field name as defined in your ElevatorStatus struct
+			}
+
+			ackTx <- ackStruct // Broadcast the current status
 		}
 	}
 }

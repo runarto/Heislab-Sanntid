@@ -135,7 +135,7 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 		for i := 0; i < len(ordersDone); i++ {
 
 			fmt.Println("Order done: ", ordersDone[i])
-			orders.UpdateOrderSystem(ordersDone[i], e)              // Update the local order array
+			orders.UpdateLocalOrderSystem(ordersDone[i], e)         // Update the local order array
 			orders.UpdateGlobalOrderSystem(ordersDone[i], e, false) // Update the global order system
 			OrderCompleted(ordersDone[i], e)                        // Update the ackStruct
 
@@ -143,7 +143,7 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 
 		OrderCompleteTx <- utils.MessageOrderComplete{Type: "OrderComplete",
 			Orders:         ordersDone,
-			E:              *e,
+			FromElevator:   *e,
 			FromElevatorID: e.ID}
 
 		fmt.Println("Function HandleOrdersAtFloor: true")
@@ -206,7 +206,11 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 			fmt.Println("Cab order")
 
-			newOrderTx <- utils.MessageNewOrder{Type: "MessageNewOrder", NewOrder: newOrder, E: *e, ToElevatorID: utils.NotDefined}
+			newOrderTx <- utils.MessageNewOrder{
+				Type:         "MessageNewOrder",
+				NewOrder:     newOrder,
+				FromElevator: *e,
+				ToElevatorID: utils.NotDefined}
 
 			if orders.CheckIfOrderIsActive(newOrder, e) { // Check if the order is active
 				if utils.BestOrder.Floor == e.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
@@ -229,7 +233,6 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 				OrderActive(newOrder, e)
 
-
 				fmt.Println("This is the master")
 				// Handle order locally (remember lights)
 				bestElevator := orders.ChooseElevator(newOrder)
@@ -243,7 +246,7 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 					newOrder := utils.MessageNewOrder{
 						Type:         "MessageNewOrder",
 						NewOrder:     newOrder,
-						E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
+						FromElevator: *e, // Use the correct field name as defined in your ElevatorStatus struct
 						ToElevatorID: utils.NotDefined}
 
 					fmt.Println("Sending order")
@@ -255,7 +258,7 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 					newOrder := utils.MessageNewOrder{
 						Type:         "MessageNewOrder",
 						NewOrder:     newOrder,
-						E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
+						FromElevator: *e, // Use the correct field name as defined in your ElevatorStatus struct
 						ToElevatorID: bestElevator.ID}
 
 					newOrderTx <- newOrder
@@ -271,7 +274,11 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 				// Set lights.
 				fmt.Println("Sending order to master.")
 
-				newOrderTx <- utils.MessageNewOrder{Type: "MessageNewOrder", NewOrder: newOrder, E: *e, ToElevatorID: utils.MasterElevatorID}
+				newOrderTx <- utils.MessageNewOrder{
+					Type:         "MessageNewOrder",
+					NewOrder:     newOrder,
+					FromElevator: *e,
+					ToElevatorID: utils.MasterElevatorID}
 
 				if orders.CheckAmountOfActiveOrders(e) > 0 {
 
@@ -292,7 +299,7 @@ func ProcessElevatorOrders(newOrder utils.Order, orderCompleteTx chan utils.Mess
 
 	fmt.Println("Function: ProcessElevatorOrders")
 
-	orders.UpdateOrderSystem(newOrder, e)
+	orders.UpdateLocalOrderSystem(newOrder, e)
 
 	orders.PrintLocalOrderSystem(e)
 
@@ -320,7 +327,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 
 	fmt.Println("Function: HandleNewOrder")
 
-	 // Check if the order is already active
+	// Check if the order is already active
 
 	orders.UpdateGlobalOrderSystem(newOrder, e, true) // Update the global order system
 	OrderActive(newOrder, e)                          // Update the ackStruct
@@ -355,7 +362,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 			newOrder := utils.MessageNewOrder{
 				Type:         "MessageNewOrder",
 				NewOrder:     newOrder,
-				E:            *e, // Use the correct field name as defined in your ElevatorStatus struct
+				FromElevator: *e, // Use the correct field name as defined in your ElevatorStatus struct
 				ToElevatorID: bestElevator.ID}
 
 			newOrderTx <- newOrder
@@ -399,12 +406,13 @@ func HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan utils.ElevatorS
 		if !found {
 
 			elevatorStatusTx <- utils.ElevatorStatus{
-				Type: "ElevatorStatus",
-				E:    *e,}
-			}
+				Type:         "ElevatorStatus",
+				FromElevator: *e}
 
-			time.Sleep(1 * time.Second)
 		}
+
+		time.Sleep(1 * time.Second)
+	}
 
 	for i, _ := range utils.Elevators {
 		for _, peer := range p.Lost {

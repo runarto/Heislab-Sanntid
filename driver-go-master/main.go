@@ -57,15 +57,22 @@ func main() {
 	orderArraysTx := make(chan utils.MessageOrderArrays) // Channel to transmit global order array
 	orderArraysRx := make(chan utils.MessageOrderArrays) // Channel to receive global order array (if needed)
 
-	go bcast.Transmitter(utils.ListeningPort, newOrderTx, orderCompleteTx, elevatorStatusTx, orderArraysTx) // You can add more channels as needed
-	go bcast.Receiver(utils.ListeningPort, newOrderRx, orderCompleteRx, elevatorStatusRx, orderArraysRx)    // You can add more channels as needed
+	ackStructTx := make(chan utils.AckMatrix) // Channel to transmit the Ack struct
+	ackStructRx := make(chan utils.AckMatrix) // Channel to receive the Ack struct (if needed)
+
+	go bcast.Transmitter(utils.ListeningPort, newOrderTx, orderCompleteTx, elevatorStatusTx, orderArraysTx, ackStructTx) // You can add more channels as needed
+	go bcast.Receiver(utils.ListeningPort, newOrderRx, orderCompleteRx, elevatorStatusRx, orderArraysRx, ackStructRx)    // You can add more channels as needed
+
 	go elev.BroadcastElevatorStatus(&myElevator, elevatorStatusTx)
-	// Start broadcasting the elevator status
+	go elev.BroadcastAckMatrix(&myElevator, ackStructTx)
+
 	go func() {
+
 		for {
 			elev.CheckIfOrderIsComplete(&myElevator, newOrderTx)
 			time.Sleep(3 * time.Second) // sleep for a while before checking again
 		}
+
 	}()
 
 	drv_buttons := make(chan elevio.ButtonEvent)
@@ -84,6 +91,13 @@ func main() {
 	for {
 		select {
 
+		case ackStruct := <-ackStructRx:
+
+			fmt.Println("---ACK STRUCT RECEIVED---")
+
+			val := ackStruct.OrderWatcher
+			utils.OrderWatcher = val
+
 		case orderArrays := <-orderArraysRx:
 
 			toElevatorID := orderArrays.ToElevatorID
@@ -99,20 +113,31 @@ func main() {
 
 				utils.GlobalOrders = orderArrays.GlobalOrders
 
+				HallOrders := utils.GlobalOrders.HallOrderArray
 				CabOrders := utils.GlobalOrders.CabOrderArray
 
+				for button := 0; button < utils.NumButtons-1; button++ {
+					for floor := 0; floor < utils.NumFloors; floor++ {
+						if HallOrders[button][floor] == utils.True {
+							Order := utils.Order{
+								Floor:  floor,
+								Button: elevio.ButtonType(button)}
+
+							orders.UpdateGlobalOrderSystem(Order, &myElevator, true)
+						}
+					}
+				}
+
 				for floor := 0; floor < utils.NumFloors; floor++ {
+
 					if CabOrders[myElevator.ID][floor] == utils.True {
 						Order := utils.Order{
 							Floor:  floor,
 							Button: elevio.ButtonType(utils.Cab)}
 
-						orders.UpdateOrderSystem(Order, &myElevator)
+						orders.UpdateLocalOrderSystem(Order, &myElevator)
 					}
 				}
-
-
-				myElevator.SetLights()
 
 				if orders.CheckAmountOfActiveOrders(&myElevator) > 0 {
 
@@ -132,19 +157,17 @@ func main() {
 					myElevator.StopElevator()
 
 				}
-
 			}
 
 		case elevatorStatus := <-elevatorStatusRx:
 
-			elevator := elevatorStatus.E
+			elevator := elevatorStatus.FromElevator
 
 			if elevator.ID != myElevator.ID {
 				fmt.Println("---ELEVATOR STATUS RECEIVED---")
 
 				fmt.Println("Local order system from elevator ", elevator.ID)
 				orders.PrintLocalOrderSystem(&elevator)
-
 
 				fmt.Println("Received elevator status: ", elevator.ID) // Update the elevator status
 				elev.UpdateElevatorsOnNetwork(&elevator)               // Update the active elevators
@@ -160,9 +183,8 @@ func main() {
 
 		case Order := <-newOrderRx:
 
-
 			newOrder := Order.NewOrder
-			fromElevator := Order.E
+			fromElevator := Order.FromElevator
 			toElevatorID := Order.ToElevatorID
 
 			fmt.Println("---NEW ORDER RECEIVED---")
@@ -177,7 +199,7 @@ func main() {
 
 			completedOrders := orderComplete.Orders
 			fromElevatorID := orderComplete.FromElevatorID
-			fromElevator := orderComplete.E
+			fromElevator := orderComplete.FromElevator
 
 			if fromElevatorID != myElevator.ID {
 
