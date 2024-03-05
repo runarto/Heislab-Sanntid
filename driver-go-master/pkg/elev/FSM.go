@@ -25,29 +25,40 @@ func NullButtons() {
 
 func InitializeElevator(e *utils.Elevator) {
 
-	// InitializeElevator initializes the elevator by performing the following steps:
-	// 1. Checks the current floor of the elevator.
-	// 2. If the floor is not defined, it moves the elevator down for 2 seconds and then up.
-	// 3. Continues checking the floor until it is defined.
-	// 4. Stops the elevator.
-
 	fmt.Println("Function: InitializeElevator")
 
 	floor := elevio.GetFloor()
+	direction := utils.Up // 1 for up, -1 for down
+	maxTime := 2000       // maximum time to move in one direction
+
+	// Start moving up
+	e.GoUp()
+
+	// Start a timer
+	startTime := time.Now()
 
 	for floor == utils.NotDefined {
-		if floor == utils.NotDefined {
-			e.GoDown()
-			time.Sleep(2000 * time.Millisecond)
-			e.GoUp()
-		}
 		floor = elevio.GetFloor()
+
+		// If we've been moving in one direction for more than maxTime milliseconds
+		// without finding a floor, switch direction
+		if time.Since(startTime).Milliseconds() > int64(maxTime) {
+			if direction == 1 {
+				e.GoDown()
+				direction = -1
+			} else {
+				e.GoUp()
+				direction = 1
+			}
+
+			// Reset the timer
+			startTime = time.Now()
+		}
 	}
 
+	// Stop the elevator when a floor is found
 	e.StopElevator()
-
 }
-
 func FloorLights(floor int, e *utils.Elevator) {
 
 	// FloorLights sets the floor indicator light and updates the current floor of the elevator.
@@ -194,7 +205,7 @@ func HandleElevatorAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCom
 
 	fmt.Println("Function: HandleElevatorAtFloor")
 
-	if HandleOrdersAtFloor(floor, OrderCompleteTx, e) { // If true, orders have been handled at the floor
+	if HandleOrdersAtFloor(floor, OrderCompleteTx, e) && elevio.GetFloor() != utils.NotDefined { // If true, orders have been handled at the floor
 
 		e.StopElevator()                    // Stop the elevator
 		e.SetDoorState(utils.Open)          // utils.Open the door
@@ -544,7 +555,6 @@ func DoOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,
 	// The function takes the order to be executed, a channel to send order completion messages,
 	// and a pointer to the elevator object.
 
-	fmt.Println("Function: DoOrder")
 	// Do the order
 	if order.Floor > e.CurrentFloor {
 

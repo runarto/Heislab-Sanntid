@@ -269,27 +269,6 @@ func main() {
 			myElevator.StopBtnPressed(stop)
 			//StopButton(stop)
 
-		default:
-
-			if orders.CheckAmountOfActiveOrders(&myElevator) > 0 {
-
-				utils.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order
-				fmt.Println("Best order: ", utils.BestOrder)
-
-				if utils.BestOrder.Floor == myElevator.CurrentFloor {
-
-					elev.HandleElevatorAtFloor(utils.BestOrder.Floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
-
-				} else {
-
-					elev.DoOrder(utils.BestOrder, orderCompleteTx, &myElevator) // Move the elevator to the best order
-				}
-			} else {
-
-				myElevator.StopElevator()
-
-			}
-
 		}
 	}
 }

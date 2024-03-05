@@ -112,7 +112,6 @@ func CheckAbove(floor int, e *utils.Elevator) utils.Order {
 	// If there are no orders above the given floor, it returns the second best order.
 	// If there are no orders at all, it returns an order with floor and button set to utils.NotDefined.
 
-	fmt.Println("Function: CheckAbove")
 	// Check if there are any orders above the elevator
 	CurrentBestOrder := utils.Order{
 		Floor:  utils.NotDefined,
@@ -181,7 +180,6 @@ func CheckBelow(floor int, e *utils.Elevator) utils.Order {
 	// is the one with the largest absolute difference. If there are no orders below the given floor,
 	// it returns the second best order with floor set to utils.NotDefined.
 
-	fmt.Println("Function: CheckBelow")
 	// Check if there are any orders above the elevator
 	CurrentBestOrder := utils.Order{
 		Floor:  utils.NotDefined,
