@@ -34,7 +34,7 @@ func OrderCompleted(order utils.Order, e *utils.Elevator) {
 	}
 }
 
-func OrderActive(order utils.Order, e *utils.Elevator) {
+func OrderActive(order utils.Order, e *utils.Elevator, time time.Time) {
 
 	// OrderActive updates the status of an order in the OrderWatcher based on the given order and elevator.
 	// If the order is a cab order, it sets the corresponding cab order as active and updates the time.
@@ -51,12 +51,12 @@ func OrderActive(order utils.Order, e *utils.Elevator) {
 	if button == utils.Cab {
 		utils.OrderWatcher.CabOrderArray[e.ID][floor].Active = true
 		utils.OrderWatcher.CabOrderArray[e.ID][floor].Completed = false
-		utils.OrderWatcher.CabOrderArray[e.ID][floor].Time = time.Now()
+		utils.OrderWatcher.CabOrderArray[e.ID][floor].Time = time
 
 	} else {
 		utils.OrderWatcher.HallOrderArray[button][floor].Active = true
 		utils.OrderWatcher.HallOrderArray[button][floor].Completed = false
-		utils.OrderWatcher.HallOrderArray[button][floor].Time = time.Now()
+		utils.OrderWatcher.HallOrderArray[button][floor].Time = time
 	}
 }
 
@@ -150,7 +150,7 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 
 		}
 
-		OrderActive(ordersToBeReAssigned[i], e)
+		OrderActive(ordersToBeReAssigned[i], e, time.Now())
 
 	}
 

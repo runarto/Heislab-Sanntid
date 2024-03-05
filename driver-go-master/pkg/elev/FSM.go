@@ -283,7 +283,7 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 			if e.IsMaster {
 
-				OrderActive(newOrder, e)
+				OrderActive(newOrder, e, time.Now())
 
 				fmt.Println("This is the master")
 				// Handle order locally (remember lights)
@@ -404,7 +404,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 	// Check if the order is already active
 
 	orders.UpdateGlobalOrderSystem(newOrder, e, true) // Update the global order system
-	OrderActive(newOrder, e)                          // Update the ackStruct
+	OrderActive(newOrder, e, time.Now())              // Update the ackStruct
 
 	if toElevatorID == utils.NotDefined && fromElevator.ID != e.ID {
 
@@ -416,7 +416,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 
 	if e.IsMaster && toElevatorID == e.ID {
 
-		OrderActive(newOrder, e)
+		OrderActive(newOrder, e, time.Now())
 
 		fmt.Println("I am master. I got a new order to delegate")
 
