@@ -10,6 +10,10 @@ import (
 )
 
 func OrderCompleted(order utils.Order, e *utils.Elevator) {
+
+	fmt.Println("Function: OrderCompleted")
+
+
 	button := order.Button
 	floor := order.Floor
 
@@ -25,6 +29,9 @@ func OrderCompleted(order utils.Order, e *utils.Elevator) {
 }
 
 func OrderActive(order utils.Order, e *utils.Elevator) {
+
+	fmt.Println("Function: OrderActive")
+
 	button := order.Button
 	floor := order.Floor
 
@@ -40,7 +47,11 @@ func OrderActive(order utils.Order, e *utils.Elevator) {
 	}
 }
 
-func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewOrder) {
+
+func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewOrder, orderCompleteTx chan utils.MessageOrderComplete) {
+
+	fmt.Println("Function: CheckIfOrderIsComplete")
+
 	currentTime := time.Now()
 	var ordersToBeReAssigned []utils.Order
 
@@ -78,11 +89,17 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 
 		if BestElevator.ID == e.ID {
 
-			orders.UpdateLocalOrderSystem(ordersToBeReAssigned[i], e)
+			ProcessElevatorOrders(utils.Order{
+				Floor:  ordersToBeReAssigned[i].Floor,
+				Button: ordersToBeReAssigned[i].Button,
+			}, orderCompleteTx, e)
+
+			HallOrderArray[ordersToBeReAssigned[i].Button][ordersToBeReAssigned[i].Floor].Active = true
 
 		} else {
 
 			newOrderTx <- newOrder
+			HallOrderArray[ordersToBeReAssigned[i].Button][ordersToBeReAssigned[i].Floor].Active = true
 
 		}
 

@@ -31,7 +31,7 @@ func main() {
 		StopButton:       false,                                    // Stop button not pressed initially
 		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]int{}, // Initialize with zero values
 		IsMaster:         false,                                    // Not master initially
-		ID:               0,                                        // Set to the ID of the elevator
+		ID:               1,                                        // Set to the ID of the elevator
 		IsActive:         true,                                     // Elevator is active initially
 	}
 
@@ -66,14 +66,6 @@ func main() {
 	go elev.BroadcastElevatorStatus(&myElevator, elevatorStatusTx)
 	go elev.BroadcastAckMatrix(&myElevator, ackStructTx)
 
-	go func() {
-
-		for {
-			elev.CheckIfOrderIsComplete(&myElevator, newOrderTx)
-			time.Sleep(3 * time.Second) // sleep for a while before checking again
-		}
-
-	}()
 
 	drv_buttons := make(chan elevio.ButtonEvent)
 	drv_floors := make(chan int)
@@ -85,6 +77,17 @@ func main() {
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollObstructionSwitch(drv_obstr)
 	go elevio.PollStopButton(drv_stop)
+
+
+
+	go func() {
+
+		for {
+			elev.CheckIfOrderIsComplete(&myElevator, newOrderTx, orderCompleteTx)
+			time.Sleep(3 * time.Second) // sleep for a while before checking again
+		}
+
+	}()
 
 	fmt.Println("Elevator initialized")
 
@@ -264,6 +267,27 @@ func main() {
 		case stop := <-drv_stop:
 			myElevator.StopBtnPressed(stop)
 			//StopButton(stop)
+
+		default: 
+			
+			if orders.CheckAmountOfActiveOrders(&myElevator) > 0 {
+
+				utils.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order
+				fmt.Println("Best order: ", utils.BestOrder)
+
+				if utils.BestOrder.Floor == myElevator.CurrentFloor {
+
+					elev.HandleElevatorAtFloor(utils.BestOrder.Floor, orderCompleteTx, &myElevator) // Handle the elevator at the floor
+
+				} else {
+
+					elev.DoOrder(utils.BestOrder, orderCompleteTx, &myElevator) // Move the elevator to the best order
+				}
+			} else {
+
+				myElevator.StopElevator()
+
+			}
 
 		}
 	}

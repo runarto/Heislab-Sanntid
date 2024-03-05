@@ -68,7 +68,7 @@ func ChooseElevator(order utils.Order) *utils.Elevator {
 		}
 	}
 
-	return &bestElevator
+	return &BestElevator
 }
 
 func CheckIfGlobalOrderIsActive(order utils.Order, e *utils.Elevator) bool {
@@ -115,6 +115,8 @@ func UpdateGlobalOrderSystem(order utils.Order, e *utils.Elevator, value bool) {
 }
 
 func RedistributeHallOrders(offlineElevator *utils.Elevator, newOrderTx chan utils.MessageNewOrder, e *utils.Elevator) { // Should this perhaps be a pointer
+
+	fmt.Println("Function: RedistributeHallOrders")
 
 	if CheckAmountOfActiveOrders(offlineElevator) == 0 {
 		return
