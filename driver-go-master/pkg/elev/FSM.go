@@ -502,7 +502,6 @@ func HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan utils.ElevatorS
 
 		}
 
-		time.Sleep(1 * time.Second)
 	}
 
 	for i, _ := range utils.Elevators {
@@ -529,6 +528,7 @@ func HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan utils.ElevatorS
 					break
 				}
 			}
+			fmt.Println("Local order array found.")
 
 			MessageOrderArrays := utils.MessageOrderArrays{
 				Type:            "MessageOrderArrays",
@@ -538,7 +538,6 @@ func HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan utils.ElevatorS
 
 			orderArraysTx <- MessageOrderArrays
 
-			time.Sleep(1 * time.Second)
 		}
 	}
 

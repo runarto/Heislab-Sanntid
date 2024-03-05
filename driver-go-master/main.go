@@ -31,7 +31,7 @@ func main() {
 		StopButton:       false,                                    // Stop button not pressed initially
 		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]int{}, // Initialize with zero values
 		IsMaster:         false,                                    // Not master initially
-		ID:               1,                                        // Set to the ID of the elevator
+		ID:               0,                                        // Set to the ID of the elevator
 		IsActive:         true,                                     // Elevator is active initially
 	}
 
@@ -123,11 +123,20 @@ func main() {
 				for button := 0; button < utils.NumButtons-1; button++ {
 					for floor := 0; floor < utils.NumFloors; floor++ {
 						if HallOrders[button][floor] == utils.True {
+
 							Order := utils.Order{
 								Floor:  floor,
 								Button: elevio.ButtonType(button)}
 
 							orders.UpdateGlobalOrderSystem(Order, &myElevator, true)
+							
+						} else {
+
+							Order := utils.Order{
+								Floor:  floor,
+								Button: elevio.ButtonType(button)}
+
+							orders.UpdateGlobalOrderSystem(Order, &myElevator, false)
 						}
 					}
 				}
