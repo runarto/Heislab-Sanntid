@@ -10,6 +10,8 @@ import (
 
 func BroadcastElevatorStatus(e *utils.Elevator, statusTx chan utils.ElevatorStatus) {
 
+	time.Sleep(5 * time.Second)
+
 	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -25,6 +27,8 @@ func BroadcastElevatorStatus(e *utils.Elevator, statusTx chan utils.ElevatorStat
 }
 
 func BroadcastAckMatrix(e *utils.Elevator, ackTx chan utils.AckMatrix) {
+
+	time.Sleep(5 * time.Second)
 
 	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()

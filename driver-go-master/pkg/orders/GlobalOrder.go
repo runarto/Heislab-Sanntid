@@ -54,7 +54,7 @@ func CalculateCost(e utils.Elevator, order utils.Order) int {
 // Function to find the best elevator for a given order
 func ChooseElevator(order utils.Order) *utils.Elevator {
 	//Initiate variables
-	var bestElevator utils.Elevator
+	var BestElevator utils.Elevator
 	lowestCost := int(^uint(0) >> 1) // Sets "lowestCost" to max int value
 
 	//Iterate through all elevators and calculate the cost for each. Update bestElevator if a lower cost is found
@@ -63,7 +63,7 @@ func ChooseElevator(order utils.Order) *utils.Elevator {
 			cost := CalculateCost(utils.Elevators[i], order)
 			if cost <= lowestCost {
 				lowestCost = cost
-				bestElevator = utils.Elevators[i]
+				BestElevator = utils.Elevators[i]
 			}
 		}
 	}

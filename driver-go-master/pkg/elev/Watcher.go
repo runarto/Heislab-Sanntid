@@ -42,7 +42,7 @@ func OrderActive(order utils.Order, e *utils.Elevator) {
 
 func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewOrder) {
 	currentTime := time.Now()
-	var ordersToBeReArranaged []utils.Order
+	var ordersToBeReAssigned []utils.Order
 
 	HallOrderArray := utils.OrderWatcher.HallOrderArray
 
@@ -51,7 +51,9 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 			if HallOrderArray[button][floor].Active == true && HallOrderArray[button][floor].Completed == false {
 				if currentTime.Sub(HallOrderArray[button][floor].Time) > 15*time.Second {
 
-					ordersToBeReArranaged = append(ordersToBeReArranaged, utils.Order{
+					fmt.Println("Order", button, "at floor", floor, "is not completed. Reassigning order.")
+
+					ordersToBeReAssigned = append(ordersToBeReAssigned, utils.Order{
 						Floor:  floor,
 						Button: elevio.ButtonType(button)})
 
@@ -61,20 +63,22 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 		}
 	}
 
-	for i, _ := range ordersToBeReArranaged {
+	for i, _ := range ordersToBeReAssigned {
 
-		BestElevator := orders.ChooseElevator(ordersToBeReArranaged[i])
+		BestElevator := orders.ChooseElevator(ordersToBeReAssigned[i])
+
+		fmt.Print("Reassigning order to elevator", BestElevator.ID)
 
 		newOrder := utils.MessageNewOrder{
 			Type:         "MessageNewOrder",
-			NewOrder:     ordersToBeReArranaged[i],
+			NewOrder:     ordersToBeReAssigned[i],
 			FromElevator: *e,
 			ToElevatorID: BestElevator.ID,
 		}
 
 		if BestElevator.ID == e.ID {
 
-			orders.UpdateLocalOrderSystem(ordersToBeReArranaged[i], e)
+			orders.UpdateLocalOrderSystem(ordersToBeReAssigned[i], e)
 
 		} else {
 
@@ -82,7 +86,7 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 
 		}
 
-		OrderActive(ordersToBeReArranaged[i], e)
+		OrderActive(ordersToBeReAssigned[i], e)
 
 	}
 
