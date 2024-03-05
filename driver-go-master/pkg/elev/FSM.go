@@ -261,6 +261,7 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 			fmt.Println("Cab order")
 
 			orders.UpdateGlobalOrderSystem(newOrder, e, true)
+			OrderActive(newOrder, e, time.Now())
 
 			newOrderTx <- utils.MessageNewOrder{
 				Type:         "MessageNewOrder",
@@ -295,6 +296,7 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 					fmt.Println("Handling locally")
 					orders.UpdateGlobalOrderSystem(newOrder, e, true)
+					OrderActive(newOrder, e, time.Now())
 					ProcessElevatorOrders(newOrder, orderCompleteTx, e)
 
 					newOrder := utils.MessageNewOrder{
@@ -309,6 +311,19 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 				} else {
 
 					fmt.Println("Sending order")
+
+					var toElevator *utils.Elevator
+
+					for i, _ := range utils.Elevators {
+						if utils.Elevators[i].ID == toElevatorID {
+							toElevator = &utils.Elevators[i]
+							break
+						}
+					}
+
+					orders.UpdateGlobalOrderSystem(newOrder, toElevator, true)
+					OrderActive(newOrder, toElevator, time.Now())
+
 
 					newOrder := utils.MessageNewOrder{
 						Type:         "MessageNewOrder",
@@ -326,8 +341,7 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 			} else {
 
-				// Set lights.
-				fmt.Println("Sending order to master.")
+				// Send order to master
 
 				newOrderTx <- utils.MessageNewOrder{
 					Type:         "MessageNewOrder",
@@ -402,32 +416,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 	//   - newOrderTx: The channel to send the new order message.
 	//   - e: The current elevator.
 
-	var toElevator *utils.Elevator
 
-	for i, _ := range utils.Elevators {
-		if utils.Elevators[i].ID == toElevatorID {
-			toElevator = &utils.Elevators[i]
-			break
-		}
-	}
-
-	if fromElevator.ID == utils.MasterElevatorID {
-
-		OrderActive(newOrder, toElevator, time.Now())
-		orders.UpdateGlobalOrderSystem(newOrder, toElevator, true)
-
-	} else if toElevatorID == utils.NotDefined {
-
-		OrderActive(newOrder, fromElevator, time.Now())
-		orders.UpdateGlobalOrderSystem(newOrder, fromElevator, true)
-
-	} else if toElevatorID != utils.NotDefined {
-		
-		OrderActive(newOrder, fromElevator, time.Now())
-		orders.UpdateGlobalOrderSystem(newOrder, fromElevator, true)
-
-	
-	}
 
 	fmt.Println("Function: HandleNewOrder")
 
@@ -435,6 +424,8 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 
 		fmt.Println("Update global order system. Order update for all.")
 		// Update global order system
+		orders.UpdateGlobalOrderSystem(newOrder, fromElevator, true)
+		OrderActive(newOrder, fromElevator, time.Now())
 		UpdateElevatorsOnNetwork(fromElevator)
 
 	}
@@ -462,6 +453,8 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 
 			if bestElevator.ID == e.ID {
 
+				orders.UpdateGlobalOrderSystem(newOrder, e, true)
+				OrderActive(newOrder, e, time.Now())
 				ProcessElevatorOrders(newOrder, orderCompleteTx, e)
 
 			} else {
@@ -483,7 +476,6 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 		UpdateElevatorsOnNetwork(fromElevator)
 
 		orders.UpdateGlobalOrderSystem(newOrder, e, true)
-
 		OrderActive(newOrder, e, time.Now())
 
 		ProcessElevatorOrders(newOrder, orderCompleteTx, e)
