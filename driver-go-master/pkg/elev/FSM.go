@@ -411,7 +411,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 		}
 	}
 
-	if fromElevator.ID == utils.MasterElevatorID || toElevatorID != utils.NotDefined {
+	if fromElevator.ID == utils.MasterElevatorID {
 
 		OrderActive(newOrder, toElevator, time.Now())
 		orders.UpdateGlobalOrderSystem(newOrder, toElevator, true)
@@ -421,6 +421,12 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 		OrderActive(newOrder, fromElevator, time.Now())
 		orders.UpdateGlobalOrderSystem(newOrder, fromElevator, true)
 
+	} else if toElevatorID != utils.NotDefined {
+		
+		OrderActive(newOrder, fromElevator, time.Now())
+		orders.UpdateGlobalOrderSystem(newOrder, fromElevator, true)
+
+	
 	}
 
 	fmt.Println("Function: HandleNewOrder")
