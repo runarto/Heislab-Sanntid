@@ -20,7 +20,7 @@ type MessageOrderArrays struct { // Send periodically to update the global order
 	GlobalOrders    GlobalOrderArray           `json:"globalOrders"`
 	LocalOrderArray [NumButtons][NumFloors]int `json:"localOrderArray"` // The local order array of the elevator
 	ToElevatorID    int                        `json:"toElevatorID"`    // The elevator to send the order to
-	FromElevator    Elevator                   `json:elevator"`
+	FromElevator    Elevator                   `json:"elevator"`
 }
 
 type MessageOrderComplete struct { // Send when an order is completed

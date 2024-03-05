@@ -25,6 +25,8 @@ func NullButtons() {
 
 func InitializeElevator(e *utils.Elevator) {
 
+	NullButtons()
+
 	fmt.Println("Function: InitializeElevator")
 
 	floor := elevio.GetFloor()
@@ -541,7 +543,6 @@ func HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan utils.ElevatorS
 		}
 	}
 
-	DetermineMaster(e) // Determine the master elevator
 }
 
 func DoOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,

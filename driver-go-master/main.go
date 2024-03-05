@@ -119,10 +119,10 @@ func main() {
 				utils.GlobalOrders = orderArrays.GlobalOrders
 
 				HallOrders := utils.GlobalOrders.HallOrderArray
-				CabOrders := utils.GlobalOrders.CabOrderArray
 
 				for button := 0; button < utils.NumButtons-1; button++ {
 					for floor := 0; floor < utils.NumFloors; floor++ {
+
 						if HallOrders[button][floor] == utils.True {
 
 							Order := utils.Order{
@@ -142,14 +142,18 @@ func main() {
 					}
 				}
 
+				LocalOrders := myElevator.LocalOrderArray
+
 				for floor := 0; floor < utils.NumFloors; floor++ {
 
-					if CabOrders[myElevator.ID][floor] == utils.True {
+					if LocalOrders[utils.Cab][floor] == utils.True {
+
 						Order := utils.Order{
 							Floor:  floor,
 							Button: elevio.ButtonType(utils.Cab)}
 
 						orders.UpdateLocalOrderSystem(Order, &myElevator)
+						orders.UpdateGlobalOrderSystem(Order, &myElevator, true)
 					}
 				}
 
