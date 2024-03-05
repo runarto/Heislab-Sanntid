@@ -11,7 +11,10 @@ import (
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
-func NullButtons() { // Turns off all buttons
+func NullButtons() {
+
+	// NullButtons turns off all elevator buttons and the stop lamp.
+
 	elevio.SetStopLamp(false)
 	for f := 0; f < utils.NumFloors; f++ {
 		for b := 0; b < utils.NumButtons; b++ {
@@ -20,24 +23,38 @@ func NullButtons() { // Turns off all buttons
 	}
 }
 
-func InitElevator(e *utils.Elevator) {
-	NullButtons()
-	e.SetDoorState(utils.Close) // utils.Close the door
+func InitializeElevator(e *utils.Elevator) {
 
-	for floor := elevio.GetFloor(); floor != 0; floor = elevio.GetFloor() {
-		if floor > 0 || floor == -1 {
+	// InitializeElevator initializes the elevator by performing the following steps:
+	// 1. Checks the current floor of the elevator.
+	// 2. If the floor is not defined, it moves the elevator down for 2 seconds and then up.
+	// 3. Continues checking the floor until it is defined.
+	// 4. Stops the elevator.
+
+	fmt.Println("Function: InitializeElevator")
+
+	floor := elevio.GetFloor()
+
+	for floor == utils.NotDefined {
+		if floor == utils.NotDefined {
 			e.GoDown()
+			time.Sleep(2000 * time.Millisecond)
+			e.GoUp()
 		}
-		time.Sleep(100 * time.Millisecond)
+		floor = elevio.GetFloor()
 	}
+
 	e.StopElevator()
-	e.CurrentFloor = elevio.GetFloor()
-	fmt.Println("Elevator is ready for use")
 
 }
 
 func FloorLights(floor int, e *utils.Elevator) {
-	if floor >= 0 && floor <= 3 {
+
+	// FloorLights sets the floor indicator light and updates the current floor of the elevator.
+	// It takes the floor number and a pointer to the elevator as input.
+	// The floor number should be between 0 and NumFloors-1.
+
+	if floor >= 0 && floor <= utils.NumFloors-1 {
 		elevio.SetFloorIndicator(floor)
 		e.CurrentFloor = floor
 	}
@@ -45,6 +62,14 @@ func FloorLights(floor int, e *utils.Elevator) {
 
 func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderComplete,
 	e *utils.Elevator) bool {
+
+	// HandleOrdersAtFloor handles the orders at a specific floor.
+	// It takes the current floor, a channel for order completion messages,
+	// and a pointer to the elevator as input.
+	// It checks for active orders at the floor and takes appropriate actions based on the elevator's current direction.
+	// It updates the local and global order systems, as well as the acknowledgement structure.
+	// Finally, it sends an order completion message through the provided channel.
+	// Returns true if there are active orders at the floor, false otherwise.
 
 	fmt.Println("Function: HandleOrdersAtFloor")
 	// Update the current floor
@@ -131,6 +156,7 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 
 		}
 	}
+
 	if len(ordersDone) > 0 {
 		for i := 0; i < len(ordersDone); i++ {
 
@@ -159,6 +185,13 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 }
 
 func HandleElevatorAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderComplete, e *utils.Elevator) {
+
+	// HandleElevatorAtFloor handles the elevator's behavior when it reaches a specific floor.
+	// It handles the orders at the floor, stops the elevator, opens the door, waits for a second,
+	// closes the door, prints the order system, checks the amount of active orders, chooses the best order,
+	// and sets the elevator in the direction of the best order if there are active orders.
+	// If there are no orders, it stops the elevator and sets the state to still.
+
 	fmt.Println("Function: HandleElevatorAtFloor")
 
 	if HandleOrdersAtFloor(floor, OrderCompleteTx, e) { // If true, orders have been handled at the floor
@@ -193,6 +226,14 @@ func HandleElevatorAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCom
 }
 
 func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx chan utils.MessageOrderComplete, newOrder utils.Order, e *utils.Elevator) {
+
+	// HandleButtonEvent handles a button event by processing the new order and updating the global order system.
+	// It takes in the following parameters:
+	// - newOrderTx: a channel for sending a new order message
+	// - orderCompleteTx: a channel for sending an order complete message
+	// - newOrder: the new order to be processed
+	// - e: a pointer to the elevator object
+
 	fmt.Println("Function: HandleButtonEvent")
 
 	if !orders.CheckIfGlobalOrderIsActive(newOrder, e) { // Check if the order is already active
@@ -297,6 +338,17 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 func ProcessElevatorOrders(newOrder utils.Order, orderCompleteTx chan utils.MessageOrderComplete, e *utils.Elevator) {
 
+	// ProcessElevatorOrders processes the elevator orders by updating the local order system,
+	// checking the amount of active orders, choosing the best order, and handling the elevator
+	// at the floor or moving it to the best order.
+	//
+	// Parameters:
+	// - newOrder: The new order to be processed.
+	// - orderCompleteTx: The channel for sending order complete messages.
+	// - e: The elevator object.
+	//
+	// Returns: None.
+
 	fmt.Println("Function: ProcessElevatorOrders")
 
 	orders.UpdateLocalOrderSystem(newOrder, e)
@@ -325,6 +377,17 @@ func ProcessElevatorOrders(newOrder utils.Order, orderCompleteTx chan utils.Mess
 func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevatorID int,
 	orderCompleteTx chan utils.MessageOrderComplete, newOrderTx chan utils.MessageNewOrder, e *utils.Elevator) {
 
+	// HandleNewOrder handles a new order received by an elevator.
+	// It updates the global order system, updates the acknowledgment structure,
+	// and delegates the order to the appropriate elevator if necessary.
+	// Parameters:
+	//   - newOrder: The new order to be handled.
+	//   - fromElevator: The elevator from which the order is received.
+	//   - toElevatorID: The ID of the elevator to which the order is delegated.
+	//   - orderCompleteTx: The channel to send the order completion message.
+	//   - newOrderTx: The channel to send the new order message.
+	//   - e: The current elevator.
+
 	fmt.Println("Function: HandleNewOrder")
 
 	// Check if the order is already active
@@ -350,22 +413,30 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 		// Find the best elevator for the order
 		// Send the order to the best elevator ( if hall order )
 		UpdateElevatorsOnNetwork(fromElevator)
-		bestElevator := orders.ChooseElevator(newOrder)
-		fmt.Println("The best elevator for this order is", bestElevator.ID)
 
-		if bestElevator.ID == e.ID {
+		if newOrder.Button == utils.Cab {
 
 			ProcessElevatorOrders(newOrder, orderCompleteTx, e)
 
 		} else {
 
-			newOrder := utils.MessageNewOrder{
-				Type:         "MessageNewOrder",
-				NewOrder:     newOrder,
-				FromElevator: *e, // Use the correct field name as defined in your ElevatorStatus struct
-				ToElevatorID: bestElevator.ID}
+			bestElevator := orders.ChooseElevator(newOrder)
+			fmt.Println("The best elevator for this order is", bestElevator.ID)
 
-			newOrderTx <- newOrder
+			if bestElevator.ID == e.ID {
+
+				ProcessElevatorOrders(newOrder, orderCompleteTx, e)
+
+			} else {
+
+				newOrder := utils.MessageNewOrder{
+					Type:         "MessageNewOrder",
+					NewOrder:     newOrder,
+					FromElevator: *e, // Use the correct field name as defined in your ElevatorStatus struct
+					ToElevatorID: bestElevator.ID}
+
+				newOrderTx <- newOrder
+			}
 		}
 
 	} else if !e.IsMaster && toElevatorID == e.ID {
@@ -385,6 +456,15 @@ func HandleNewOrder(newOrder utils.Order, fromElevator *utils.Elevator, toElevat
 
 func HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan utils.ElevatorStatus,
 	orderArraysTx chan utils.MessageOrderArrays, newOrderTx chan utils.MessageNewOrder, e *utils.Elevator) {
+
+	// HandlePeersUpdate handles the update of peers in the system.
+	// It receives a PeerUpdate struct containing information about the updated peers.
+	// It also receives channels for transmitting elevator status, order arrays, and new orders.
+	// The function updates the IsActive status of existing elevators based on the updated peers.
+	// If a new peer is detected, it sends the elevator status to the elevatorStatusTx channel.
+	// If a lost peer is detected, it sets the IsActive status to false and redistributes hall orders.
+	// If a new peer is detected and the current elevator is the master, it sends the order arrays to the new peer.
+	// Finally, it calls the DetermineMaster function to determine the master elevator.
 
 	fmt.Println("Function: HandlePeersUpdate")
 
@@ -457,6 +537,13 @@ func HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan utils.ElevatorS
 func DoOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,
 	e *utils.Elevator) {
 
+	// DoOrder executes the given order for the elevator.
+	// It moves the elevator up or down to reach the order's floor.
+	// If the order's floor is the same as the current floor of the elevator,
+	// it waits for a possible order completion.
+	// The function takes the order to be executed, a channel to send order completion messages,
+	// and a pointer to the elevator object.
+
 	fmt.Println("Function: DoOrder")
 	// Do the order
 	if order.Floor > e.CurrentFloor {
@@ -477,6 +564,11 @@ func DoOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,
 
 func WaitForPossibleOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,
 	e *utils.Elevator) {
+
+	// WaitForPossibleOrder waits for a possible order to be completed.
+	// It takes an order, a channel for sending order completion messages, and an elevator as parameters.
+	// If the elevator is at the same floor as the order, it stops the elevator and handles the order completion.
+	// It also inserts a delay in case cab-orders come in.
 
 	time.Sleep(3 * time.Second) // Insert delay in case cab-orders come in.
 	if e.CurrentFloor == order.Floor {

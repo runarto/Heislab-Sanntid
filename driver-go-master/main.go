@@ -37,7 +37,7 @@ func main() {
 
 	utils.Elevators = append(utils.Elevators, myElevator) // Add the elevator to the list of active elevators
 	orders.InitLocalOrderSystem(&myElevator)              // Initialize the local order system
-	elev.InitElevator(&myElevator)                        // Initialize the elevator
+	elev.InitializeElevator(&myElevator)                  // Initialize the elevator
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool)
@@ -66,7 +66,6 @@ func main() {
 	go elev.BroadcastElevatorStatus(&myElevator, elevatorStatusTx)
 	go elev.BroadcastAckMatrix(&myElevator, ackStructTx)
 
-
 	drv_buttons := make(chan elevio.ButtonEvent)
 	drv_floors := make(chan int)
 	drv_obstr := make(chan bool)
@@ -77,8 +76,6 @@ func main() {
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollObstructionSwitch(drv_obstr)
 	go elevio.PollStopButton(drv_stop)
-
-
 
 	go func() {
 
@@ -96,10 +93,14 @@ func main() {
 
 		case ackStruct := <-ackStructRx:
 
-			fmt.Println("---ACK STRUCT RECEIVED---")
+			if ackStruct.FromElevatorID != myElevator.ID {
 
-			val := ackStruct.OrderWatcher
-			utils.OrderWatcher = val
+				fmt.Println("---ACK STRUCT RECEIVED---")
+
+				val := ackStruct.OrderWatcher
+				utils.OrderWatcher = val
+
+			}
 
 		case orderArrays := <-orderArraysRx:
 
@@ -268,8 +269,8 @@ func main() {
 			myElevator.StopBtnPressed(stop)
 			//StopButton(stop)
 
-		default: 
-			
+		default:
+
 			if orders.CheckAmountOfActiveOrders(&myElevator) > 0 {
 
 				utils.BestOrder = orders.ChooseBestOrder(&myElevator) // Choose the best order

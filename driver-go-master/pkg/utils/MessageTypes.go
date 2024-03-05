@@ -42,6 +42,7 @@ type ElevatorStatus struct {
 }
 
 type AckMatrix struct {
-	Type         string            `json:"type"`      // A type identifier for decoding on the receiving end
-	OrderWatcher GlobalOrderStruct `json:"ackStruct"` // The Elevator instance
+	Type           string            `json:"type"`           // A type identifier for decoding on the receiving end
+	OrderWatcher   GlobalOrderStruct `json:"ackStruct"`      // The Elevator instance
+	FromElevatorID int               `json:"fromElevatorID"` // The elevator to send the order to
 }

@@ -8,8 +8,6 @@ import (
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
-// Idea: calculate the cost of each elevator and choose the one with the lowest cost
-
 func CalculateCost(e utils.Elevator, order utils.Order) int {
 
 	cost := 0

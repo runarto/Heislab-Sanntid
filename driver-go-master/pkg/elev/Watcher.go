@@ -11,8 +11,14 @@ import (
 
 func OrderCompleted(order utils.Order, e *utils.Elevator) {
 
-	fmt.Println("Function: OrderCompleted")
+	// OrderCompleted updates the status of a completed order in the OrderWatcher.
+	// It takes an order and an elevator as input parameters.
+	// If the order is a cab order, it marks the corresponding cab order as completed,
+	// sets the completion time, and marks it as inactive.
+	// If the order is a hall order, it marks the corresponding hall order as completed,
+	// sets the completion time, and marks it as inactive.
 
+	fmt.Println("Function: OrderCompleted")
 
 	button := order.Button
 	floor := order.Floor
@@ -29,6 +35,13 @@ func OrderCompleted(order utils.Order, e *utils.Elevator) {
 }
 
 func OrderActive(order utils.Order, e *utils.Elevator) {
+
+	// OrderActive updates the status of an order in the OrderWatcher based on the given order and elevator.
+	// If the order is a cab order, it sets the corresponding cab order as active and updates the time.
+	// If the order is a hall order, it sets the corresponding hall order as active and updates the time.
+	// Parameters:
+	// - order: The order to be updated.
+	// - e: The elevator associated with the order.
 
 	fmt.Println("Function: OrderActive")
 
@@ -47,8 +60,12 @@ func OrderActive(order utils.Order, e *utils.Elevator) {
 	}
 }
 
-
 func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewOrder, orderCompleteTx chan utils.MessageOrderComplete) {
+
+	// CheckIfOrderIsComplete checks if any hall or cab orders have not been completed within 15 seconds.
+	// If an order is not completed, it reassigns the order to the best available elevator.
+	// It also updates the order status and sends new order messages if necessary.
+	// Finally, it updates the hall and cab order arrays.
 
 	fmt.Println("Function: CheckIfOrderIsComplete")
 
@@ -72,6 +89,36 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 				}
 			}
 		}
+	}
+
+	CabOrderArray := utils.OrderWatcher.CabOrderArray
+
+	for i, _ := range utils.Elevators {
+		if utils.Elevators[i].IsActive {
+			for floor := 0; floor < utils.NumFloors; floor++ {
+				if CabOrderArray[utils.Elevators[i].ID][floor].Active == true && CabOrderArray[utils.Elevators[i].ID][floor].Completed == false {
+					if currentTime.Sub(CabOrderArray[utils.Elevators[i].ID][floor].Time) > 15*time.Second {
+
+						fmt.Println("Elevator", utils.Elevators[i].ID, "did not complete cab order at floor", floor, ". Resending order.")
+
+						newOrder := utils.MessageNewOrder{
+							Type: "MessageNewOrder",
+							NewOrder: utils.Order{
+								Floor:  floor,
+								Button: utils.Cab},
+							FromElevator: *e,
+							ToElevatorID: utils.Elevators[i].ID,
+						}
+
+						CabOrderArray[utils.Elevators[i].ID][floor].Active = false
+
+						newOrderTx <- newOrder
+
+					}
+				}
+			}
+		}
+
 	}
 
 	for i, _ := range ordersToBeReAssigned {
@@ -108,10 +155,17 @@ func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewO
 	}
 
 	utils.OrderWatcher.HallOrderArray = HallOrderArray
+	utils.OrderWatcher.CabOrderArray = CabOrderArray
 
 }
 
 func DetermineMaster(e *utils.Elevator) {
+
+	// DetermineMaster determines the master elevator among the available elevators.
+	// It sets the first active elevator as the initial master candidate and then compares it with other active elevators.
+	// The elevator with the lowest ID becomes the master candidate.
+	// Finally, it updates the local state and broadcasts the master election result if necessary.
+
 	fmt.Println("Function: DetermineMaster")
 
 	if len(utils.Elevators) == 0 {
@@ -160,3 +214,6 @@ func DetermineMaster(e *utils.Elevator) {
 	// Broadcast or communicate the master election result as needed
 	// This could involve sending a message to all elevators or updating a shared state
 }
+
+// To-Do function for handling motor stop?
+// In the case of it happening, redistribute all active hall orders?
