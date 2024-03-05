@@ -105,6 +105,7 @@ func main() {
 		case orderArrays := <-orderArraysRx:
 
 			toElevatorID := orderArrays.ToElevatorID
+			fromElevator := orderArrays.FromElevator
 
 			if toElevatorID == myElevator.ID {
 
@@ -128,7 +129,7 @@ func main() {
 								Floor:  floor,
 								Button: elevio.ButtonType(button)}
 
-							orders.UpdateGlobalOrderSystem(Order, &myElevator, true)
+							orders.UpdateGlobalOrderSystem(Order, &fromElevator, true)
 
 						} else {
 
@@ -136,7 +137,7 @@ func main() {
 								Floor:  floor,
 								Button: elevio.ButtonType(button)}
 
-							orders.UpdateGlobalOrderSystem(Order, &myElevator, false)
+							orders.UpdateGlobalOrderSystem(Order, &fromElevator, false)
 						}
 					}
 				}
