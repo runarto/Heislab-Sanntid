@@ -517,14 +517,24 @@ func HandlePeersUpdate(p peers.PeerUpdate, elevatorStatusTx chan utils.ElevatorS
 		}
 
 	}
-
+	
+	var offlineElevators []utils.Elevator
 	for i, _ := range utils.Elevators {
 		for _, peer := range p.Lost {
 			peerID, _ := strconv.Atoi(peer)
 			if utils.Elevators[i].ID == peerID {
 				utils.Elevators[i].IsActive = false
-				orders.RedistributeHallOrders(&utils.Elevators[i], newOrderTx, e)
+				offlineElevators = append(offlineElevators, utils.Elevators[i])
 			}
+		}
+	}
+
+	for i, _ := range offlineElevators {
+		if offlineElevators[i].ID == e.ID {
+			utils.Elevators[i].IsActive = true
+		} else {
+			orders.RedistributeHallOrders(&offlineElevators[i], newOrderTx, e)
+		
 		}
 	}
 
