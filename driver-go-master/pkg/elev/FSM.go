@@ -17,7 +17,7 @@ func FSM(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 			utils.BestOrder = bestOrder
 
-			DoOrder(bestOrder, channels.OrderCompleteTx, thisElevator, channels.BestOrderCh)
+			DoOrder(bestOrder, thisElevator, channels)
 
 		case btn := <-channels.ButtonCh:
 
@@ -39,8 +39,8 @@ func FSM(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 			fmt.Println("Arrived at floor: ", floor)
 
-			FloorLights(floor, thisElevator)                                                           // Update the floor lights
-			HandleElevatorAtFloor(floor, channels.OrderCompleteTx, thisElevator, channels.BestOrderCh) // Handle the elevator at the floor
+			FloorLights(floor, thisElevator)                     // Update the floor lights
+			HandleElevatorAtFloor(floor, channels, thisElevator) // Handle the elevator at the floor
 
 		case obstr := <-channels.ObstrCh:
 			thisElevator.Obstruction(obstr)
