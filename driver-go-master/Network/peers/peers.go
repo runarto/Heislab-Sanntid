@@ -14,10 +14,13 @@ type PeerUpdate struct {
 	Lost  []string
 }
 
+var cheat_id string
 const interval = 15 * time.Millisecond
 const timeout = 5000 * time.Millisecond
 
 func Transmitter(port int, id string, transmitEnable <-chan bool) {
+
+	cheat_id = id
 
 	conn, _ := conn.DialBroadcastUDP(port)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
@@ -83,6 +86,8 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 			for k, _ := range lastSeen {
 				p.Peers = append(p.Peers, k)
 			}
+
+			p.Peers = append(p.Peers, cheat_id)
 
 			sort.Strings(p.Peers)
 			sort.Strings(p.Lost)
