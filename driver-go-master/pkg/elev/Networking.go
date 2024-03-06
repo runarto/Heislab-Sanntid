@@ -8,6 +8,7 @@ import (
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/pkg/orders"
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
+	"github.com/runarto/Heislab-Sanntid/elevio"
 )
 
 func BroadcastElevatorStatus(thisElevator *utils.Elevator, channels *utils.Channels) {
@@ -93,7 +94,9 @@ func HandleOrderComplete(orderComplete utils.MessageOrderComplete, GlobalUpdateC
 	// It takes an order completion message as input and updates the local and global order systems.
 
 	if orderComplete.FromElevatorID == thisElevator.ID {
+
 		return
+
 	}
 
 	fmt.Println("Function: HandleOrderComplete")
@@ -128,6 +131,19 @@ func HandlePeersUpdate(p peers.PeerUpdate, thisElevator *utils.Elevator, channel
 
 	var NewPeersMessage utils.NewPeersMessage
 
+	MasterID, _ := strconv.Atoi(p.Peers[0])
+
+	if MasterID == thisElevator.ID {
+		thisElevator.IsMaster = true
+	} else {
+		thisElevator.IsMaster = false
+	
+	}
+
+	utils.MasterElevatorID = MasterID
+
+
+
 	for i, _ := range p.Peers {
 
 		peerID, _ := strconv.Atoi(p.Peers[i])
@@ -147,9 +163,13 @@ func HandlePeersUpdate(p peers.PeerUpdate, thisElevator *utils.Elevator, channel
 
 		if !found {
 
+			go func() {
+
 			channels.ElevatorStatusTx <- utils.ElevatorStatus{
 				Type:         "ElevatorStatus",
 				FromElevator: *thisElevator}
+			
+			}()
 
 		}
 	}
@@ -170,15 +190,19 @@ func HandlePeersUpdate(p peers.PeerUpdate, thisElevator *utils.Elevator, channel
 		}
 	}
 
-	if len(NewPeersMessage.NewPeers) > 0 || len(NewPeersMessage.LostPeers) > 0 {
+	go func() {
 
-		channels.PeersOnlineCh <- NewPeersMessage
+		if len(NewPeersMessage.NewPeers) > 0 || len(NewPeersMessage.LostPeers) > 0 {
 
-	}
+			channels.PeersOnlineCh <- NewPeersMessage
+
+		}
+
+	}()
 
 }
 
-func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, e *utils.Elevator, channels *utils.Channels) {
+func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, thisElevator *utils.Elevator, channels *utils.Channels) {
 
 	// HandleNewOrder handles a new order received by an elevator.
 	// It updates the global order system, updates the acknowledgment structure,
@@ -193,7 +217,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 
 	fmt.Println("Function: HandleNewOrder")
 
-	if toElevatorID == utils.NotDefined && fromElevatorID != e.ID {
+	if toElevatorID == utils.NotDefined && fromElevatorID != thisElevator.ID {
 
 		fmt.Println("Update global order system. Order update for all.")
 		// Update global order system
@@ -208,7 +232,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 
 	}
 
-	if e.IsMaster && toElevatorID == e.ID {
+	if thisElevator.IsMaster && toElevatorID == thisElevator.ID {
 
 		// Update global order system locally
 		// Find the best elevator for the order
@@ -216,7 +240,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 
 		if newOrder.Button == utils.Cab {
 
-			orders.UpdateLocalOrderSystem(newOrder, e)
+			orders.UpdateLocalOrderSystem(newOrder, thisElevator)
 
 			orders := utils.GlobalOrderUpdate{
 				Orders:         []utils.Order{newOrder},
@@ -233,24 +257,58 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 			ack := utils.OrderConfirmed{
 				Type:           "OrderConfirmed",
 				Confirmed:      true,
-				FromElevatorID: e.ID}
+				FromElevatorID: thisElevator.ID}
 
-			channels.OrderConfirmedTx <- ack
+			channels.AckTx <- ack
 
 			bestElevator := orders.ChooseElevator(newOrder)
 			fmt.Println("The best elevator for this order is", bestElevator.ID)
 
-			if bestElevator.ID == e.ID {
+			if bestElevator.ID == thisElevator.ID {
 
-				orders.UpdateLocalOrderSystem(newOrder, e)
+				orders.UpdateLocalOrderSystem(newOrder, thisElevator)
 
-				orders := utils.GlobalOrderUpdate{
+				orderUpdate := utils.GlobalOrderUpdate{
 					Orders:         []utils.Order{newOrder},
 					FromElevatorID: fromElevatorID,
 					IsComplete:     false,
 					IsNew:          true}
 
-				channels.GlobalUpdateCh <- orders
+				channels.GlobalUpdateCh <- orderUpdate
+
+				amountOfOrders := orders.CheckAmountOfActiveOrders(thisElevator)
+
+				if amountOfOrders > 0 {
+
+					if thisElevator.CurrentState == utils.Still {
+			
+			
+						utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
+			
+			
+						if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
+			
+							HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+			
+						} else { 
+			
+							fmt.Println("The best order is ", utils.BestOrder)
+							DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+			
+						}
+			
+					} else if thisElevator.CurrentState == utils.Moving {
+			
+						utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
+						fmt.Println("The best order is ", utils.BestOrder)
+						DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order	
+					}
+			
+				} else {
+			
+					thisElevator.StopElevator()
+			
+				}
 
 			} else {
 
@@ -258,27 +316,61 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 					Type:           "MessageNewOrder",
 					NewOrder:       newOrder,
 					ToElevatorID:   bestElevator.ID, // Use the correct field name as defined in your ElevatorStatus struct
-					FromElevatorID: e.ID}
+					FromElevatorID: thisElevator.ID}
 
 				channels.NewOrderTx <- newOrder
 			}
 		}
 
-	} else if !e.IsMaster && toElevatorID == e.ID {
+	} else if !thisElevator.IsMaster && toElevatorID == thisElevator.ID {
 
 		fmt.Println("New order received: ", newOrder, "from master elevator.")
 
-		orders.UpdateLocalOrderSystem(newOrder, e)
+		orders.UpdateLocalOrderSystem(newOrder, thisElevator)
 
-		orders := utils.GlobalOrderUpdate{
+		orderUpdate := utils.GlobalOrderUpdate{
 			Orders:         []utils.Order{newOrder},
 			FromElevatorID: fromElevatorID,
 			IsComplete:     false,
 			IsNew:          true}
 
-		channels.GlobalUpdateCh <- orders
+		channels.GlobalUpdateCh <- orderUpdate
 
-	} else if !e.IsMaster && toElevatorID != e.ID && fromElevatorID != e.ID {
+		amountOfOrders := orders.CheckAmountOfActiveOrders(thisElevator)
+
+		if amountOfOrders > 0 {
+
+			if thisElevator.CurrentState == utils.Still {
+	
+	
+				utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
+	
+	
+				if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
+	
+					HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+	
+				} else { 
+	
+					fmt.Println("The best order is ", utils.BestOrder)
+					DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+	
+				}
+	
+			} else if thisElevator.CurrentState == utils.Moving {
+	
+				utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
+				fmt.Println("The best order is ", utils.BestOrder)
+				DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order	
+			}
+	
+		} else {
+	
+			thisElevator.StopElevator()
+	
+		}
+
+	} else if !thisElevator.IsMaster && toElevatorID != thisElevator.ID && fromElevatorID != thisElevator.ID {
 
 		orders := utils.GlobalOrderUpdate{
 			Orders:         []utils.Order{newOrder},
@@ -292,7 +384,7 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 }
 
 func WaitForAck(ackCh chan utils.OrderConfirmed, timeout time.Duration,
-	newOrder utils.Order, thisElevator *utils.Elevator) error {
+	newOrder utils.Order, thisElevator *utils.Elevator) {
 
 	fmt.Println("Function: WaitForAck")
 
@@ -314,12 +406,12 @@ func WaitForAck(ackCh chan utils.OrderConfirmed, timeout time.Duration,
 
 				fmt.Println("Order confirmed by master.")
 
-				return nil
+				return
 			}
 
 		case <-time.After(timeout):
 
-			return fmt.Errorf("Timeout")
+			fmt.Println("Timeout")
 
 		}
 

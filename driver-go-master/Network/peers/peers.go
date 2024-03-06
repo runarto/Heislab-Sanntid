@@ -89,10 +89,12 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 				p.Peers = append(p.Peers, k)
 			}
 
-			p.Peers = append(p.Peers, cheat_id)
-
 			sort.Strings(p.Peers)
 			sort.Strings(p.Lost)
+			fmt.Printf("Peer update to send:\n")
+			fmt.Printf("  Peers:    %q\n", p.Peers)
+			fmt.Printf("  New:      %q\n", p.New)
+			fmt.Printf("  Lost:     %q\n", p.Lost)
 			peerUpdateCh <- p
 		}
 	}

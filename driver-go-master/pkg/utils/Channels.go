@@ -24,8 +24,8 @@ type Channels struct {
 	MasterOrderWatcherTx chan MessageOrderWatcher
 	MasterOrderWatcherRx chan MessageOrderWatcher
 
-	OrderConfirmedTx chan OrderConfirmed
-	OrderConfirmedRx chan OrderConfirmed
+	AckTx chan OrderConfirmed
+	AckRx chan OrderConfirmed
 
 	GlobalUpdateCh chan GlobalOrderUpdate
 	ButtonCh       chan elevio.ButtonEvent

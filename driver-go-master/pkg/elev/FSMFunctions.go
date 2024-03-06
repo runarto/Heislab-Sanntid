@@ -178,6 +178,7 @@ func HandleOrdersAtFloor(floor int, channels *utils.Channels, thisElevator *util
 		}
 
 		go func() {
+
 			orders := utils.GlobalOrderUpdate{
 				Orders:         ordersDone,
 				FromElevatorID: thisElevator.ID,
@@ -185,22 +186,27 @@ func HandleOrdersAtFloor(floor int, channels *utils.Channels, thisElevator *util
 				IsNew:          false}
 
 			channels.GlobalUpdateCh <- orders
+		}()
+
+		go func() {
 
 			channels.OrderWatcher <- utils.OrderWatcher{
 				Orders:        ordersDone,
 				ForElevatorID: thisElevator.ID,
 				New:           false,
 				Complete:      true}
+		}
 
+		go func() {
 			ordersComplete := utils.MessageOrderComplete{
 				Type:           "MessageOrderComplete",
 				Orders:         ordersDone,
 				ToElevatorID:   utils.NotDefined,
 				FromElevatorID: thisElevator.ID}
 
+			fmt.Println("Sending order complete message...")
 			channels.OrderCompleteTx <- ordersComplete
-
-
+			fmt.Println("Order complete message sent.")
 		}()
 
 		return true
@@ -295,7 +301,7 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 			channels.NewOrderTx <- order
 
 			if !thisElevator.IsMaster {
-				go WaitForAck(channels.OrderConfirmedRx, utils.Timeout, newOrder, thisElevator)
+				go WaitForAck(channels.AckRx, utils.Timeout, newOrder, thisElevator)
 			}
 
 			if orders.CheckIfLocalOrderIsActive(newOrder, thisElevator) { // Check if the order is active
@@ -364,6 +370,7 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 
 			} else {
 
+				fmt.Println("Sending order to master...")
 				// Send order to master
 				order := utils.MessageNewOrder{
 					Type:           "MessageNewOrder",
@@ -373,7 +380,7 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 
 				channels.NewOrderTx <- order
 
-				go WaitForAck(channels.OrderConfirmedRx, utils.Timeout, newOrder, thisElevator)
+				go WaitForAck(channels.AckRx, utils.Timeout, newOrder, thisElevator)
 
 				if orders.CheckAmountOfActiveOrders(thisElevator) > 0 {
 
