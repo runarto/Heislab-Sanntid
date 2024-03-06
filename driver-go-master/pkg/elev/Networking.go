@@ -10,7 +10,7 @@ import (
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
-func BroadcastElevatorStatus(e *utils.Elevator, statusTx chan utils.ElevatorStatus) {
+func BroadcastElevatorStatus(thisElevator *utils.Elevator, channels *utils.Channels) {
 
 	// BroadcastElevatorStatus broadcasts the elevator status periodically to other elevators.
 	// It takes an elevator pointer and a channel for transmitting the elevator status.
@@ -24,12 +24,13 @@ func BroadcastElevatorStatus(e *utils.Elevator, statusTx chan utils.ElevatorStat
 	defer ticker.Stop()
 	for range ticker.C {
 		if len(utils.Elevators) > 1 {
+
 			elevatorStatusMessage := utils.ElevatorStatus{
 				Type:         "ElevatorStatus",
-				FromElevator: *e,
+				FromElevator: *thisElevator,
 			}
 
-			statusTx <- elevatorStatusMessage
+			channels.ElevatorStatusTx <- elevatorStatusMessage
 		}
 	}
 }

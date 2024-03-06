@@ -171,27 +171,37 @@ func HandleOrdersAtFloor(floor int, channels *utils.Channels, thisElevator *util
 
 	if len(ordersDone) > 0 {
 
-		orders := utils.GlobalOrderUpdate{
-			Orders:         ordersDone,
-			FromElevatorID: thisElevator.ID,
-			IsComplete:     true,
-			IsNew:          false}
+		fmt.Println("Function HandleOrdersAtFloor: true")
 
-		channels.GlobalUpdateCh <- orders
+		for i, _ := range ordersDone {
+			orders.UpdateLocalOrderSystem(ordersDone[i], thisElevator)
+		}
 
-		channels.OrderWatcher <- utils.OrderWatcher{
-			Orders:        ordersDone,
-			ForElevatorID: thisElevator.ID,
-			New:           false,
-			Complete:      true}
+		go func() {
+			orders := utils.GlobalOrderUpdate{
+				Orders:         ordersDone,
+				FromElevatorID: thisElevator.ID,
+				IsComplete:     true,
+				IsNew:          false}
 
-		ordersComplete := utils.MessageOrderComplete{
-			Type:           "MessageOrderComplete",
-			Orders:         ordersDone,
-			ToElevatorID:   utils.NotDefined,
-			FromElevatorID: thisElevator.ID}
+			channels.GlobalUpdateCh <- orders
 
-		channels.OrderCompleteTx <- ordersComplete
+			channels.OrderWatcher <- utils.OrderWatcher{
+				Orders:        ordersDone,
+				ForElevatorID: thisElevator.ID,
+				New:           false,
+				Complete:      true}
+
+			ordersComplete := utils.MessageOrderComplete{
+				Type:           "MessageOrderComplete",
+				Orders:         ordersDone,
+				ToElevatorID:   utils.NotDefined,
+				FromElevatorID: thisElevator.ID}
+
+			channels.OrderCompleteTx <- ordersComplete
+
+
+		}()
 
 		return true
 
@@ -213,7 +223,9 @@ func HandleElevatorAtFloor(floor int, channels *utils.Channels, thisElevator *ut
 
 	fmt.Println("Function: HandleElevatorAtFloor")
 
-	if HandleOrdersAtFloor(floor, channels, thisElevator) && elevio.GetFloor() != utils.NotDefined { // If true, orders have been handled at the floor
+	if HandleOrdersAtFloor(floor, channels, thisElevator)  { // If true, orders have been handled at the floor
+
+		fmt.Println("Here")
 
 		thisElevator.StopElevator()            // Stop the elevator
 		thisElevator.SetDoorState(utils.Open)  // utils.Open the door
@@ -229,11 +241,15 @@ func HandleElevatorAtFloor(floor int, channels *utils.Channels, thisElevator *ut
 
 		if amountOfOrders > 0 {
 
-			BestOrder := orders.ChooseBestOrder(thisElevator) // Choose the best order
+			utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
 
 			fmt.Println("Best order: ", utils.BestOrder)
 
-			channels.BestOrderCh <- BestOrder
+			if thisElevator.CurrentState == utils.Still {
+
+				DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+
+			}
 
 		} else {
 
@@ -256,8 +272,6 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 	fmt.Println("Function: HandleButtonEvent")
 
 	if !orders.CheckIfGlobalOrderIsActive(newOrder, thisElevator.ID) { // Check if the order is already active
-
-		orders.UpdateLocalOrderSystem(newOrder, thisElevator) // Update the local order system
 
 		channels.GlobalUpdateCh <- utils.GlobalOrderUpdate{
 			Orders:         []utils.Order{newOrder},
@@ -288,6 +302,7 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 				if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
 					HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
 				} else {
+					
 					fmt.Println("Best order is", utils.BestOrder)
 					DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
 				}
@@ -311,7 +326,7 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 
 					fmt.Println("Handling locally")
 
-					ProcessElevatorOrders(newOrder, thisElevator, channels)
+					go ProcessElevatorOrders(newOrder, thisElevator, channels)
 
 					newOrder := utils.MessageNewOrder{
 						Type:           "MessageNewOrder",
@@ -401,7 +416,6 @@ func ProcessElevatorOrders(newOrder utils.Order, thisElevator *utils.Elevator, c
 	if amountOfOrders > 0 {
 
 		BestOrder := orders.ChooseBestOrder(thisElevator) // Choose the best order
-		fmt.Println("Best order: ", utils.BestOrder)
 
 		if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
 
@@ -409,10 +423,19 @@ func ProcessElevatorOrders(newOrder utils.Order, thisElevator *utils.Elevator, c
 
 		} else {
 
-			channels.BestOrderCh <- BestOrder
+			if thisElevator.CurrentState == utils.Still {
+
+				fmt.Println("The best order is ", BestOrder)
+				DoOrder(BestOrder, thisElevator, channels) // Move the elevator to the best order
+
+			}
+
 		}
+
 	} else {
+
 		thisElevator.StopElevator()
+
 	}
 }
 

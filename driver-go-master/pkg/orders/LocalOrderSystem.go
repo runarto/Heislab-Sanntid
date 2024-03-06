@@ -77,6 +77,8 @@ func ChooseBestOrder(e *utils.Elevator) utils.Order {
 	orderAbove := CheckAbove(e.CurrentFloor, e)
 	orderBelow := CheckBelow(e.CurrentFloor, e)
 
+	fmt.Println("Current floor is: ", e.CurrentFloor)
+
 	if e.CurrentDirection == utils.Up {
 		if e.CurrentFloor == 3 {
 			fmt.Println("Check below (Up)")
@@ -126,7 +128,9 @@ func CheckAbove(floor int, e *utils.Elevator) utils.Order {
 			if e.LocalOrderArray[button][floorOrder] == utils.True { // If there is an active order
 
 				if button == utils.HallUp || button == utils.Cab { // If the order is an up order or a cab order
+
 					if CurrentBestOrder.Floor == utils.NotDefined { // If the best order is not defined
+
 						Order := utils.Order{
 							Floor:  floorOrder,
 							Button: elevio.ButtonType(button)}
@@ -165,8 +169,10 @@ func CheckAbove(floor int, e *utils.Elevator) utils.Order {
 		}
 	}
 	if CurrentBestOrder.Floor != utils.NotDefined {
+		fmt.Println("CheckAbove: CurrentBestOrder", CurrentBestOrder)
 		return CurrentBestOrder
 	} else {
+		fmt.Println("CheckAbove: CurrentSecondBestOrder", CurrentSecondBestOrder)
 		return CurrentSecondBestOrder
 	}
 }
@@ -233,8 +239,10 @@ func CheckBelow(floor int, e *utils.Elevator) utils.Order {
 		}
 	}
 	if CurrentBestOrder.Floor != utils.NotDefined {
+		fmt.Println("CheckBelow: CurrentBestOrder", CurrentBestOrder)
 		return CurrentBestOrder
 	} else {
+		fmt.Println("CheckBelow: CurrentSecondBestOrder", CurrentSecondBestOrder)
 		return CurrentSecondBestOrder
 	}
 }

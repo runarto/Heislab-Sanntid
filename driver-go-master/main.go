@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"strconv"
+	"fmt"
 
 	"github.com/runarto/Heislab-Sanntid/Network/bcast"
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
@@ -28,7 +29,7 @@ func main() {
 		Obstructed:       false,                                    // No obstruction initially
 		StopButton:       false,                                    // Stop button not pressed initially
 		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]int{}, // Initialize with zero values
-		IsMaster:         false,                                    // Not master initially
+		IsMaster:         true,                                    // Not master initially
 		ID:               1,                                        // Set to the ID of the elevator
 		IsActive:         true,                                     // Elevator is active initially
 	}
@@ -71,11 +72,14 @@ func main() {
 		StopCh:         make(chan bool),
 	}
 
+	fmt.Println("lessgoo")
+
 	go bcast.Transmitter(utils.ListeningPort, channels.NewOrderTx, channels.OrderCompleteTx, channels.ElevatorStatusTx, channels.OrderArraysTx, channels.MasterOrderWatcherTx) // You can add more channels as needed
 	go bcast.Receiver(utils.ListeningPort, channels.NewOrderRx, channels.OrderCompleteRx, channels.ElevatorStatusRx, channels.OrderArraysRx, channels.MasterOrderWatcherRx)    // You can add more channels as needed
 
-	go elev.BroadcastElevatorStatus(&thisElevator, channels.ElevatorStatusTx)
+	go elev.BroadcastElevatorStatus(&thisElevator, channels)
 	go elev.BroadcastMasterOrderWatcher(&thisElevator, channels.MasterOrderWatcherTx)
+
 	go elev.Bark(&thisElevator, channels)
 	go elev.Watchdog(channels, &thisElevator)
 
@@ -90,5 +94,7 @@ func main() {
 	go elev.NetworkUpdate(channels, &thisElevator)
 
 	go elev.FSM(channels, &thisElevator)
+
+	select{}
 
 }

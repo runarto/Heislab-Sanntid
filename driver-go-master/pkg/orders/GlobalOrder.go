@@ -109,46 +109,4 @@ func UpdateGlobalOrderSystem(order utils.Order, ElevatorID int, value bool) {
 
 }
 
-func RedistributeHallOrders(offlineElevator *utils.Elevator, newOrderTx chan utils.MessageNewOrder, e *utils.Elevator) { // Should this perhaps be a pointer
 
-	fmt.Println("Function: RedistributeHallOrders")
-
-	if CheckAmountOfActiveOrders(offlineElevator) == 0 {
-		return
-	}
-
-	for button := 0; button < utils.NumButtons-1; button++ { // Don't change Cab-orders
-		for floor := 0; floor < utils.NumFloors; floor++ {
-			if offlineElevator.LocalOrderArray[button][floor] == utils.True {
-
-				Order := utils.Order{
-					Floor:  floor,
-					Button: elevio.ButtonType(button)}
-
-				utils.GlobalOrders.HallOrderArray[button][floor] = utils.False
-				offlineElevator.LocalOrderArray[button][floor] = utils.False
-
-				BestElevator := ChooseElevator(Order)
-
-				UpdateGlobalOrderSystem(Order, BestElevator, true)
-
-				if BestElevator.ID == e.ID {
-
-					e.LocalOrderArray[button][floor] = utils.True
-					elevio.SetButtonLamp(elevio.ButtonType(button), floor, true)
-
-				} else {
-
-					newOrder := utils.MessageNewOrder{
-						Type:         "MessageNewOrder",
-						NewOrder:     Order,
-						FromElevator: *BestElevator,
-						ToElevatorID: BestElevator.ID}
-
-					newOrderTx <- newOrder
-				}
-
-			}
-		}
-	}
-}
