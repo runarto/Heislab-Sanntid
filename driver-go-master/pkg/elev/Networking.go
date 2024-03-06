@@ -105,7 +105,10 @@ func HandleOrderComplete(orderComplete utils.MessageOrderComplete, GlobalUpdateC
 
 	orders := utils.GlobalOrderUpdate{
 		Orders:         ordersDone,
-		FromElevatorID: orderComplete.FromElevatorID}
+		FromElevatorID: orderComplete.FromElevatorID,
+		New: false,
+		Completed: true,
+		}
 
 	GlobalUpdateCh <- orders
 

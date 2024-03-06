@@ -195,7 +195,7 @@ func HandleOrdersAtFloor(floor int, channels *utils.Channels, thisElevator *util
 				ForElevatorID: thisElevator.ID,
 				New:           false,
 				Complete:      true}
-		}
+		}()
 
 		go func() {
 			ordersComplete := utils.MessageOrderComplete{

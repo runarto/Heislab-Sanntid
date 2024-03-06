@@ -29,8 +29,8 @@ func main() {
 		Obstructed:       false,                                    // No obstruction initially
 		StopButton:       false,                                    // Stop button not pressed initially
 		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]int{}, // Initialize with zero values
-		IsMaster:         true,                                    // Not master initially
-		ID:               1,                                        // Set to the ID of the elevator
+		IsMaster:         false,                                    // Not master initially
+		ID:               0,                                        // Set to the ID of the elevator
 		IsActive:         true,                                     // Elevator is active initially
 	}
 
