@@ -61,3 +61,10 @@ var OrderWatcher = GlobalOrderStruct{
 var BestOrder = Order{
 	Floor:  NotDefined,
 	Button: elevio.BT_HallUp}
+
+type GlobalOrderUpdate struct {
+	Orders         []Order
+	FromElevatorID int
+	IsComplete     bool
+	IsNew          bool
+}

@@ -20,21 +20,21 @@ type MessageOrderArrays struct { // Send periodically to update the global order
 	GlobalOrders    GlobalOrderArray           `json:"globalOrders"`
 	LocalOrderArray [NumButtons][NumFloors]int `json:"localOrderArray"` // The local order array of the elevator
 	ToElevatorID    int                        `json:"toElevatorID"`    // The elevator to send the order to
-	FromElevator    Elevator                   `json:"elevator"`
+	FromElevatorID  int                        `json:"fromElevatorID"`  // The elevator that sent the order
 }
 
 type MessageOrderComplete struct { // Send when an order is completed
-	Type           string   `json:"type"` // Explicitly indicate the message type
-	Orders         []Order  `json:"order"`
-	FromElevator   Elevator `json:"elevator"`
-	FromElevatorID int      `json:"fromElevatorID"` // The elevator that completed the order
+	Type           string  `json:"type"` // Explicitly indicate the message type
+	Orders         []Order `json:"orders"`
+	ToElevatorID   int     `json:"toElevatorID"`
+	FromElevatorID int     `json:"fromElevatorID"` // The elevator that completed the order
 }
 
 type MessageNewOrder struct { // Send when a new order is received
-	Type         string   `json:"type"` // Explicitly indicate the message type
-	NewOrder     Order    `json:"newOrder"`
-	FromElevator Elevator `json:"elevator"`
-	ToElevatorID int      `json:"toElevatorID"` // The elevator to send the order to
+	Type           string `json:"type"` // Explicitly indicate the message type
+	NewOrder       Order  `json:"newOrder"`
+	ToElevatorID   int    `json:"toElevatorID"`
+	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
 }
 
 type ElevatorStatus struct {

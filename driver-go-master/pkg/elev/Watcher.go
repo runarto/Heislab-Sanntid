@@ -9,7 +9,7 @@ import (
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
-func OrderCompleted(order utils.Order, e *utils.Elevator) {
+func OrderCompleted(order utils.Order, ElevatorID int) {
 
 	// OrderCompleted updates the status of a completed order in the OrderWatcher.
 	// It takes an order and an elevator as input parameters.
@@ -24,9 +24,9 @@ func OrderCompleted(order utils.Order, e *utils.Elevator) {
 	floor := order.Floor
 
 	if button == utils.Cab {
-		utils.OrderWatcher.CabOrderArray[e.ID][floor].Completed = true
-		utils.OrderWatcher.CabOrderArray[e.ID][floor].Time = time.Now()
-		utils.OrderWatcher.CabOrderArray[e.ID][floor].Active = false
+		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Completed = true
+		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Time = time.Now()
+		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Active = false
 	} else {
 		utils.OrderWatcher.HallOrderArray[button][floor].Completed = true
 		utils.OrderWatcher.HallOrderArray[button][floor].Time = time.Now()
@@ -34,7 +34,7 @@ func OrderCompleted(order utils.Order, e *utils.Elevator) {
 	}
 }
 
-func OrderActive(order utils.Order, e *utils.Elevator, time time.Time) {
+func OrderActive(order utils.Order, ElevatorID int, time time.Time) {
 
 	// OrderActive updates the status of an order in the OrderWatcher based on the given order and elevator.
 	// If the order is a cab order, it sets the corresponding cab order as active and updates the time.
@@ -49,9 +49,9 @@ func OrderActive(order utils.Order, e *utils.Elevator, time time.Time) {
 	floor := order.Floor
 
 	if button == utils.Cab {
-		utils.OrderWatcher.CabOrderArray[e.ID][floor].Active = true
-		utils.OrderWatcher.CabOrderArray[e.ID][floor].Completed = false
-		utils.OrderWatcher.CabOrderArray[e.ID][floor].Time = time
+		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Active = true
+		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Completed = false
+		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Time = time
 
 	} else {
 		utils.OrderWatcher.HallOrderArray[button][floor].Active = true

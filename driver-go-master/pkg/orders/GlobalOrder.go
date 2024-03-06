@@ -69,19 +69,16 @@ func ChooseElevator(order utils.Order) *utils.Elevator {
 	return &BestElevator
 }
 
-func CheckIfGlobalOrderIsActive(order utils.Order, e *utils.Elevator) bool {
-
-	HallOrderArray := utils.GlobalOrders.HallOrderArray
-	CabOrderArray := utils.GlobalOrders.CabOrderArray
+func CheckIfGlobalOrderIsActive(order utils.Order, ElevatorID int) bool {
 
 	if order.Button == utils.Cab {
-		if CabOrderArray[e.ID][order.Floor] == utils.True {
+		if utils.GlobalOrders.CabOrderArray[ElevatorID][order.Floor] == utils.True {
 			return true
 		} else {
 			return false
 		}
 	} else {
-		if HallOrderArray[order.Button][order.Floor] == utils.True {
+		if utils.GlobalOrders.HallOrderArray[order.Button][order.Floor] == utils.True {
 			return true
 		} else {
 			return false
@@ -90,11 +87,11 @@ func CheckIfGlobalOrderIsActive(order utils.Order, e *utils.Elevator) bool {
 
 }
 
-func UpdateGlobalOrderSystem(order utils.Order, e *utils.Elevator, value bool) {
+func UpdateGlobalOrderSystem(order utils.Order, ElevatorID int, value bool) {
 
 	if value {
 		if order.Button == utils.Cab {
-			utils.GlobalOrders.CabOrderArray[e.ID][order.Floor] = utils.True
+			utils.GlobalOrders.CabOrderArray[ElevatorID][order.Floor] = utils.True
 		} else {
 			utils.GlobalOrders.HallOrderArray[order.Button][order.Floor] = utils.True
 			fmt.Println("Turning lamp on")
@@ -102,7 +99,7 @@ func UpdateGlobalOrderSystem(order utils.Order, e *utils.Elevator, value bool) {
 		}
 	} else {
 		if order.Button == utils.Cab {
-			utils.GlobalOrders.CabOrderArray[e.ID][order.Floor] = utils.False
+			utils.GlobalOrders.CabOrderArray[ElevatorID][order.Floor] = utils.False
 		} else {
 			utils.GlobalOrders.HallOrderArray[order.Button][order.Floor] = utils.False
 			fmt.Println("Turning lamp off")
