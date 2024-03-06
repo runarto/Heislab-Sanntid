@@ -6,6 +6,9 @@ import (
 )
 
 type Channels struct {
+	PeerUpdateCh chan peers.PeerUpdate
+	PeerTxEnable chan bool
+
 	NewOrderTx chan MessageNewOrder
 	NewOrderRx chan MessageNewOrder
 
@@ -25,8 +28,6 @@ type Channels struct {
 	OrderConfirmedRx chan OrderConfirmed
 
 	GlobalUpdateCh chan GlobalOrderUpdate
-	PeerUpdateCh   chan peers.PeerUpdate
-	peerTxEnable   chan bool
 	ButtonCh       chan elevio.ButtonEvent
 	FloorCh        chan int
 	ObstrCh        chan bool

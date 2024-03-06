@@ -4,15 +4,14 @@ import (
 	"fmt"
 
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
-	"github.com/runarto/Heislab-Sanntid/Network/peers"
 )
 
-func NetworkUpdate(channels *utils.Channels, thisElevator *utils.Elevator, peerUpdateCh chan peers.PeerUpdate) {
+func NetworkUpdate(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 	for {
 		select {
 
-		case peerUpdate := <- peerUpdateCh:
+		case peerUpdate := <-channels.PeerUpdateCh:
 
 			fmt.Println("---PEER UPDATE RECEIVED---")
 

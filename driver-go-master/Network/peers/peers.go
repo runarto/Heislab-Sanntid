@@ -1,11 +1,12 @@
 package peers
 
 import (
-	"github.com/runarto/Heislab-Sanntid/Network/conn"
 	"fmt"
 	"net"
 	"sort"
 	"time"
+
+	"github.com/runarto/Heislab-Sanntid/Network/conn"
 )
 
 type PeerUpdate struct {
@@ -15,6 +16,7 @@ type PeerUpdate struct {
 }
 
 var cheat_id string
+
 const interval = 15 * time.Millisecond
 const timeout = 5000 * time.Millisecond
 

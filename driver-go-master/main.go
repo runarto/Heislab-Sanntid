@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"strconv"
 	"fmt"
+	"strconv"
 
 	"github.com/runarto/Heislab-Sanntid/Network/bcast"
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
@@ -38,10 +38,10 @@ func main() {
 	orders.InitLocalOrderSystem(&thisElevator)              // Initialize the local order system
 	elev.InitializeElevator(&thisElevator)                  // Initialize the elevator
 
-	peerUpdateCh := make(chan peers.PeerUpdate)
-	peerTxEnable := make(chan bool)
-
 	channels := &utils.Channels{
+
+		PeerUpdateCh: make(chan peers.PeerUpdate),
+		PeerTxEnable: make(chan bool),
 
 		NewOrderTx: make(chan utils.MessageNewOrder),
 		NewOrderRx: make(chan utils.MessageNewOrder),
@@ -71,13 +71,13 @@ func main() {
 
 	fmt.Println("lessgoo")
 
-	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(thisElevator.ID), peerTxEnable)
-	go peers.Receiver(utils.ListeningPort+1, peerUpdateCh)
+	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(thisElevator.ID), channels.PeerTxEnable)
+	go peers.Receiver(utils.ListeningPort+1, channels.PeerUpdateCh)
 
-	go bcast.Transmitter(utils.ListeningPort, channels.NewOrderTx, channels.OrderCompleteTx, 
-			channels.ElevatorStatusTx, channels.OrderArraysTx, channels.MasterOrderWatcherTx) // You can add more channels as needed
-	go bcast.Receiver(utils.ListeningPort, channels.NewOrderRx, channels.OrderCompleteRx, 
-			channels.ElevatorStatusRx, channels.OrderArraysRx, channels.MasterOrderWatcherRx)    // You can add more channels as needed
+	go bcast.Transmitter(utils.ListeningPort, channels.NewOrderTx, channels.OrderCompleteTx,
+		channels.ElevatorStatusTx, channels.OrderArraysTx, channels.MasterOrderWatcherTx) // You can add more channels as needed
+	go bcast.Receiver(utils.ListeningPort, channels.NewOrderRx, channels.OrderCompleteRx,
+		channels.ElevatorStatusRx, channels.OrderArraysRx, channels.MasterOrderWatcherRx) // You can add more channels as needed
 
 	go elev.BroadcastElevatorStatus(&thisElevator, channels)
 	go elev.BroadcastMasterOrderWatcher(&thisElevator, channels.MasterOrderWatcherTx)
@@ -93,10 +93,10 @@ func main() {
 
 	go elev.GlobalUpdates(channels, &thisElevator)
 
-	go elev.NetworkUpdate(channels, &thisElevator, peerUpdateCh)
+	go elev.NetworkUpdate(channels, &thisElevator)
 
 	go elev.FSM(channels, &thisElevator)
 
-	select{}
+	select {}
 
 }
