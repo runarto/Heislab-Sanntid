@@ -15,20 +15,24 @@ func NetworkUpdate(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 			fmt.Println("---PEER UPDATE RECEIVED---")
 
-			HandlePeersUpdate(peerUpdate, channels.ElevatorStatusTx, channels.OrderArraysTx, channels.NewOrderTx, thisElevator)
+			HandlePeersUpdate(peerUpdate, thisElevator, channels)
 
 		case order := <-channels.NewOrderRx:
 
-			fmt.Println("---NEW ORDER RECEIVED---")
+			if order.FromElevatorID != thisElevator.ID {
 
-			HandleNewOrder(order.NewOrder, order.FromElevatorID, order.ToElevatorID, channels.OrderCompleteTx,
-				channels.NewOrderTx, thisElevator, channels.ButtonCh, channels.GlobalUpdateCh)
+				fmt.Println("---NEW ORDER RECEIVED---")
+				HandleNewOrder(order.NewOrder, order.FromElevatorID, order.ToElevatorID, thisElevator, channels)
+			}
 
 		case orderComplete := <-channels.OrderCompleteRx:
 
-			fmt.Println("---ORDER COMPLETE RECEIVED---")
+			if orderComplete.FromElevatorID != thisElevator.ID {
 
-			HandleOrderComplete(orderComplete, channels.GlobalUpdateCh, thisElevator)
+				fmt.Println("---ORDER COMPLETE RECEIVED---")
+				HandleOrderComplete(orderComplete, channels.GlobalUpdateCh, thisElevator)
+
+			}
 
 		}
 	}

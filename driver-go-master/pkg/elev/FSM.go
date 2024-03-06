@@ -6,7 +6,7 @@ import (
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
-func fsm(channels *utils.Channels, thisElevator *utils.Elevator) {
+func FSM(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 	for {
 		select {
@@ -17,7 +17,7 @@ func fsm(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 			utils.BestOrder = bestOrder
 
-			DoOrder(bestOrder, channels.OrderCompleteTx, thisElevator)
+			DoOrder(bestOrder, channels.OrderCompleteTx, thisElevator, channels.BestOrderCh)
 
 		case btn := <-channels.ButtonCh:
 
@@ -31,7 +31,7 @@ func fsm(channels *utils.Channels, thisElevator *utils.Elevator) {
 				Button: button}
 			fmt.Println("New local order: ", newOrder)
 
-			HandleButtonEvent(channels.NewOrderTx, channels.OrderCompleteTx, newOrder, thisElevator, channels.BestOrderCh)
+			HandleButtonEvent(newOrder, thisElevator, channels)
 
 		case floor := <-channels.FloorCh:
 

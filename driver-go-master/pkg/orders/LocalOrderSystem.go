@@ -400,7 +400,7 @@ func UpdateLocalOrderSystem(order utils.Order, e *utils.Elevator) {
 
 }
 
-func CheckIfOrderIsActive(order utils.Order, e *utils.Elevator) bool {
+func CheckIfLocalOrderIsActive(order utils.Order, e *utils.Elevator) bool {
 
 	// CheckIfOrderIsActive checks if the specified order is active for the given elevator.
 	// It returns true if the order is active, otherwise false.

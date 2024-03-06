@@ -44,6 +44,7 @@ func main() {
 	go peers.Receiver(utils.ListeningPort+1, peerUpdateCh)
 
 	channels := &utils.Channels{
+
 		NewOrderTx: make(chan utils.MessageNewOrder),
 		NewOrderRx: make(chan utils.MessageNewOrder),
 
@@ -56,8 +57,11 @@ func main() {
 		ElevatorStatusTx: make(chan utils.ElevatorStatus),
 		ElevatorStatusRx: make(chan utils.ElevatorStatus),
 
-		AckStructTx: make(chan utils.AckMatrix),
-		AckStructRx: make(chan utils.AckMatrix),
+		MasterOrderWatcherTx: make(chan utils.MessageOrderWatcher),
+		MasterOrderWatcherRx: make(chan utils.MessageOrderWatcher),
+
+		OrderConfirmedTx: make(chan utils.OrderConfirmed),
+		OrderConfirmedRx: make(chan utils.OrderConfirmed),
 
 		GlobalUpdateCh: make(chan utils.GlobalOrderUpdate),
 		BestOrderCh:    make(chan utils.Order),
@@ -67,11 +71,13 @@ func main() {
 		StopCh:         make(chan bool),
 	}
 
-	go bcast.Transmitter(utils.ListeningPort, channels.NewOrderTx, channels.OrderCompleteTx, channels.ElevatorStatusTx, channels.OrderArraysTx, channels.AckStructTx) // You can add more channels as needed
-	go bcast.Receiver(utils.ListeningPort, channels.NewOrderRx, channels.OrderCompleteRx, channels.ElevatorStatusRx, channels.OrderArraysRx, channels.AckStructRx)    // You can add more channels as needed
+	go bcast.Transmitter(utils.ListeningPort, channels.NewOrderTx, channels.OrderCompleteTx, channels.ElevatorStatusTx, channels.OrderArraysTx, channels.MasterOrderWatcherTx) // You can add more channels as needed
+	go bcast.Receiver(utils.ListeningPort, channels.NewOrderRx, channels.OrderCompleteRx, channels.ElevatorStatusRx, channels.OrderArraysRx, channels.MasterOrderWatcherRx)    // You can add more channels as needed
 
 	go elev.BroadcastElevatorStatus(&thisElevator, channels.ElevatorStatusTx)
-	go elev.BroadcastAckMatrix(&thisElevator, channels.AckStructTx)
+	go elev.BroadcastMasterOrderWatcher(&thisElevator, channels.MasterOrderWatcherTx)
+	go elev.Bark(&thisElevator, channels)
+	go elev.Watchdog(channels, &thisElevator)
 
 	// Start polling functions in separate goroutines
 	go elevio.PollButtons(channels.ButtonCh)
@@ -79,10 +85,10 @@ func main() {
 	go elevio.PollObstructionSwitch(channels.ObstrCh)
 	go elevio.PollStopButton(channels.StopCh)
 
-	go elev.GlobalOrdersUpdate(channels, &thisElevator)
+	go elev.GlobalUpdates(channels, &thisElevator)
 
 	go elev.NetworkUpdate(channels, &thisElevator)
 
-	go elev.fsm(channels, &thisElevator)
+	go elev.FSM(channels, &thisElevator)
 
 }

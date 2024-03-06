@@ -21,7 +21,7 @@ func NullButtons() {
 	}
 }
 
-func InitializeElevator(e *utils.Elevator) {
+func InitializeElevator(thisElevator *utils.Elevator) {
 
 	NullButtons()
 
@@ -32,7 +32,7 @@ func InitializeElevator(e *utils.Elevator) {
 	maxTime := 2000       // maximum time to move in one direction
 
 	// Start moving up
-	e.GoUp()
+	thisElevator.GoUp()
 
 	// Start a timer
 	startTime := time.Now()
@@ -44,10 +44,10 @@ func InitializeElevator(e *utils.Elevator) {
 		// without finding a floor, switch direction
 		if time.Since(startTime).Milliseconds() > int64(maxTime) {
 			if direction == 1 {
-				e.GoDown()
+				thisElevator.GoDown()
 				direction = -1
 			} else {
-				e.GoUp()
+				thisElevator.GoUp()
 				direction = 1
 			}
 
@@ -57,10 +57,10 @@ func InitializeElevator(e *utils.Elevator) {
 	}
 
 	// Stop the elevator when a floor is found
-	e.StopElevator()
+	thisElevator.StopElevator()
 }
 
-func FloorLights(floor int, e *utils.Elevator) {
+func FloorLights(floor int, thisElevator *utils.Elevator) {
 
 	// FloorLights sets the floor indicator light and updates the current floor of the elevator.
 	// It takes the floor number and a pointer to the elevator as input.
@@ -68,12 +68,11 @@ func FloorLights(floor int, e *utils.Elevator) {
 
 	if floor >= 0 && floor <= utils.NumFloors-1 {
 		elevio.SetFloorIndicator(floor)
-		e.CurrentFloor = floor
+		thisElevator.CurrentFloor = floor
 	}
 }
 
-func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderComplete,
-	e *utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate) bool {
+func HandleOrdersAtFloor(floor int, channels *utils.Channels, thisElevator *utils.Elevator) bool {
 
 	// HandleOrdersAtFloor handles the orders at a specific floor.
 	// It takes the current floor, a channel for order completion messages,
@@ -88,11 +87,11 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 	var ordersDone []utils.Order // Number of orders done
 
 	for button := 0; button < utils.NumButtons; button++ {
-		if e.LocalOrderArray[button][floor] == utils.True { // If there is an active order at the floor
+		if thisElevator.LocalOrderArray[button][floor] == utils.True { // If there is an active order at the floor
 
 			if floor == utils.BestOrder.Floor {
 
-				if e.CurrentDirection == utils.Up && button == utils.HallUp || e.CurrentDirection == utils.Stopped && button == utils.HallUp {
+				if thisElevator.CurrentDirection == utils.Up && button == utils.HallUp || thisElevator.CurrentDirection == utils.Stopped && button == utils.HallUp {
 
 					fmt.Println("HandleOrdersAtFloor: HallUp order at floor: ", floor)
 
@@ -105,9 +104,9 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 					continue
 				}
 
-				if (e.CurrentDirection == utils.Up && button == utils.HallDown) && (e.LocalOrderArray[utils.HallUp][floor] == utils.False) {
+				if (thisElevator.CurrentDirection == utils.Up && button == utils.HallDown) && (thisElevator.LocalOrderArray[utils.HallUp][floor] == utils.False) {
 
-					check := orders.CheckHallOrdersAbove(floor, e)
+					check := orders.CheckHallOrdersAbove(floor, thisElevator)
 
 					if check.Button == elevio.ButtonType(button) && check.Floor == floor { // There are no orders above the current floor
 
@@ -123,7 +122,7 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 					}
 				}
 
-				if e.CurrentDirection == utils.Down && button == utils.HallDown || e.CurrentDirection == utils.Stopped && button == utils.HallDown {
+				if thisElevator.CurrentDirection == utils.Down && button == utils.HallDown || thisElevator.CurrentDirection == utils.Stopped && button == utils.HallDown {
 
 					fmt.Println("HandleOrdersAtFloor: HallDown order at floor: ", floor)
 
@@ -135,9 +134,9 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 					continue
 				}
 
-				if (e.CurrentDirection == utils.Down && button == utils.HallUp) && (e.LocalOrderArray[utils.HallDown][floor] == utils.False) {
+				if (thisElevator.CurrentDirection == utils.Down && button == utils.HallUp) && (thisElevator.LocalOrderArray[utils.HallDown][floor] == utils.False) {
 
-					check := orders.CheckHallOrdersBelow(floor, e)
+					check := orders.CheckHallOrdersBelow(floor, thisElevator)
 
 					if check.Button == elevio.ButtonType(button) && check.Floor == floor { // There are no orders below the current floor
 
@@ -174,19 +173,25 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 
 		orders := utils.GlobalOrderUpdate{
 			Orders:         ordersDone,
-			FromElevatorID: e.ID,
+			FromElevatorID: thisElevator.ID,
 			IsComplete:     true,
 			IsNew:          false}
 
-		GlobalUpdateCh <- orders
+		channels.GlobalUpdateCh <- orders
+
+		channels.OrderWatcher <- utils.OrderWatcher{
+			Orders:        ordersDone,
+			ForElevatorID: thisElevator.ID,
+			New:           false,
+			Complete:      true}
 
 		ordersComplete := utils.MessageOrderComplete{
 			Type:           "MessageOrderComplete",
 			Orders:         ordersDone,
 			ToElevatorID:   utils.NotDefined,
-			FromElevatorID: e.ID}
+			FromElevatorID: thisElevator.ID}
 
-		OrderCompleteTx <- ordersComplete
+		channels.OrderCompleteTx <- ordersComplete
 
 		return true
 
@@ -198,7 +203,7 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 
 }
 
-func HandleElevatorAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderComplete, e *utils.Elevator, bestOrderCh chan utils.Order) {
+func HandleElevatorAtFloor(floor int, channels *utils.Channels, thisElevator *utils.Elevator) {
 
 	// HandleElevatorAtFloor handles the elevator's behavior when it reaches a specific floor.
 	// It handles the orders at the floor, stops the elevator, opens the door, waits for a second,
@@ -208,38 +213,38 @@ func HandleElevatorAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCom
 
 	fmt.Println("Function: HandleElevatorAtFloor")
 
-	if HandleOrdersAtFloor(floor, OrderCompleteTx, e) && elevio.GetFloor() != utils.NotDefined { // If true, orders have been handled at the floor
+	if HandleOrdersAtFloor(floor, channels, thisElevator) && elevio.GetFloor() != utils.NotDefined { // If true, orders have been handled at the floor
 
-		e.StopElevator()                    // Stop the elevator
-		e.SetDoorState(utils.Open)          // utils.Open the door
-		time.Sleep(1500 * time.Millisecond) // Wait for a second
-		e.SetDoorState(utils.Close)         // utils.Close the door
+		thisElevator.StopElevator()            // Stop the elevator
+		thisElevator.SetDoorState(utils.Open)  // utils.Open the door
+		time.Sleep(1500 * time.Millisecond)    // Wait for a second
+		thisElevator.SetDoorState(utils.Close) // utils.Close the door
 
 		fmt.Println("Order system: ")
-		orders.PrintLocalOrderSystem(e)
+		orders.PrintLocalOrderSystem(thisElevator)
 
-		amountOfOrders := orders.CheckAmountOfActiveOrders(e) // Check the amount of active orders
+		amountOfOrders := orders.CheckAmountOfActiveOrders(thisElevator) // Check the amount of active orders
 
 		fmt.Println("Amount of active orders: ", amountOfOrders)
 
 		if amountOfOrders > 0 {
 
-			BestOrder := orders.ChooseBestOrder(e) // Choose the best order
+			BestOrder := orders.ChooseBestOrder(thisElevator) // Choose the best order
 
 			fmt.Println("Best order: ", utils.BestOrder)
 
-			bestOrderCh <- BestOrder
+			channels.BestOrderCh <- BestOrder
 
 		} else {
 
 			fmt.Println("No orders, stopped elevator.")
-			e.SetState(utils.Still) // If no orders, set the state to still
-			e.GeneralDirection = utils.Stopped
+			thisElevator.SetState(utils.Still) // If no orders, set the state to still
+			thisElevator.GeneralDirection = utils.Stopped
 		}
 	}
 }
 
-func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx chan utils.MessageOrderComplete, newOrder utils.Order, e *utils.Elevator, bestOrderCh chan utils.Order) {
+func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, channels *utils.Channels) {
 
 	// HandleButtonEvent handles a button event by processing the new order and updating the global order system.
 	// It takes in the following parameters:
@@ -250,9 +255,15 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 	fmt.Println("Function: HandleButtonEvent")
 
-	if !orders.CheckIfGlobalOrderIsActive(newOrder, e) { // Check if the order is already active
+	if !orders.CheckIfGlobalOrderIsActive(newOrder, thisElevator.ID) { // Check if the order is already active
 
-		orders.UpdateGlobalOrderSystem(newOrder, e, true) // Update the global order system
+		orders.UpdateLocalOrderSystem(newOrder, thisElevator) // Update the local order system
+
+		channels.GlobalUpdateCh <- utils.GlobalOrderUpdate{
+			Orders:         []utils.Order{newOrder},
+			FromElevatorID: thisElevator.ID,
+			IsComplete:     false,
+			IsNew:          true}
 
 		button := newOrder.Button
 		//floor := newOrder.Floor
@@ -261,71 +272,77 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 
 			fmt.Println("Cab order")
 
-			orders.UpdateGlobalOrderSystem(newOrder, e, true)
-			OrderActive(newOrder, e, time.Now())
+			order := utils.MessageNewOrder{
+				Type:           "MessageNewOrder",
+				NewOrder:       newOrder,
+				ToElevatorID:   utils.NotDefined,
+				FromElevatorID: thisElevator.ID}
 
-			newOrderTx <- utils.MessageNewOrder{
-				Type:         "MessageNewOrder",
-				NewOrder:     newOrder,
-				FromElevator: *e,
-				ToElevatorID: utils.NotDefined}
+			channels.NewOrderTx <- order
 
-			if orders.CheckIfOrderIsActive(newOrder, e) { // Check if the order is active
-				if utils.BestOrder.Floor == e.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
-					HandleElevatorAtFloor(utils.BestOrder.Floor, orderCompleteTx, e) // Handle the elevator at the floor
+			if !thisElevator.IsMaster {
+				go WaitForAck(channels.OrderConfirmedRx, utils.Timeout, newOrder, thisElevator)
+			}
+
+			if orders.CheckIfLocalOrderIsActive(newOrder, thisElevator) { // Check if the order is active
+				if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
+					HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
 				} else {
 					fmt.Println("Best order is", utils.BestOrder)
-					DoOrder(utils.BestOrder, orderCompleteTx, e) // Move the elevator to the best order
+					DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
 				}
 
 			} else {
 
 				fmt.Println("Going into ProcessElevatorOrders")
-				ProcessElevatorOrders(newOrder, orderCompleteTx, e, bestOrderCh)
+				ProcessElevatorOrders(newOrder, thisElevator, channels)
 			}
 		} else {
 
 			fmt.Println("Hall order")
 
-			if e.IsMaster {
+			if thisElevator.IsMaster {
 
 				fmt.Println("This is the master")
 				// Handle order locally (remember lights)
 				bestElevator := orders.ChooseElevator(newOrder)
 
-				if bestElevator.ID == e.ID {
+				if bestElevator.ID == thisElevator.ID {
 
 					fmt.Println("Handling locally")
-					orders.UpdateGlobalOrderSystem(newOrder, e, true)
-					OrderActive(newOrder, e, time.Now())
-					ProcessElevatorOrders(newOrder, orderCompleteTx, e, bestOrderCh)
+
+					ProcessElevatorOrders(newOrder, thisElevator, channels)
 
 					newOrder := utils.MessageNewOrder{
-						Type:         "MessageNewOrder",
-						NewOrder:     newOrder,
-						FromElevator: *e, // Use the correct field name as defined in your ElevatorStatus struct
-						ToElevatorID: utils.NotDefined}
+						Type:           "MessageNewOrder",
+						NewOrder:       newOrder,
+						ToElevatorID:   utils.NotDefined, // Use the correct field name as defined in your ElevatorStatus struct
+						FromElevatorID: thisElevator.ID}
 
 					fmt.Println("Sending order")
-					newOrderTx <- newOrder
+
+					channels.NewOrderTx <- newOrder
 
 				} else {
 
 					fmt.Println("Sending order")
 
-					orders.UpdateGlobalOrderSystem(newOrder, bestElevator, true)
-					OrderActive(newOrder, bestElevator, time.Now())
+					order := utils.MessageNewOrder{
+						Type:           "MessageNewOrder",
+						NewOrder:       newOrder,
+						ToElevatorID:   bestElevator.ID, // Use the correct field name as defined in your ElevatorStatus struct
+						FromElevatorID: thisElevator.ID}
 
-					newOrder := utils.MessageNewOrder{
-						Type:         "MessageNewOrder",
-						NewOrder:     newOrder,
-						FromElevator: *e, // Use the correct field name as defined in your ElevatorStatus struct
-						ToElevatorID: bestElevator.ID}
+					channels.NewOrderTx <- order
 
-					newOrderTx <- newOrder
+					channels.OrderWatcher <- utils.OrderWatcher{
+						Orders:        []utils.Order{newOrder},
+						ForElevatorID: bestElevator.ID,
+						New:           true,
+						Complete:      false}
 
-					if orders.CheckAmountOfActiveOrders(e) > 0 {
-						DoOrder(utils.BestOrder, orderCompleteTx, e)
+					if orders.CheckAmountOfActiveOrders(thisElevator) > 0 {
+						DoOrder(utils.BestOrder, thisElevator, channels)
 					}
 
 				}
@@ -333,20 +350,23 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 			} else {
 
 				// Send order to master
+				order := utils.MessageNewOrder{
+					Type:           "MessageNewOrder",
+					NewOrder:       newOrder,
+					ToElevatorID:   utils.MasterElevatorID,
+					FromElevatorID: thisElevator.ID}
 
-				newOrderTx <- utils.MessageNewOrder{
-					Type:         "MessageNewOrder",
-					NewOrder:     newOrder,
-					FromElevator: *e,
-					ToElevatorID: utils.MasterElevatorID}
+				channels.NewOrderTx <- order
 
-				if orders.CheckAmountOfActiveOrders(e) > 0 {
+				go WaitForAck(channels.OrderConfirmedRx, utils.Timeout, newOrder, thisElevator)
 
-					DoOrder(utils.BestOrder, orderCompleteTx, e)
+				if orders.CheckAmountOfActiveOrders(thisElevator) > 0 {
+
+					DoOrder(utils.BestOrder, thisElevator, channels)
 
 				} else {
 
-					e.StopElevator()
+					thisElevator.StopElevator()
 
 				}
 
@@ -355,7 +375,7 @@ func HandleButtonEvent(newOrderTx chan utils.MessageNewOrder, orderCompleteTx ch
 	}
 }
 
-func ProcessElevatorOrders(newOrder utils.Order, orderCompleteTx chan utils.MessageOrderComplete, e *utils.Elevator, bestOrderCh chan utils.Order) {
+func ProcessElevatorOrders(newOrder utils.Order, thisElevator *utils.Elevator, channels *utils.Channels) {
 
 	// ProcessElevatorOrders processes the elevator orders by updating the local order system,
 	// checking the amount of active orders, choosing the best order, and handling the elevator
@@ -370,32 +390,33 @@ func ProcessElevatorOrders(newOrder utils.Order, orderCompleteTx chan utils.Mess
 
 	fmt.Println("Function: ProcessElevatorOrders")
 
-	orders.UpdateLocalOrderSystem(newOrder, e)
+	orders.UpdateLocalOrderSystem(newOrder, thisElevator)
 
-	orders.PrintLocalOrderSystem(e)
+	orders.PrintLocalOrderSystem(thisElevator)
 
-	amountOfOrders := orders.CheckAmountOfActiveOrders(e)
+	amountOfOrders := orders.CheckAmountOfActiveOrders(thisElevator)
 
 	fmt.Println("Amount of active orders: ", amountOfOrders)
 
 	if amountOfOrders > 0 {
 
-		BestOrder := orders.ChooseBestOrder(e) // Choose the best order
+		BestOrder := orders.ChooseBestOrder(thisElevator) // Choose the best order
 		fmt.Println("Best order: ", utils.BestOrder)
 
-		if utils.BestOrder.Floor == e.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
-			HandleElevatorAtFloor(BestOrder.Floor, orderCompleteTx, e, bestOrderCh) // Handle the elevator at the floor
+		if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
+
+			HandleElevatorAtFloor(BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+
 		} else {
 
-			bestOrderCh <- BestOrder
+			channels.BestOrderCh <- BestOrder
 		}
 	} else {
-		e.StopElevator()
+		thisElevator.StopElevator()
 	}
 }
 
-func DoOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,
-	e *utils.Elevator) {
+func DoOrder(order utils.Order, thisElevator *utils.Elevator, channels *utils.Channels) {
 
 	// DoOrder executes the given order for the elevator.
 	// It moves the elevator up or down to reach the order's floor.
@@ -405,24 +426,23 @@ func DoOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,
 	// and a pointer to the elevator object.
 
 	// Do the order
-	if order.Floor > e.CurrentFloor {
+	if order.Floor > thisElevator.CurrentFloor {
 
-		e.GoUp()
+		thisElevator.GoUp()
 
-	} else if order.Floor < e.CurrentFloor {
+	} else if order.Floor < thisElevator.CurrentFloor {
 
-		e.GoDown()
+		thisElevator.GoDown()
 
 	} else {
 		// The order is at the current floor
-		go WaitForPossibleOrder(order, OrderCompleteTx, e)
+		go WaitForPossibleOrder(order, thisElevator, channels)
 
 	}
 
 }
 
-func WaitForPossibleOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,
-	e *utils.Elevator) {
+func WaitForPossibleOrder(order utils.Order, thisElevator *utils.Elevator, channels *utils.Channels) {
 
 	// WaitForPossibleOrder waits for a possible order to be completed.
 	// It takes an order, a channel for sending order completion messages, and an elevator as parameters.
@@ -430,9 +450,9 @@ func WaitForPossibleOrder(order utils.Order, OrderCompleteTx chan utils.MessageO
 	// It also inserts a delay in case cab-orders come in.
 
 	time.Sleep(3 * time.Second) // Insert delay in case cab-orders come in.
-	if e.CurrentFloor == order.Floor {
-		e.StopElevator()
-		HandleElevatorAtFloor(order.Floor, OrderCompleteTx, e)
+	if thisElevator.CurrentFloor == order.Floor {
+		thisElevator.StopElevator()
+		HandleElevatorAtFloor(order.Floor, channels, thisElevator)
 	}
 
 }

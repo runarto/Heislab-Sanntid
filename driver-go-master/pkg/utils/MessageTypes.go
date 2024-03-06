@@ -1,20 +1,5 @@
 package utils
 
-import (
-	"time"
-)
-
-type Ack struct {
-	Active    bool
-	Completed bool
-	Time      time.Time
-}
-
-type GlobalOrderStruct struct {
-	HallOrderArray [2][NumFloors]Ack              // Represents the hall orders
-	CabOrderArray  [NumOfElevators][NumFloors]Ack // Represents the cab orders
-}
-
 type MessageOrderArrays struct { // Send periodically to update the global order system
 	Type            string                     `json:"type"` // Explicitly indicate the message type
 	GlobalOrders    GlobalOrderArray           `json:"globalOrders"`
@@ -42,8 +27,14 @@ type ElevatorStatus struct {
 	FromElevator Elevator `json:"elevator"` // The Elevator instance
 }
 
-type AckMatrix struct {
+type MessageOrderWatcher struct {
 	Type           string            `json:"type"`           // A type identifier for decoding on the receiving end
-	OrderWatcher   GlobalOrderStruct `json:"ackStruct"`      // The Elevator instance
+	OrderWatcher   OrderWatcherArray `json:"ackStruct"`      // The Elevator instance
 	FromElevatorID int               `json:"fromElevatorID"` // The elevator to send the order to
+}
+
+type OrderConfirmed struct {
+	Type           string `json:"type"`           // A type identifier for decoding on the receiving end
+	Confirmed      bool   `json:"confirmed"`      // Whether or not the order was confirmed by the master
+	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
 }

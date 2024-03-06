@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"time"
+
 	"github.com/runarto/Heislab-Sanntid/elevio"
 )
 
@@ -10,6 +12,10 @@ const (
 	NotDefined     = -1
 	NumButtons     = 3
 	ListeningPort  = 29876
+	Timeout        = 3 * time.Second
+	MaxRetries     = 3
+	SlaveTimeout   = 3 * time.Second
+	MasterTimeout  = 15 * time.Second
 )
 
 const (
@@ -53,9 +59,14 @@ var GlobalOrders = GlobalOrderArray{
 	CabOrderArray:  [NumOfElevators][NumFloors]int{},
 }
 
-var OrderWatcher = GlobalOrderStruct{
-	HallOrderArray: [2][NumFloors]Ack{},
-	CabOrderArray:  [NumOfElevators][NumFloors]Ack{},
+var MasterOrderWatcher = OrderWatcherArray{
+	HallOrderArray: [2][NumFloors]HallAck{},
+	CabOrderArray:  [NumOfElevators][NumFloors]CabAck{},
+}
+
+var SlaveOrderWatcher = OrderWatcherArray{
+	HallOrderArray: [2][NumFloors]HallAck{},
+	CabOrderArray:  [NumOfElevators][NumFloors]CabAck{},
 }
 
 var BestOrder = Order{
@@ -67,4 +78,35 @@ type GlobalOrderUpdate struct {
 	FromElevatorID int
 	IsComplete     bool
 	IsNew          bool
+}
+
+type NewPeersMessage struct {
+	LostPeers []int
+	NewPeers  []int
+}
+
+type HallAck struct {
+	Active    bool
+	Completed bool
+	Confirmed bool
+	Time      time.Time
+}
+
+type CabAck struct {
+	Active    bool
+	Completed bool
+	Confirmed bool
+	Time      time.Time
+}
+
+type OrderWatcherArray struct {
+	HallOrderArray [2][NumFloors]HallAck             // Represents the hall orders
+	CabOrderArray  [NumOfElevators][NumFloors]CabAck // Represents the cab orders
+}
+
+type OrderWatcher struct {
+	Orders        []Order
+	ForElevatorID int
+	New           bool
+	Complete      bool
 }

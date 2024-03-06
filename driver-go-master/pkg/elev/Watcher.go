@@ -9,155 +9,58 @@ import (
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
-func OrderCompleted(order utils.Order, ElevatorID int) {
+func Bark(thisElevator *utils.Elevator, channels *utils.Channels) {
 
-	// OrderCompleted updates the status of a completed order in the OrderWatcher.
-	// It takes an order and an elevator as input parameters.
-	// If the order is a cab order, it marks the corresponding cab order as completed,
-	// sets the completion time, and marks it as inactive.
-	// If the order is a hall order, it marks the corresponding hall order as completed,
-	// sets the completion time, and marks it as inactive.
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 
-	fmt.Println("Function: OrderCompleted")
+	for range ticker.C {
+		isMaster := thisElevator.IsMaster
+		currentTime := time.Now()
 
-	button := order.Button
-	floor := order.Floor
+		if isMaster {
+			for button := 0; button < utils.NumButtons-1; button++ {
+				for floor := 0; floor < utils.NumFloors; floor++ {
+					timeSent := utils.MasterOrderWatcher.HallOrderArray[button][floor].Time
 
-	if button == utils.Cab {
-		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Completed = true
-		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Time = time.Now()
-		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Active = false
-	} else {
-		utils.OrderWatcher.HallOrderArray[button][floor].Completed = true
-		utils.OrderWatcher.HallOrderArray[button][floor].Time = time.Now()
-		utils.OrderWatcher.HallOrderArray[button][floor].Active = false
-	}
-}
+					if currentTime.Sub(timeSent) > utils.MasterTimeout &&
+						!utils.MasterOrderWatcher.HallOrderArray[button][floor].Completed &&
+						utils.MasterOrderWatcher.HallOrderArray[button][floor].Active {
 
-func OrderActive(order utils.Order, ElevatorID int, time time.Time) {
+						utils.MasterOrderWatcher.HallOrderArray[button][floor].Time = time.Now()
 
-	// OrderActive updates the status of an order in the OrderWatcher based on the given order and elevator.
-	// If the order is a cab order, it sets the corresponding cab order as active and updates the time.
-	// If the order is a hall order, it sets the corresponding hall order as active and updates the time.
-	// Parameters:
-	// - order: The order to be updated.
-	// - e: The elevator associated with the order.
-
-	fmt.Println("Function: OrderActive")
-
-	button := order.Button
-	floor := order.Floor
-
-	if button == utils.Cab {
-		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Active = true
-		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Completed = false
-		utils.OrderWatcher.CabOrderArray[ElevatorID][floor].Time = time
-
-	} else {
-		utils.OrderWatcher.HallOrderArray[button][floor].Active = true
-		utils.OrderWatcher.HallOrderArray[button][floor].Completed = false
-		utils.OrderWatcher.HallOrderArray[button][floor].Time = time
-	}
-}
-
-func CheckIfOrderIsComplete(e *utils.Elevator, newOrderTx chan utils.MessageNewOrder, orderCompleteTx chan utils.MessageOrderComplete) {
-
-	// CheckIfOrderIsComplete checks if any hall or cab orders have not been completed within 15 seconds.
-	// If an order is not completed, it reassigns the order to the best available elevator.
-	// It also updates the order status and sends new order messages if necessary.
-	// Finally, it updates the hall and cab order arrays.
-
-	fmt.Println("Function: CheckIfOrderIsComplete")
-
-	currentTime := time.Now()
-	var ordersToBeReAssigned []utils.Order
-
-	HallOrderArray := utils.OrderWatcher.HallOrderArray
-
-	for button := 0; button < utils.NumButtons-1; button++ {
-		for floor := 0; floor < utils.NumFloors; floor++ {
-			if HallOrderArray[button][floor].Active == true && HallOrderArray[button][floor].Completed == false {
-				if currentTime.Sub(HallOrderArray[button][floor].Time) > 15*time.Second {
-
-					fmt.Println("Order", button, "at floor", floor, "is not completed. Reassigning order.")
-
-					ordersToBeReAssigned = append(ordersToBeReAssigned, utils.Order{
-						Floor:  floor,
-						Button: elevio.ButtonType(button)})
-
-					HallOrderArray[button][floor].Active = false
-				}
-			}
-		}
-	}
-
-	CabOrderArray := utils.OrderWatcher.CabOrderArray
-
-	for i, _ := range utils.Elevators {
-		if utils.Elevators[i].IsActive {
-			for floor := 0; floor < utils.NumFloors; floor++ {
-				if CabOrderArray[utils.Elevators[i].ID][floor].Active == true && CabOrderArray[utils.Elevators[i].ID][floor].Completed == false {
-					if currentTime.Sub(CabOrderArray[utils.Elevators[i].ID][floor].Time) > 15*time.Second {
-
-						fmt.Println("Elevator", utils.Elevators[i].ID, "did not complete cab order at floor", floor, ". Resending order.")
-
-						newOrder := utils.MessageNewOrder{
-							Type: "MessageNewOrder",
-							NewOrder: utils.Order{
-								Floor:  floor,
-								Button: utils.Cab},
-							FromElevator: *e,
-							ToElevatorID: utils.Elevators[i].ID,
+						// Resend the order to the network
+						order := utils.Order{
+							Floor:  floor,
+							Button: elevio.ButtonType(button),
 						}
 
-						CabOrderArray[utils.Elevators[i].ID][floor].Active = false
+						channels.MasterBarkCh <- order
+					}
+				}
+			}
+		} else {
 
-						newOrderTx <- newOrder
+			for button := 0; button < utils.NumButtons-1; button++ {
+				for floor := 0; floor < utils.NumFloors; floor++ {
+					timeSent := utils.SlaveOrderWatcher.HallOrderArray[button][floor].Time
 
+					if currentTime.Sub(timeSent) > utils.SlaveTimeout &&
+						!utils.SlaveOrderWatcher.HallOrderArray[button][floor].Confirmed {
+
+						utils.SlaveOrderWatcher.HallOrderArray[button][floor].Time = time.Now()
+
+						order := utils.Order{
+							Floor:  floor,
+							Button: elevio.ButtonType(button),
+						}
+
+						channels.SlaveBarkCh <- order
 					}
 				}
 			}
 		}
-
 	}
-
-	for i, _ := range ordersToBeReAssigned {
-
-		BestElevator := orders.ChooseElevator(ordersToBeReAssigned[i])
-
-		fmt.Print("Reassigning order to elevator", BestElevator.ID)
-
-		newOrder := utils.MessageNewOrder{
-			Type:         "MessageNewOrder",
-			NewOrder:     ordersToBeReAssigned[i],
-			FromElevator: *e,
-			ToElevatorID: BestElevator.ID,
-		}
-
-		if BestElevator.ID == e.ID {
-
-			ProcessElevatorOrders(utils.Order{
-				Floor:  ordersToBeReAssigned[i].Floor,
-				Button: ordersToBeReAssigned[i].Button,
-			}, orderCompleteTx, e)
-
-			HallOrderArray[ordersToBeReAssigned[i].Button][ordersToBeReAssigned[i].Floor].Active = true
-
-		} else {
-
-			newOrderTx <- newOrder
-			HallOrderArray[ordersToBeReAssigned[i].Button][ordersToBeReAssigned[i].Floor].Active = true
-
-		}
-
-		OrderActive(ordersToBeReAssigned[i], e, time.Now())
-		HallOrderArray[ordersToBeReAssigned[i].Button][ordersToBeReAssigned[i].Floor].Time = time.Now()
-
-	}
-
-	utils.OrderWatcher.HallOrderArray = HallOrderArray
-	utils.OrderWatcher.CabOrderArray = CabOrderArray
-
 }
 
 func DetermineMaster(e *utils.Elevator) {
@@ -195,8 +98,8 @@ func DetermineMaster(e *utils.Elevator) {
 
 	for i, _ := range utils.Elevators {
 		if masterCandidate.ID != utils.Elevators[i].ID {
-			if e.IsMaster {
-				e.IsMaster = false
+			if utils.Elevators[i].IsMaster {
+				utils.Elevators[i].IsMaster = false
 			}
 		}
 	}
@@ -204,10 +107,15 @@ func DetermineMaster(e *utils.Elevator) {
 	// Set the masterCandidate as the master and update the local state as needed
 	// This is a simplified representation; actual implementation may require additional synchronization and communication
 	masterCandidate.IsMaster = true
-	fmt.Println("The master now is elevator: ", masterCandidate.ID)
+
 	if masterCandidate.ID == e.ID {
 		e.IsMaster = true
 		fmt.Println("I am the master")
+	} else {
+		e.IsMaster = false
+		fmt.Println("I am not the master")
+		fmt.Println("The master is: ", masterCandidate.ID)
+
 	}
 
 	utils.MasterElevatorID = masterCandidate.ID // Set the master elevator ID
@@ -218,3 +126,45 @@ func DetermineMaster(e *utils.Elevator) {
 
 // To-Do function for handling motor stop?
 // In the case of it happening, redistribute all active hall orders?
+
+func Watchdog(channels *utils.Channels, thisElevator *utils.Elevator) {
+
+	for {
+
+		select {
+
+		case order := <-channels.MasterBarkCh:
+
+			fmt.Println("Master bark received, resending order", order)
+
+			BestElevator := orders.ChooseElevator(order)
+
+			if BestElevator.ID == thisElevator.ID {
+
+				channels.ButtonCh <- elevio.ButtonEvent{
+					Floor:  order.Floor,
+					Button: order.Button,
+				}
+
+			} else {
+
+				channels.NewOrderTx <- utils.MessageNewOrder{
+					Type:           "MessageNewOrder",
+					NewOrder:       order,
+					ToElevatorID:   BestElevator.ID,
+					FromElevatorID: thisElevator.ID}
+
+			}
+
+		case order := <-channels.SlaveBarkCh:
+
+			fmt.Println("Slave bark received, resending order to master", order)
+
+			channels.NewOrderTx <- utils.MessageNewOrder{
+				Type:           "MessageNewOrder",
+				NewOrder:       order,
+				ToElevatorID:   utils.MasterElevatorID,
+				FromElevatorID: thisElevator.ID}
+		}
+	}
+}

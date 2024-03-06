@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/runarto/Heislab-Sanntid/elevio"
 	"github.com/runarto/Heislab-Sanntid/pkg/orders"
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
 )
 
-func GlobalOrdersUpdate(channels *utils.Channels, thisElevator *utils.Elevator) {
+func GlobalUpdates(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 	for {
 		select {
@@ -25,11 +26,44 @@ func GlobalOrdersUpdate(channels *utils.Channels, thisElevator *utils.Elevator) 
 
 			HandleNewGlobalOrderUpdate(GlobalUpdate, thisElevator)
 
-		case OrderArrayUpdate := <-channels.OrderArraysRx:
+		case peerUpdate := <-channels.PeersOnlineCh:
 
-			fmt.Println("---ORDER ARRAY UPDATE RECEIVED---")
+			HandleNewPeerUpdate(peerUpdate)
 
-			HandleNewOrderArrayUpdate(OrderArrayUpdate, thisElevator)
+		case WatcherUpdate := <-channels.OrderWatcher:
+
+			if WatcherUpdate.New {
+
+				for i, _ := range WatcherUpdate.Orders {
+
+					if WatcherUpdate.Orders[i].Button != utils.Cab {
+
+						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Active = true
+						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Completed = false
+						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Time = time.Now()
+
+					}
+
+				}
+			}
+
+			if WatcherUpdate.Complete {
+
+				for i, _ := range WatcherUpdate.Orders {
+
+					if WatcherUpdate.Orders[i].Button != utils.Cab {
+
+						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Active = false
+						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Completed = true
+						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Time = time.Now()
+
+					}
+				}
+			}
+
+		case MasterOrderWatcher := <-channels.MasterOrderWatcherRx:
+
+			utils.MasterOrderWatcher = MasterOrderWatcher.OrderWatcher
 
 		}
 	}
@@ -44,14 +78,12 @@ func HandleNewGlobalOrderUpdate(GlobalUpdate utils.GlobalOrderUpdate, thisElevat
 			if GlobalUpdate.IsComplete {
 
 				orders.UpdateGlobalOrderSystem(GlobalUpdate.Orders[i], thisElevator.ID, false)
-				OrderCompleted(GlobalUpdate.Orders[i], thisElevator.ID)
 
 			} else {
 
 				if !orders.CheckIfGlobalOrderIsActive(GlobalUpdate.Orders[i], thisElevator.ID) {
 
 					orders.UpdateGlobalOrderSystem(GlobalUpdate.Orders[i], thisElevator.ID, true)
-					OrderActive(GlobalUpdate.Orders[i], thisElevator.ID, time.Now())
 				}
 
 			}
@@ -61,14 +93,12 @@ func HandleNewGlobalOrderUpdate(GlobalUpdate utils.GlobalOrderUpdate, thisElevat
 			if GlobalUpdate.IsComplete {
 
 				orders.UpdateGlobalOrderSystem(GlobalUpdate.Orders[i], GlobalUpdate.FromElevatorID, false)
-				OrderCompleted(GlobalUpdate.Orders[i], GlobalUpdate.FromElevatorID)
 
 			} else {
 
 				if !orders.CheckIfGlobalOrderIsActive(GlobalUpdate.Orders[i], GlobalUpdate.FromElevatorID) {
 
 					orders.UpdateGlobalOrderSystem(GlobalUpdate.Orders[i], GlobalUpdate.FromElevatorID, true)
-					OrderActive(GlobalUpdate.Orders[i], thisElevator.ID, time.Now())
 				}
 
 			}
@@ -77,12 +107,86 @@ func HandleNewGlobalOrderUpdate(GlobalUpdate utils.GlobalOrderUpdate, thisElevat
 	}
 }
 
-func HandleOrderArrayUpdate(OrderArrayUpdate utils.MessageOrderArrays, e *utils.Elevator) {
+func HandleNewPeerUpdate(peerUpdate utils.NewPeersMessage) {
 
-	if OrderArrayUpdate.ToElevatorID == utils.NotDefined { // This is meant for everyone. Hence, we only want to update the global order system.
+	if len(peerUpdate.NewPeers) > 0 {
 
-	} else if OrderArrayUpdate.ToElevatorID == e.ID { // This is meant for me. Hence, I want to update my local order array, as well as the global order system.
+		for i, _ := range peerUpdate.NewPeers {
+
+			fmt.Println("New peer detected: ", peerUpdate.NewPeers[i])
+			UpdateElevatorsOnNetwork(peerUpdate.NewPeers[i], true)
+
+		}
 
 	}
 
+	if len(peerUpdate.LostPeers) > 0 {
+
+		for i, _ := range peerUpdate.LostPeers {
+
+			fmt.Println("Peer lost: ", peerUpdate.LostPeers[i])
+			UpdateElevatorsOnNetwork(peerUpdate.LostPeers[i], false)
+
+		}
+
+	}
+
+}
+
+func HandleNewElevatorStatus(elevatorStatus utils.ElevatorStatus, thisElevator *utils.Elevator, GlobalOrderArrayUpdateCh chan utils.GlobalOrderUpdate) {
+
+	if elevatorStatus.FromElevator.ID == thisElevator.ID {
+		return
+	}
+
+	UpdateElevatorStatus(&elevatorStatus.FromElevator)
+
+	var ActiveOrders []utils.Order
+
+	for button := 0; button < utils.NumButtons; button++ {
+		for floor := 0; floor < utils.NumFloors; floor++ {
+			if elevatorStatus.FromElevator.LocalOrderArray[button][floor] == utils.True {
+
+				order := utils.Order{
+					Floor:  floor,
+					Button: elevio.ButtonType(button)}
+
+				ActiveOrders = append(ActiveOrders, order)
+
+			}
+		}
+	}
+
+	update := utils.GlobalOrderUpdate{
+		Orders:         ActiveOrders,
+		FromElevatorID: elevatorStatus.FromElevator.ID,
+		IsComplete:     false,
+		IsNew:          true}
+
+	GlobalOrderArrayUpdateCh <- update
+
+	DetermineMaster(thisElevator)
+
+}
+
+func UpdateElevatorStatus(fromElevator *utils.Elevator) {
+
+	found := false
+
+	for i, _ := range utils.Elevators {
+
+		if utils.Elevators[i].ID == fromElevator.ID {
+
+			utils.Elevators[i] = *fromElevator
+			return
+		}
+	}
+
+	if !found {
+
+		utils.Elevators = append(utils.Elevators, *fromElevator)
+
+	}
+
+	UpdateElevatorsOnNetwork(fromElevator.ID, true)
 }

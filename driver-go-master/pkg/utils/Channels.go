@@ -18,8 +18,11 @@ type Channels struct {
 	ElevatorStatusTx chan ElevatorStatus
 	ElevatorStatusRx chan ElevatorStatus
 
-	AckStructTx chan AckMatrix
-	AckStructRx chan AckMatrix
+	MasterOrderWatcherTx chan MessageOrderWatcher
+	MasterOrderWatcherRx chan MessageOrderWatcher
+
+	OrderConfirmedTx chan OrderConfirmed
+	OrderConfirmedRx chan OrderConfirmed
 
 	GlobalUpdateCh chan GlobalOrderUpdate
 	PeerUpdateCh   chan peers.PeerUpdate
@@ -29,4 +32,9 @@ type Channels struct {
 	ObstrCh        chan bool
 	StopCh         chan bool
 	BestOrderCh    chan Order
+	PeersOnlineCh  chan NewPeersMessage
+	ElevatorsCh    chan []Elevator
+	MasterBarkCh   chan Order
+	SlaveBarkCh    chan Order
+	OrderWatcher   chan OrderWatcher
 }
