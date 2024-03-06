@@ -106,9 +106,8 @@ func HandleOrderComplete(orderComplete utils.MessageOrderComplete, GlobalUpdateC
 	orders := utils.GlobalOrderUpdate{
 		Orders:         ordersDone,
 		FromElevatorID: orderComplete.FromElevatorID,
-		New: false,
-		Completed: true,
-		}
+		IsComplete: true,
+		IsNew: false,}
 
 	GlobalUpdateCh <- orders
 
@@ -415,6 +414,7 @@ func WaitForAck(ackCh chan utils.OrderConfirmed, timeout time.Duration,
 		case <-time.After(timeout):
 
 			fmt.Println("Timeout")
+			return
 
 		}
 
