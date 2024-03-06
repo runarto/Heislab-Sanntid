@@ -415,21 +415,28 @@ func ProcessElevatorOrders(newOrder utils.Order, thisElevator *utils.Elevator, c
 
 	if amountOfOrders > 0 {
 
-		BestOrder := orders.ChooseBestOrder(thisElevator) // Choose the best order
+		if thisElevator.CurrentState == utils.Still {
 
-		if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
 
-			HandleElevatorAtFloor(BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+			utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
 
-		} else {
 
-			if thisElevator.CurrentState == utils.Still {
+			if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
 
-				fmt.Println("The best order is ", BestOrder)
-				DoOrder(BestOrder, thisElevator, channels) // Move the elevator to the best order
+				HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+
+			} else { 
+
+				fmt.Println("The best order is ", utils.BestOrder)
+				DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
 
 			}
 
+		} else if thisElevator.CurrentState == utils.Moving {
+
+			utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
+			fmt.Println("The best order is ", utils.BestOrder)
+			DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order	
 		}
 
 	} else {

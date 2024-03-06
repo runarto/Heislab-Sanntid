@@ -29,7 +29,7 @@ func main() {
 		Obstructed:       false,                                    // No obstruction initially
 		StopButton:       false,                                    // Stop button not pressed initially
 		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]int{}, // Initialize with zero values
-		IsMaster:         true,                                    // Not master initially
+		IsMaster:         false,                                    // Not master initially
 		ID:               1,                                        // Set to the ID of the elevator
 		IsActive:         true,                                     // Elevator is active initially
 	}
@@ -40,9 +40,6 @@ func main() {
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool)
-
-	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(thisElevator.ID), peerTxEnable)
-	go peers.Receiver(utils.ListeningPort+1, peerUpdateCh)
 
 	channels := &utils.Channels{
 
@@ -74,8 +71,13 @@ func main() {
 
 	fmt.Println("lessgoo")
 
-	go bcast.Transmitter(utils.ListeningPort, channels.NewOrderTx, channels.OrderCompleteTx, channels.ElevatorStatusTx, channels.OrderArraysTx, channels.MasterOrderWatcherTx) // You can add more channels as needed
-	go bcast.Receiver(utils.ListeningPort, channels.NewOrderRx, channels.OrderCompleteRx, channels.ElevatorStatusRx, channels.OrderArraysRx, channels.MasterOrderWatcherRx)    // You can add more channels as needed
+	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(thisElevator.ID), peerTxEnable)
+	go peers.Receiver(utils.ListeningPort+1, peerUpdateCh)
+
+	go bcast.Transmitter(utils.ListeningPort, channels.NewOrderTx, channels.OrderCompleteTx, 
+			channels.ElevatorStatusTx, channels.OrderArraysTx, channels.MasterOrderWatcherTx) // You can add more channels as needed
+	go bcast.Receiver(utils.ListeningPort, channels.NewOrderRx, channels.OrderCompleteRx, 
+			channels.ElevatorStatusRx, channels.OrderArraysRx, channels.MasterOrderWatcherRx)    // You can add more channels as needed
 
 	go elev.BroadcastElevatorStatus(&thisElevator, channels)
 	go elev.BroadcastMasterOrderWatcher(&thisElevator, channels.MasterOrderWatcherTx)
@@ -91,7 +93,7 @@ func main() {
 
 	go elev.GlobalUpdates(channels, &thisElevator)
 
-	go elev.NetworkUpdate(channels, &thisElevator)
+	go elev.NetworkUpdate(channels, &thisElevator, peerUpdateCh)
 
 	go elev.FSM(channels, &thisElevator)
 
