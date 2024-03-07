@@ -302,10 +302,11 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 
 			if !thisElevator.IsMaster {
 
-
+				utils.SlaveOrderWatcher.WatcherMutex.Lock()
 				utils.SlaveOrderWatcher.CabOrderArray[thisElevator.ID][newOrder.Floor].Time = time.Now()
 				utils.SlaveOrderWatcher.CabOrderArray[thisElevator.ID][newOrder.Floor].Confirmed = false
 				utils.SlaveOrderWatcher.CabOrderArray[thisElevator.ID][newOrder.Floor].Active = true
+				utils.SlaveOrderWatcher.WatcherMutex.Unlock()
 
 				go WaitForAck(channels.AckRx, utils.Timeout, newOrder, thisElevator)
 			}
@@ -409,10 +410,11 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 
 				channels.NewOrderTx <- order
 
+				utils.SlaveOrderWatcher.WatcherMutex.Lock()
 				utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Time = time.Now()
 				utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Confirmed = false
-				utils.SlaveOrderWatcher.HallOrderArray[thisElevator.ID][newOrder.Floor].Active = true
-
+				utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Active = true
+				utils.SlaveOrderWatcher.WatcherMutex.Unlock()
 
 				go WaitForAck(channels.AckRx, utils.Timeout, newOrder, thisElevator)
 
