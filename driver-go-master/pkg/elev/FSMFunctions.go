@@ -261,7 +261,6 @@ func HandleElevatorAtFloor(floor int, channels *utils.Channels, thisElevator *ut
 
 			fmt.Println("No orders, stopped elevator.")
 			thisElevator.StopElevator()
-			thisElevator.SetState(utils.Still) // If no orders, set the state to still
 
 			return
 		}
