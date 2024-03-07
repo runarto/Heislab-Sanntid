@@ -27,8 +27,6 @@ func Transmitter(port int, id string, transmitEnable <-chan bool) {
 	conn, _ := conn.DialBroadcastUDP(port)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
 
-	fmt.Println("Transmitting my ID: ", id)
-
 	enable := true
 	for {
 		select {
@@ -63,7 +61,6 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 			if _, idExists := lastSeen[id]; !idExists {
 				p.New = id
 				updated = true
-				fmt.Println("New connection to", id)
 				fmt.Println(p.New)
 			}
 
@@ -76,7 +73,6 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 			if time.Now().Sub(v) > timeout {
 				updated = true
 				p.Lost = append(p.Lost, k)
-				fmt.Println("Lost connection to", k)
 				delete(lastSeen, k)
 			}
 		}
@@ -91,10 +87,6 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 
 			sort.Strings(p.Peers)
 			sort.Strings(p.Lost)
-			fmt.Printf("Peer update to send:\n")
-			fmt.Printf("  Peers:    %q\n", p.Peers)
-			fmt.Printf("  New:      %q\n", p.New)
-			fmt.Printf("  Lost:     %q\n", p.Lost)
 			peerUpdateCh <- p
 		}
 	}

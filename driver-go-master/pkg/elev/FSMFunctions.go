@@ -260,8 +260,10 @@ func HandleElevatorAtFloor(floor int, channels *utils.Channels, thisElevator *ut
 		} else {
 
 			fmt.Println("No orders, stopped elevator.")
+			thisElevator.StopElevator()
 			thisElevator.SetState(utils.Still) // If no orders, set the state to still
-			thisElevator.GeneralDirection = utils.Stopped
+
+			return
 		}
 	}
 }
@@ -350,9 +352,11 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 							ToElevatorID:   utils.NotDefined, // Use the correct field name as defined in your ElevatorStatus struct
 							FromElevatorID: thisElevator.ID}
 
-						fmt.Println("Sending order")
+						fmt.Println("Sending copy of order...")
 
 						channels.NewOrderTx <- newOrder
+
+						fmt.Println("Order sent.")
 
 					}()
 
@@ -370,7 +374,7 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 
 				} else {
 
-					fmt.Println("Sending order")
+					fmt.Println("Sending order for elevator ", bestElevator.ID, " to execute...")
 
 					go func() {
 
@@ -381,6 +385,8 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 							FromElevatorID: thisElevator.ID}
 
 						channels.NewOrderTx <- order
+
+						fmt.Println("Order sent.")
 
 					}()
 
@@ -409,6 +415,8 @@ func HandleButtonEvent(newOrder utils.Order, thisElevator *utils.Elevator, chann
 					FromElevatorID: thisElevator.ID}
 
 				channels.NewOrderTx <- order
+
+				fmt.Println("Order sent to master.")
 
 				utils.SlaveOrderWatcher.WatcherMutex.Lock()
 				utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Time = time.Now()

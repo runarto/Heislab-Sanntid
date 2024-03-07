@@ -168,11 +168,13 @@ func Watchdog(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 			fmt.Println("Slave bark received, resending order to master", order)
 
-			channels.NewOrderTx <- utils.MessageNewOrder{
+			newOrder := utils.MessageNewOrder{
 				Type:           "MessageNewOrder",
 				NewOrder:       order,
 				ToElevatorID:   utils.MasterElevatorID,
 				FromElevatorID: thisElevator.ID}
+
+			channels.NewOrderTx <- newOrder
 		}
 	}
 }

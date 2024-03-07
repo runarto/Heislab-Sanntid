@@ -91,6 +91,7 @@ func HandleNewGlobalOrderUpdate(GlobalUpdate utils.GlobalOrderUpdate, thisElevat
 				if !orders.CheckIfGlobalOrderIsActive(GlobalUpdate.Orders[i], thisElevator.ID) {
 
 					orders.UpdateGlobalOrderSystem(GlobalUpdate.Orders[i], thisElevator.ID, true)
+					
 				}
 
 			}

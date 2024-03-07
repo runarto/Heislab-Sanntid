@@ -306,12 +306,17 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 
 						if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
 
-							HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+							go HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+
+							return
 
 						} else {
 
 							fmt.Println("The best order is ", utils.BestOrder)
-							DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+
+							go DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+
+							return
 
 						}
 
@@ -319,12 +324,16 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 
 						utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
 						fmt.Println("The best order is ", utils.BestOrder)
-						DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+						go DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+
+						return
 					}
 
 				} else {
 
 					thisElevator.StopElevator()
+					
+					return
 
 				}
 
@@ -354,6 +363,8 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 
 				}()
 
+				return
+
 			}
 		}
 
@@ -381,12 +392,16 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 
 				if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
 
-					HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+					go HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
+
+					return
 
 				} else {
 
 					fmt.Println("The best order is ", utils.BestOrder)
-					DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+					go DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+
+					return
 
 				}
 
@@ -394,12 +409,16 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 
 				utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
 				fmt.Println("The best order is ", utils.BestOrder)
-				DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+				go DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
+
+				return
 			}
 
 		} else {
 
 			thisElevator.StopElevator()
+
+			return
 
 		}
 
@@ -412,6 +431,8 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 			IsNew:          true}
 
 		channels.GlobalUpdateCh <- orders
+
+		return
 
 	}
 }

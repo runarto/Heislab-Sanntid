@@ -19,6 +19,8 @@ func NetworkUpdate(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 		case order := <-channels.NewOrderRx:
 
+			fmt.Println("hello")
+
 			if order.FromElevatorID != thisElevator.ID {
 
 				fmt.Println("---NEW ORDER RECEIVED---")
