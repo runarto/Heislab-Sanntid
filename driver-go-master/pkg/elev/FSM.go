@@ -11,14 +11,6 @@ func FSM(channels *utils.Channels, thisElevator *utils.Elevator) {
 	for {
 		select {
 
-		case NewBestOrder := <- channels.BestOrderCh:
-
-			fmt.Println("---BEST ORDER RECEIVED---")
-
-			utils.BestOrder = NewBestOrder
-
-			DoOrder(utils.BestOrder, thisElevator, channels)
-
 		case btn := <-channels.ButtonCh:
 
 			fmt.Println("---BUTTON PRESSED---")

@@ -30,7 +30,7 @@ func NetworkUpdate(channels *utils.Channels, thisElevator *utils.Elevator) {
 			if orderComplete.FromElevatorID != thisElevator.ID {
 
 				fmt.Println("---ORDER COMPLETE RECEIVED---")
-				HandleOrderComplete(orderComplete, channels.GlobalUpdateCh, thisElevator)
+				HandleOrderComplete(orderComplete, channels, thisElevator)
 
 			}
 

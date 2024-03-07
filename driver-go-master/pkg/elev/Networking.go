@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
+	"github.com/runarto/Heislab-Sanntid/elevio"
 	"github.com/runarto/Heislab-Sanntid/pkg/orders"
 	"github.com/runarto/Heislab-Sanntid/pkg/utils"
-	"github.com/runarto/Heislab-Sanntid/elevio"
 )
 
 func BroadcastElevatorStatus(thisElevator *utils.Elevator, channels *utils.Channels) {
@@ -68,6 +68,7 @@ func UpdateElevatorsOnNetwork(ElevatorID int, active bool) {
 
 		for i, _ := range utils.Elevators {
 			if utils.Elevators[i].ID == ElevatorID {
+				fmt.Println("Elevator ", ElevatorID, " is set as active")
 				utils.Elevators[i].IsActive = true
 				return
 			}
@@ -78,6 +79,7 @@ func UpdateElevatorsOnNetwork(ElevatorID int, active bool) {
 		for i, _ := range utils.Elevators {
 			if utils.Elevators[i].ID == ElevatorID {
 				utils.Elevators[i].IsActive = false
+				fmt.Println("Elevator ", ElevatorID, " is set as inactive")
 				return
 			}
 		}
@@ -88,7 +90,7 @@ func UpdateElevatorsOnNetwork(ElevatorID int, active bool) {
 
 }
 
-func HandleOrderComplete(orderComplete utils.MessageOrderComplete, GlobalUpdateCh chan utils.GlobalOrderUpdate, thisElevator *utils.Elevator) {
+func HandleOrderComplete(orderComplete utils.MessageOrderComplete, channels *utils.Channels, thisElevator *utils.Elevator) {
 
 	// HandleOrderComplete handles an order completion message.
 	// It takes an order completion message as input and updates the local and global order systems.
@@ -103,13 +105,29 @@ func HandleOrderComplete(orderComplete utils.MessageOrderComplete, GlobalUpdateC
 
 	ordersDone := orderComplete.Orders
 
-	orders := utils.GlobalOrderUpdate{
-		Orders:         ordersDone,
-		FromElevatorID: orderComplete.FromElevatorID,
-		IsComplete: true,
-		IsNew: false,}
+	go func() {
 
-	GlobalUpdateCh <- orders
+		orders := utils.GlobalOrderUpdate{
+			Orders:         ordersDone,
+			FromElevatorID: orderComplete.FromElevatorID,
+			IsComplete:     true,
+			IsNew:          false}
+
+		channels.GlobalUpdateCh <- orders
+
+	}()
+
+	go func() {
+
+		orders := utils.OrderWatcher{
+			Orders:        ordersDone,
+			ForElevatorID: orderComplete.FromElevatorID,
+			IsComplete:    true,
+			IsNew:         false}
+
+		channels.OrderWatcher <- orders
+
+	}()
 
 }
 
@@ -139,12 +157,10 @@ func HandlePeersUpdate(p peers.PeerUpdate, thisElevator *utils.Elevator, channel
 		thisElevator.IsMaster = true
 	} else {
 		thisElevator.IsMaster = false
-	
+
 	}
 
 	utils.MasterElevatorID = MasterID
-
-
 
 	for i, _ := range p.Peers {
 
@@ -167,10 +183,10 @@ func HandlePeersUpdate(p peers.PeerUpdate, thisElevator *utils.Elevator, channel
 
 			go func() {
 
-			channels.ElevatorStatusTx <- utils.ElevatorStatus{
-				Type:         "ElevatorStatus",
-				FromElevator: *thisElevator}
-			
+				channels.ElevatorStatusTx <- utils.ElevatorStatus{
+					Type:         "ElevatorStatus",
+					FromElevator: *thisElevator}
+
 			}()
 
 		}
@@ -283,44 +299,59 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 				if amountOfOrders > 0 {
 
 					if thisElevator.CurrentState == utils.Still {
-			
-			
+
 						utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
-			
-			
+
 						if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
-			
+
 							HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
-			
-						} else { 
-			
+
+						} else {
+
 							fmt.Println("The best order is ", utils.BestOrder)
 							DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
-			
+
 						}
-			
+
 					} else if thisElevator.CurrentState == utils.Moving {
-			
+
 						utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
 						fmt.Println("The best order is ", utils.BestOrder)
-						DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order	
+						DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
 					}
-			
+
 				} else {
-			
+
 					thisElevator.StopElevator()
-			
+
 				}
 
 			} else {
 
-				newOrder := utils.MessageNewOrder{
-					Type:           "MessageNewOrder",
-					NewOrder:       newOrder,
-					ToElevatorID:   bestElevator.ID, // Use the correct field name as defined in your ElevatorStatus struct
-					FromElevatorID: thisElevator.ID}
+				go func() {
 
-				channels.NewOrderTx <- newOrder
+					newOrder := utils.MessageNewOrder{
+						Type:           "MessageNewOrder",
+						NewOrder:       newOrder,
+						ToElevatorID:   bestElevator.ID, // Use the correct field name as defined in your ElevatorStatus struct
+						FromElevatorID: thisElevator.ID}
+
+					channels.NewOrderTx <- newOrder
+
+				}()
+
+				go func() {
+
+					newOrder := utils.OrderWatcher{
+						Orders:        []utils.Order{newOrder},
+						ForElevatorID: bestElevator.ID,
+						IsComplete:    false,
+						IsNew:         true}
+
+					channels.OrderWatcher <- newOrder
+
+				}()
+
 			}
 		}
 
@@ -343,33 +374,31 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 		if amountOfOrders > 0 {
 
 			if thisElevator.CurrentState == utils.Still {
-	
-	
+
 				utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
-	
-	
+
 				if utils.BestOrder.Floor == thisElevator.CurrentFloor && elevio.GetFloor() != utils.NotDefined {
-	
+
 					HandleElevatorAtFloor(utils.BestOrder.Floor, channels, thisElevator) // Handle the elevator at the floor
-	
-				} else { 
-	
+
+				} else {
+
 					fmt.Println("The best order is ", utils.BestOrder)
 					DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
-	
+
 				}
-	
+
 			} else if thisElevator.CurrentState == utils.Moving {
-	
+
 				utils.BestOrder = orders.ChooseBestOrder(thisElevator) // Choose the best order
 				fmt.Println("The best order is ", utils.BestOrder)
-				DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order	
+				DoOrder(utils.BestOrder, thisElevator, channels) // Move the elevator to the best order
 			}
-	
+
 		} else {
-	
+
 			thisElevator.StopElevator()
-	
+
 		}
 
 	} else if !thisElevator.IsMaster && toElevatorID != thisElevator.ID && fromElevatorID != thisElevator.ID {
@@ -414,6 +443,13 @@ func WaitForAck(ackCh chan utils.OrderConfirmed, timeout time.Duration,
 		case <-time.After(timeout):
 
 			fmt.Println("Timeout")
+			if newOrder.Button != utils.Cab {
+				utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Confirmed = false
+				utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Time = time.Now()
+			} else {
+				utils.SlaveOrderWatcher.CabOrderArray[thisElevator.ID][newOrder.Floor].Confirmed = false
+				utils.SlaveOrderWatcher.CabOrderArray[thisElevator.ID][newOrder.Floor].Time = time.Now()
+			}
 			return
 
 		}

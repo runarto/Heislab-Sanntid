@@ -107,6 +107,6 @@ type OrderWatcherArray struct {
 type OrderWatcher struct {
 	Orders        []Order
 	ForElevatorID int
-	New           bool
-	Complete      bool
+	IsComplete    bool
+	IsNew         bool
 }

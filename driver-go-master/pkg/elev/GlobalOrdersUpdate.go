@@ -32,7 +32,7 @@ func GlobalUpdates(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 		case WatcherUpdate := <-channels.OrderWatcher:
 
-			if WatcherUpdate.New {
+			if WatcherUpdate.IsNew && thisElevator.IsMaster {
 
 				for i, _ := range WatcherUpdate.Orders {
 
@@ -47,7 +47,7 @@ func GlobalUpdates(channels *utils.Channels, thisElevator *utils.Elevator) {
 				}
 			}
 
-			if WatcherUpdate.Complete {
+			if WatcherUpdate.IsComplete && thisElevator.IsMaster {
 
 				for i, _ := range WatcherUpdate.Orders {
 
@@ -104,6 +104,7 @@ func HandleNewGlobalOrderUpdate(GlobalUpdate utils.GlobalOrderUpdate, thisElevat
 			}
 
 		}
+
 	}
 }
 
@@ -139,7 +140,7 @@ func HandleNewElevatorStatus(elevatorStatus utils.ElevatorStatus, thisElevator *
 		return
 	}
 
-	UpdateElevatorStatus(&elevatorStatus.FromElevator)
+	UpdateElevatorArray(&elevatorStatus.FromElevator)
 
 	var ActiveOrders []utils.Order
 
@@ -169,7 +170,7 @@ func HandleNewElevatorStatus(elevatorStatus utils.ElevatorStatus, thisElevator *
 
 }
 
-func UpdateElevatorStatus(fromElevator *utils.Elevator) {
+func UpdateElevatorArray(fromElevator *utils.Elevator) {
 
 	found := false
 
@@ -188,5 +189,4 @@ func UpdateElevatorStatus(fromElevator *utils.Elevator) {
 
 	}
 
-	UpdateElevatorsOnNetwork(fromElevator.ID, true)
 }
