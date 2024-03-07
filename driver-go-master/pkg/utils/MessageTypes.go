@@ -28,9 +28,10 @@ type ElevatorStatus struct {
 }
 
 type MessageOrderWatcher struct {
-	Type           string            `json:"type"`           // A type identifier for decoding on the receiving end
-	OrderWatcher   OrderWatcherArray `json:"ackStruct"`      // The Elevator instance
-	FromElevatorID int               `json:"fromElevatorID"` // The elevator to send the order to
+	Type           string                            `json:"type"`           // A type identifier for decoding on the receiving end
+	HallOrders     [2][NumFloors]HallAck             `json:"hallOrders"`     // The hall orders of the elevator
+	CabOrders      [NumOfElevators][NumFloors]CabAck `json:"cabOrders"`      // The cab orders of the elevator
+	FromElevatorID int                               `json:"fromElevatorID"` // The elevator to send the order to
 }
 
 type OrderConfirmed struct {

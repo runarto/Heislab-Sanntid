@@ -1,10 +1,10 @@
 package elev
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
-	"errors"
 
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -52,13 +52,14 @@ func BroadcastMasterOrderWatcher(thisElevator *utils.Elevator, OrderWatcherCh ch
 
 		if len(utils.Elevators) > 1 && thisElevator.IsMaster {
 
-			MasterOrderWatcher := utils.MessageOrderWatcher{
+			OrderWatcherArrayToSend := utils.MessageOrderWatcher{
 				Type:           "AckMatrix",
-				OrderWatcher:   utils.MasterOrderWatcher, // Use the correct field name as defined in your ElevatorStatus struct
+				HallOrders:     utils.MasterOrderWatcher.HallOrderArray,
+				CabOrders:      utils.MasterOrderWatcher.CabOrderArray,
 				FromElevatorID: thisElevator.ID,
 			}
 
-			OrderWatcherCh <- MasterOrderWatcher // Broadcast the current status
+			OrderWatcherCh <- OrderWatcherArrayToSend // Broadcast the current status
 		}
 	}
 }
@@ -421,9 +422,17 @@ func WaitForAck(ackCh chan utils.OrderConfirmed, timeout time.Duration, newOrder
 		case ack := <-ackCh:
 			if ack.Confirmed && ack.FromElevatorID == utils.MasterElevatorID {
 				if newOrder.Button == utils.Cab {
+					utils.SlaveOrderWatcher.WatcherMutex.Lock()
+					defer utils.SlaveOrderWatcher.WatcherMutex.Unlock()
+
 					utils.SlaveOrderWatcher.CabOrderArray[newOrder.Floor][newOrder.Button].Confirmed = true
+
 					fmt.Println("Cab order confirmed by master.")
 				} else {
+
+					utils.SlaveOrderWatcher.WatcherMutex.Lock()
+					defer utils.SlaveOrderWatcher.WatcherMutex.Unlock()
+
 					utils.SlaveOrderWatcher.HallOrderArray[newOrder.Floor][newOrder.Button].Confirmed = true
 					fmt.Println("Hall order confirmed by master.")
 				}

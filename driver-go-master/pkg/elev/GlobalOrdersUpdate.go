@@ -38,9 +38,11 @@ func GlobalUpdates(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 					if WatcherUpdate.Orders[i].Button != utils.Cab {
 
+						utils.MasterOrderWatcher.WatcherMutex.Lock()
 						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Active = true
 						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Completed = false
 						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Time = time.Now()
+						utils.MasterOrderWatcher.WatcherMutex.Unlock()
 
 					}
 
@@ -53,17 +55,22 @@ func GlobalUpdates(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 					if WatcherUpdate.Orders[i].Button != utils.Cab {
 
+						utils.MasterOrderWatcher.WatcherMutex.Lock()
 						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Active = false
 						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Completed = true
 						utils.MasterOrderWatcher.HallOrderArray[WatcherUpdate.Orders[i].Button][WatcherUpdate.Orders[i].Floor].Time = time.Now()
+						utils.MasterOrderWatcher.WatcherMutex.Unlock()
 
 					}
 				}
 			}
 
-		case MasterOrderWatcher := <-channels.MasterOrderWatcherRx:
+		case WatcherUpdate := <-channels.MasterOrderWatcherRx:
 
-			utils.MasterOrderWatcher = MasterOrderWatcher.OrderWatcher
+			if !thisElevator.IsMaster {
+				utils.MasterOrderWatcher.HallOrderArray = WatcherUpdate.HallOrders
+				utils.MasterOrderWatcher.CabOrderArray = WatcherUpdate.CabOrders
+			}
 
 		}
 	}
@@ -179,7 +186,7 @@ func UpdateElevatorArray(fromElevator *utils.Elevator) {
 		if utils.Elevators[i].ID == fromElevator.ID {
 
 			utils.Elevators[i] = *fromElevator
-			found = true 
+			found = true
 			fmt.Println("Elevator array updated, new elevator: ", fromElevator.ID)
 			return
 		}
@@ -193,7 +200,6 @@ func UpdateElevatorArray(fromElevator *utils.Elevator) {
 
 }
 
-
 func InitializeOrderWatchers() {
 
 	for button := 0; button < utils.NumButtons-1; button++ {
@@ -206,6 +212,5 @@ func InitializeOrderWatchers() {
 			utils.SlaveOrderWatcher.HallOrderArray[button][floor].Time = time.Now()
 		}
 	}
-
 
 }
