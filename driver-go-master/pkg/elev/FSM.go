@@ -91,7 +91,7 @@ func HandleOrdersAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCompl
 	for button := 0; button < utils.NumButtons; button++ {
 		if e.LocalOrderArray[button][floor] == utils.True { // If there is an active order at the floor
 
-			if floor == utils.BestOrder.Floor {
+			if floor == utils.BestOrder.Floor && elevio.GetFloor() == floor {
 
 				if e.CurrentDirection == utils.Up && button == utils.HallUp || e.CurrentDirection == utils.Stopped && button == utils.HallUp {
 
@@ -207,7 +207,7 @@ func HandleElevatorAtFloor(floor int, OrderCompleteTx chan utils.MessageOrderCom
 
 	fmt.Println("Function: HandleElevatorAtFloor")
 
-	if HandleOrdersAtFloor(floor, OrderCompleteTx, e) && elevio.GetFloor() != utils.NotDefined { // If true, orders have been handled at the floor
+	if HandleOrdersAtFloor(floor, OrderCompleteTx, e) { // If true, orders have been handled at the floor
 
 		e.StopElevator()                    // Stop the elevator
 		e.SetDoorState(utils.Open)          // utils.Open the door
@@ -563,7 +563,12 @@ func DoOrder(order utils.Order, OrderCompleteTx chan utils.MessageOrderComplete,
 	// and a pointer to the elevator object.
 
 	// Do the order
-	if order.Floor > e.CurrentFloor {
+
+	if e.StopButton == true {
+
+		e.StopElevator()
+
+	} else if order.Floor > e.CurrentFloor {
 
 		e.GoUp()
 

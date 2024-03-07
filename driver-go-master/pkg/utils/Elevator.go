@@ -94,15 +94,18 @@ func (e *Elevator) SetLights() {
 }
 
 func (e *Elevator) StopBtnPressed(btn bool) {
-	elevio.SetMotorDirection(elevio.MD_Stop)
-	if btn {
+	if e.StopButton == true {
+		e.StopButton = false
+		elevio.SetStopLamp(false)
+
+	} else {
+		e.StopButton = true
+		elevio.SetMotorDirection(elevio.MD_Stop)
 		if elevio.GetFloor() != NotDefined {
 			e.StopButton = true
 			elevio.SetStopLamp(true)
 			e.SetDoorState(Open)
 		}
-	} else {
-		e.StopButton = false
-		elevio.SetStopLamp(false)
+		elevio.SetStopLamp(true)
 	}
 }
