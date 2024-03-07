@@ -37,6 +37,7 @@ func main() {
 	utils.Elevators = append(utils.Elevators, thisElevator) // Add the elevator to the list of active elevators
 	orders.InitLocalOrderSystem(&thisElevator)              // Initialize the local order system
 	elev.InitializeElevator(&thisElevator)                  // Initialize the elevator
+	elev.InitializeOrderWatchers()
 
 	channels := &utils.Channels{
 
@@ -61,6 +62,10 @@ func main() {
 		AckTx: make(chan utils.OrderConfirmed),
 		AckRx: make(chan utils.OrderConfirmed),
 
+		MasterBarkCh:   make(chan utils.Order),
+		SlaveBarkCh:    make(chan utils.Order),
+
+		OrderWatcher:   make(chan utils.OrderWatcher),
 		GlobalUpdateCh: make(chan utils.GlobalOrderUpdate),
 		BestOrderCh:    make(chan utils.Order),
 		ButtonCh:       make(chan elevio.ButtonEvent),
@@ -82,8 +87,6 @@ func main() {
 	go elev.BroadcastElevatorStatus(&thisElevator, channels)
 	go elev.BroadcastMasterOrderWatcher(&thisElevator, channels.MasterOrderWatcherTx)
 
-	go elev.Bark(&thisElevator, channels)
-	go elev.Watchdog(channels, &thisElevator)
 
 	// Start polling functions in separate goroutines
 	go elevio.PollButtons(channels.ButtonCh)
@@ -91,10 +94,11 @@ func main() {
 	go elevio.PollObstructionSwitch(channels.ObstrCh)
 	go elevio.PollStopButton(channels.StopCh)
 
+	go elev.Bark(&thisElevator, channels)
+	go elev.Watchdog(channels, &thisElevator)
+
 	go elev.GlobalUpdates(channels, &thisElevator)
-
 	go elev.NetworkUpdate(channels, &thisElevator)
-
 	go elev.FSM(channels, &thisElevator)
 
 	select {}

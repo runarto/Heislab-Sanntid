@@ -11,16 +11,19 @@ import (
 
 func Bark(thisElevator *utils.Elevator, channels *utils.Channels) {
 
+	fmt.Println("Barker started.")
+
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		isMaster := thisElevator.IsMaster
+
 		currentTime := time.Now()
 
-		if isMaster {
+		if thisElevator.IsMaster {
 			for button := 0; button < utils.NumButtons-1; button++ {
 				for floor := 0; floor < utils.NumFloors; floor++ {
+
 					timeSent := utils.MasterOrderWatcher.HallOrderArray[button][floor].Time
 
 					if currentTime.Sub(timeSent) > utils.MasterTimeout &&
@@ -39,13 +42,16 @@ func Bark(thisElevator *utils.Elevator, channels *utils.Channels) {
 					}
 				}
 			}
+
 		} else {
 
 			for button := 0; button < utils.NumButtons-1; button++ {
 				for floor := 0; floor < utils.NumFloors; floor++ {
+					
 					timeSent := utils.SlaveOrderWatcher.HallOrderArray[button][floor].Time
 
 					if currentTime.Sub(timeSent) > utils.SlaveTimeout &&
+						utils.SlaveOrderWatcher.HallOrderArray[button][floor].Active &&
 						!utils.SlaveOrderWatcher.HallOrderArray[button][floor].Confirmed {
 
 						utils.SlaveOrderWatcher.HallOrderArray[button][floor].Time = time.Now()
@@ -129,11 +135,13 @@ func DetermineMaster(e *utils.Elevator) {
 
 func Watchdog(channels *utils.Channels, thisElevator *utils.Elevator) {
 
+	fmt.Println("Watchdog started.")
+
 	for {
 
 		select {
 
-		case order := <-channels.MasterBarkCh:
+		case order := <- channels.MasterBarkCh:
 
 			fmt.Println("Master bark received, resending order", order)
 
@@ -156,7 +164,7 @@ func Watchdog(channels *utils.Channels, thisElevator *utils.Elevator) {
 
 			}
 
-		case order := <-channels.SlaveBarkCh:
+		case order := <- channels.SlaveBarkCh:
 
 			fmt.Println("Slave bark received, resending order to master", order)
 

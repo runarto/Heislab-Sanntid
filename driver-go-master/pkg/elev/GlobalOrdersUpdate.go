@@ -179,6 +179,8 @@ func UpdateElevatorArray(fromElevator *utils.Elevator) {
 		if utils.Elevators[i].ID == fromElevator.ID {
 
 			utils.Elevators[i] = *fromElevator
+			found = true 
+			fmt.Println("Elevator array updated, new elevator: ", fromElevator.ID)
 			return
 		}
 	}
@@ -188,5 +190,22 @@ func UpdateElevatorArray(fromElevator *utils.Elevator) {
 		utils.Elevators = append(utils.Elevators, *fromElevator)
 
 	}
+
+}
+
+
+func InitializeOrderWatchers() {
+
+	for button := 0; button < utils.NumButtons-1; button++ {
+		for floor := 0; floor < utils.NumFloors; floor++ {
+			utils.MasterOrderWatcher.HallOrderArray[button][floor].Active = false
+			utils.MasterOrderWatcher.HallOrderArray[button][floor].Completed = false
+			utils.MasterOrderWatcher.HallOrderArray[button][floor].Time = time.Now()
+
+			utils.SlaveOrderWatcher.HallOrderArray[button][floor].Confirmed = false
+			utils.SlaveOrderWatcher.HallOrderArray[button][floor].Time = time.Now()
+		}
+	}
+
 
 }

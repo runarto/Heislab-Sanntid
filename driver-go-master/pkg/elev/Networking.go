@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"errors"
 
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -414,45 +415,24 @@ func HandleNewOrder(newOrder utils.Order, fromElevatorID int, toElevatorID int, 
 	}
 }
 
-func WaitForAck(ackCh chan utils.OrderConfirmed, timeout time.Duration,
-	newOrder utils.Order, thisElevator *utils.Elevator) {
-
-	fmt.Println("Function: WaitForAck")
-
+func WaitForAck(ackCh chan utils.OrderConfirmed, timeout time.Duration, newOrder utils.Order, thisElevator *utils.Elevator) error {
 	for {
 		select {
-
 		case ack := <-ackCh:
-
 			if ack.Confirmed && ack.FromElevatorID == utils.MasterElevatorID {
-
 				if newOrder.Button == utils.Cab {
-
-					utils.SlaveOrderWatcher.CabOrderArray[thisElevator.ID][newOrder.Floor].Confirmed = true
-
+					utils.SlaveOrderWatcher.CabOrderArray[newOrder.Floor][newOrder.Button].Confirmed = true
+					fmt.Println("Cab order confirmed by master.")
 				} else {
-
-					utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Confirmed = true
+					utils.SlaveOrderWatcher.HallOrderArray[newOrder.Floor][newOrder.Button].Confirmed = true
+					fmt.Println("Hall order confirmed by master.")
 				}
-
 				fmt.Println("Order confirmed by master.")
-
-				return
+				return nil
 			}
-
 		case <-time.After(timeout):
-
-			fmt.Println("Timeout")
-			if newOrder.Button != utils.Cab {
-				utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Confirmed = false
-				utils.SlaveOrderWatcher.HallOrderArray[newOrder.Button][newOrder.Floor].Time = time.Now()
-			} else {
-				utils.SlaveOrderWatcher.CabOrderArray[thisElevator.ID][newOrder.Floor].Confirmed = false
-				utils.SlaveOrderWatcher.CabOrderArray[thisElevator.ID][newOrder.Floor].Time = time.Now()
-			}
-			return
-
+			fmt.Println("Timeout waiting for order confirmation.")
+			return errors.New("Timeout waiting for order confirmation.")
 		}
-
 	}
 }
