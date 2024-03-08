@@ -15,14 +15,10 @@ type PeerUpdate struct {
 	Lost  []string
 }
 
-var cheat_id string
-
 const interval = 15 * time.Millisecond
 const timeout = 5000 * time.Millisecond
 
 func Transmitter(port int, id string, transmitEnable <-chan bool) {
-
-	cheat_id = id
 
 	conn, _ := conn.DialBroadcastUDP(port)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))

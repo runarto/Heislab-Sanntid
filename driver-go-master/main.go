@@ -2,18 +2,21 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"strconv"
 
 	"github.com/runarto/Heislab-Sanntid/Network/bcast"
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/elevio"
-	"github.com/runarto/Heislab-Sanntid/pkg/elev"
-	"github.com/runarto/Heislab-Sanntid/pkg/orders"
-	"github.com/runarto/Heislab-Sanntid/pkg/utils"
+	"github.com/runarto/Heislab-Sanntid/fsm"
+	"github.com/runarto/Heislab-Sanntid/net"
+	"github.com/runarto/Heislab-Sanntid/orders"
+	"github.com/runarto/Heislab-Sanntid/updater"
+	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
 func main() {
+
+	bufferSize := 100
 
 	// Initialize the elevator
 	var port = flag.String("port", "15657", "define the port number")
@@ -23,83 +26,68 @@ func main() {
 	var thisElevator utils.Elevator = utils.Elevator{
 		CurrentState:     utils.Still, // Assuming Still is a defined constant in the State type
 		CurrentDirection: elevio.MD_Stop,
-		GeneralDirection: utils.Stopped,                            // Example, use a valid value from elevio.MotorDirection
-		CurrentFloor:     elevio.GetFloor(),                        // Starts at floor 0
-		DoorOpen:         false,                                    // Door starts closed
-		Obstructed:       false,                                    // No obstruction initially
-		StopButton:       false,                                    // Stop button not pressed initially
-		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]int{}, // Initialize with zero values
-		IsMaster:         false,                                    // Not master initially
-		ID:               1,                                        // Set to the ID of the elevator
-		IsActive:         true,                                     // Elevator is active initially
+		CurrentFloor:     elevio.GetFloor(),                         // Starts at floor 0
+		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]bool{}, // Initialize with zero values
+		ID:               1,                                         // Set to the ID of the elevator
+		IsActive:         true,                                      // Elevator is active initially
 	}
 
-	utils.Elevators = append(utils.Elevators, thisElevator) // Add the elevator to the list of active elevators
-	orders.InitLocalOrderSystem(&thisElevator)              // Initialize the local order system
-	elev.InitializeElevator(&thisElevator)                  // Initialize the elevator
-	elev.InitializeOrderWatchers()
+	fsm.NullButtons()
+	fsm.InitializeElevator(&thisElevator)
 
-	channels := &utils.Channels{
+	c := utils.Channels{
+		PeerTxEnable: make(chan bool, bufferSize),
+		PeerUpdateCh: make(chan peers.PeerUpdate, bufferSize),
 
-		PeerUpdateCh: make(chan peers.PeerUpdate),
-		PeerTxEnable: make(chan bool),
+		NewOrderTx: make(chan utils.MessageNewOrder, bufferSize),
+		NewOrderRx: make(chan utils.MessageNewOrder, bufferSize),
 
-		NewOrderTx: make(chan utils.MessageNewOrder),
-		NewOrderRx: make(chan utils.MessageNewOrder),
+		OrderCompleteTx: make(chan utils.MessageOrderComplete, bufferSize),
+		OrderCompleteRx: make(chan utils.MessageOrderComplete, bufferSize),
 
-		OrderCompleteTx: make(chan utils.MessageOrderComplete),
-		OrderCompleteRx: make(chan utils.MessageOrderComplete),
+		OrderArraysTx: make(chan utils.MessageGlobalOrderArrays, bufferSize),
+		OrderArraysRx: make(chan utils.MessageGlobalOrderArrays, bufferSize),
 
-		OrderArraysTx: make(chan utils.MessageOrderArrays),
-		OrderArraysRx: make(chan utils.MessageOrderArrays),
+		ElevatorStatusTx: make(chan utils.MessageElevatorStatus, bufferSize),
+		ElevatorStatusRx: make(chan utils.MessageElevatorStatus, bufferSize),
 
-		ElevatorStatusTx: make(chan utils.ElevatorStatus),
-		ElevatorStatusRx: make(chan utils.ElevatorStatus),
+		MasterOrderWatcherTx: make(chan utils.MessageOrderWatcher, bufferSize),
+		MasterOrderWatcherRx: make(chan utils.MessageOrderWatcher, bufferSize),
 
-		MasterOrderWatcherTx: make(chan utils.MessageOrderWatcher),
-		MasterOrderWatcherRx: make(chan utils.MessageOrderWatcher),
+		AckTx: make(chan utils.MessageOrderConfirmed, bufferSize),
+		AckRx: make(chan utils.MessageOrderConfirmed, bufferSize),
 
-		AckTx: make(chan utils.OrderConfirmed),
-		AckRx: make(chan utils.OrderConfirmed),
+		LightsTx: make(chan utils.MessageLights, bufferSize),
+		LightsRx: make(chan utils.MessageLights, bufferSize),
 
-		MasterBarkCh:   make(chan utils.Order),
-		SlaveBarkCh:    make(chan utils.Order),
-
-		OrderWatcher:   make(chan utils.OrderWatcher),
-		GlobalUpdateCh: make(chan utils.GlobalOrderUpdate),
-		BestOrderCh:    make(chan utils.Order),
-		ButtonCh:       make(chan elevio.ButtonEvent),
-		FloorCh:        make(chan int),
-		ObstrCh:        make(chan bool),
-		StopCh:         make(chan bool),
+		GlobalUpdateCh: make(chan utils.GlobalOrderUpdate, bufferSize),
+		ButtonCh:       make(chan elevio.ButtonEvent, bufferSize),
+		FloorCh:        make(chan int, bufferSize),
+		ObstrCh:        make(chan bool, bufferSize),
+		StopCh:         make(chan bool, bufferSize),
+		BestOrderCh:    make(chan utils.Order, bufferSize),
 	}
 
-	fmt.Println("lessgoo")
+	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(thisElevator.ID), c.PeerTxEnable)
+	go peers.Receiver(utils.ListeningPort+1, c.PeerUpdateCh)
 
-	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(thisElevator.ID), channels.PeerTxEnable)
-	go peers.Receiver(utils.ListeningPort+1, channels.PeerUpdateCh)
+	go bcast.Transmitter(utils.ListeningPort, c.NewOrderTx, c.OrderCompleteTx,
+		c.ElevatorStatusTx, c.OrderArraysTx, c.MasterOrderWatcherTx, c.AckTx) // You can add more channels as needed
+	go bcast.Receiver(utils.ListeningPort, c.NewOrderRx, c.OrderCompleteRx,
+		c.ElevatorStatusRx, c.OrderArraysRx, c.MasterOrderWatcherRx, c.AckRx) // You can add more channels as needed
 
-	go bcast.Transmitter(utils.ListeningPort, channels.NewOrderTx, channels.OrderCompleteTx,
-		channels.ElevatorStatusTx, channels.OrderArraysTx, channels.MasterOrderWatcherTx, channels.AckTx) // You can add more channels as needed
-	go bcast.Receiver(utils.ListeningPort, channels.NewOrderRx, channels.OrderCompleteRx,
-		channels.ElevatorStatusRx, channels.OrderArraysRx, channels.MasterOrderWatcherRx, channels.AckRx) // You can add more channels as needed
-
-	go elev.BroadcastElevatorStatus(&thisElevator, channels)
-	go elev.BroadcastMasterOrderWatcher(&thisElevator, channels.MasterOrderWatcherTx)
-
+	go net.BroadcastElevatorStatus(&thisElevator, &c)
+	go net.BroadcastMasterOrderWatcher(&thisElevator, &c)
 
 	// Start polling functions in separate goroutines
-	go elevio.PollButtons(channels.ButtonCh)
-	go elevio.PollFloorSensor(channels.FloorCh)
-	go elevio.PollObstructionSwitch(channels.ObstrCh)
-	go elevio.PollStopButton(channels.StopCh)
+	go elevio.PollButtons(c.ButtonCh)
+	go elevio.PollFloorSensor(c.FloorCh)
+	go elevio.PollObstructionSwitch(c.ObstrCh)
+	go elevio.PollStopButton(c.StopCh)
 
-	go elev.Bark(&thisElevator, channels)
-	go elev.Watchdog(channels, &thisElevator)
-
-	go elev.GlobalUpdates(channels, &thisElevator)
-	go elev.NetworkUpdate(channels, &thisElevator)
-	go elev.FSM(channels, &thisElevator)
+	go fsm.FSM(&c, thisElevator)
+	go orders.OrderHandler(&c, thisElevator)
+	go updater.Updater(&c, thisElevator)
 
 	select {}
 

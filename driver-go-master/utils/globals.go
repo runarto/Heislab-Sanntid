@@ -17,6 +17,7 @@ const (
 	MaxRetries     = 3
 	SlaveTimeout   = 3 * time.Second
 	MasterTimeout  = 15 * time.Second
+	DoorOpenTime   = 3
 )
 
 const (
@@ -40,24 +41,28 @@ const (
 	Close = false
 )
 
-var MasterElevatorID = NotDefined
+var (
+	MasterID      int
+	MasterIDmutex sync.Mutex
+)
 
 type State int
 
 const (
-	Stop   State = iota // 0
-	Moving              // 1
-	Still               // 2
+	Stop     State = iota // 0
+	Moving                // 1
+	Still                 // 2
+	DoorOpen              // 3
 )
 
 type GlobalOrderArray struct {
-	HallOrderArray [2][NumFloors]int              // Represents the hall orders
-	CabOrderArray  [NumOfElevators][NumFloors]int // Represents the cab orders
+	HallOrderArray [2][NumFloors]bool              // Represents the hall orders
+	CabOrderArray  [NumOfElevators][NumFloors]bool // Represents the cab orders
 }
 
 var GlobalOrders = GlobalOrderArray{
-	HallOrderArray: [2][NumFloors]int{},
-	CabOrderArray:  [NumOfElevators][NumFloors]int{},
+	HallOrderArray: [2][NumFloors]bool{},
+	CabOrderArray:  [NumOfElevators][NumFloors]bool{},
 }
 
 var MasterOrderWatcher = OrderWatcherArray{
@@ -77,7 +82,7 @@ var BestOrder = Order{
 	Button: elevio.BT_HallUp}
 
 type GlobalOrderUpdate struct {
-	Orders         []Order
+	Order          Order
 	FromElevatorID int
 	IsComplete     bool
 	IsNew          bool
@@ -114,8 +119,9 @@ type OrderWatcherArrayToSend struct {
 }
 
 type OrderWatcher struct {
-	Orders        []Order
+	Order         Order
 	ForElevatorID int
 	IsComplete    bool
 	IsNew         bool
+	IsConfirmed   bool
 }
