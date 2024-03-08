@@ -1,6 +1,7 @@
 package fsm
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -31,6 +32,8 @@ func FSM(c *utils.Channels, e utils.Elevator) {
 		select {
 
 		case newOrder := <-c.DoOrderCh:
+
+			fmt.Println("New order to do received")
 
 			floor := newOrder.Floor
 			button := newOrder.Button
@@ -78,6 +81,8 @@ func FSM(c *utils.Channels, e utils.Elevator) {
 
 		case floor := <-c.FloorCh:
 
+			fmt.Println("Arrived at floor", floor)
+
 			motorLossTimer.Reset(MotorLossTime)
 			e.CurrentFloor = floor
 			elevio.SetFloorIndicator(floor)
@@ -106,6 +111,8 @@ func FSM(c *utils.Channels, e utils.Elevator) {
 			}
 
 		case <-doorTimer.C:
+
+			fmt.Println("Door timer expired")
 
 			e.SetDoorState(Close)
 			e.CurrentState = utils.Still

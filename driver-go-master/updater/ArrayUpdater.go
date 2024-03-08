@@ -29,6 +29,8 @@ func Updater(c *utils.Channels, e utils.Elevator) {
 
 		case WatcherUpdate := <-c.OrderWatcher:
 
+			fmt.Println("---ORDER WATCHER UPDATE RECEIVED---")
+
 			isNewOrComplete := WatcherUpdate.IsNew
 
 			switch isNewOrComplete {
@@ -44,9 +46,13 @@ func Updater(c *utils.Channels, e utils.Elevator) {
 
 		case s := <-c.LocalStateUpdateCh: // Update the local elevator instance
 
+			fmt.Println("---LOCAL STATE UPDATE RECEIVED---")
+
 			UpdateAndSendNewState(&e, s, c)
 
 		case copy := <-c.MasterOrderWatcherRx:
+
+			fmt.Println("---MASTER ORDER WATCHER UPDATE RECEIVED---")
 
 			CopyMasterOrderWatcher(copy, &MasterOrderWatcher)
 
