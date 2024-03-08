@@ -24,6 +24,7 @@ func OrderHandler(c *utils.Channels, e utils.Elevator) {
 
 			if order.Button == utils.Cab {
 
+				fmt.Println("Sending cab order to FSM...")
 				c.DoOrderCh <- order // Send to FSM
 
 				if !utils.Master {
