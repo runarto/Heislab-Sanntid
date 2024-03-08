@@ -36,36 +36,34 @@ func main() {
 	fsm.InitializeElevator(&thisElevator)
 
 	c := utils.Channels{
-		PeerTxEnable: make(chan bool, bufferSize),
-		PeerUpdateCh: make(chan peers.PeerUpdate, bufferSize),
-
-		NewOrderTx: make(chan utils.MessageNewOrder, bufferSize),
-		NewOrderRx: make(chan utils.MessageNewOrder, bufferSize),
-
-		OrderCompleteTx: make(chan utils.MessageOrderComplete, bufferSize),
-		OrderCompleteRx: make(chan utils.MessageOrderComplete, bufferSize),
-
-		OrderArraysTx: make(chan utils.MessageGlobalOrderArrays, bufferSize),
-		OrderArraysRx: make(chan utils.MessageGlobalOrderArrays, bufferSize),
-
-		ElevatorStatusTx: make(chan utils.MessageElevatorStatus, bufferSize),
-		ElevatorStatusRx: make(chan utils.MessageElevatorStatus, bufferSize),
-
+		ButtonCh:             make(chan elevio.ButtonEvent, bufferSize),
+		FloorCh:              make(chan int, bufferSize),
+		ObstrCh:              make(chan bool, bufferSize),
+		StopCh:               make(chan bool, bufferSize),
+		NewOrderTx:           make(chan utils.MessageNewOrder, bufferSize),
+		NewOrderRx:           make(chan utils.MessageNewOrder, bufferSize),
+		OrderCompleteTx:      make(chan utils.MessageOrderComplete, bufferSize),
+		OrderCompleteRx:      make(chan utils.MessageOrderComplete, bufferSize),
+		OrderArraysTx:        make(chan utils.MessageGlobalOrderArrays, bufferSize),
+		OrderArraysRx:        make(chan utils.MessageGlobalOrderArrays, bufferSize),
+		ElevatorStatusTx:     make(chan utils.MessageElevatorStatus, bufferSize),
+		ElevatorStatusRx:     make(chan utils.MessageElevatorStatus, bufferSize),
 		MasterOrderWatcherTx: make(chan utils.MessageOrderWatcher, bufferSize),
 		MasterOrderWatcherRx: make(chan utils.MessageOrderWatcher, bufferSize),
-
-		AckTx: make(chan utils.MessageOrderConfirmed, bufferSize),
-		AckRx: make(chan utils.MessageOrderConfirmed, bufferSize),
-
-		LightsTx: make(chan utils.MessageLights, bufferSize),
-		LightsRx: make(chan utils.MessageLights, bufferSize),
-
-		GlobalUpdateCh: make(chan utils.GlobalOrderUpdate, bufferSize),
-		ButtonCh:       make(chan elevio.ButtonEvent, bufferSize),
-		FloorCh:        make(chan int, bufferSize),
-		ObstrCh:        make(chan bool, bufferSize),
-		StopCh:         make(chan bool, bufferSize),
-		BestOrderCh:    make(chan utils.Order, bufferSize),
+		AckTx:                make(chan utils.MessageOrderConfirmed, bufferSize),
+		AckRx:                make(chan utils.MessageOrderConfirmed, bufferSize),
+		LightsTx:             make(chan utils.MessageLights, bufferSize),
+		LightsRx:             make(chan utils.MessageLights, bufferSize),
+		GlobalUpdateCh:       make(chan utils.GlobalOrderUpdate, bufferSize),
+		PeerUpdateCh:         make(chan peers.PeerUpdate, bufferSize),
+		PeerTxEnable:         make(chan bool, bufferSize),
+		MasterBarkCh:         make(chan utils.Order, bufferSize),
+		SlaveBarkCh:          make(chan utils.Order, bufferSize),
+		MasterUpdateCh:       make(chan int, bufferSize),
+		OrderWatcher:         make(chan utils.OrderWatcher, bufferSize),
+		LocalStateUpdateCh:   make(chan utils.Elevator, bufferSize),
+		IsOnlineCh:           make(chan bool, bufferSize),
+		LocalLightsCh:        make(chan [2][utils.NumFloors]bool, bufferSize),
 	}
 
 	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(thisElevator.ID), c.PeerTxEnable)

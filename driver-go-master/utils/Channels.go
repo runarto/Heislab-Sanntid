@@ -35,8 +35,6 @@ type Channels struct {
 	FloorCh            chan int
 	ObstrCh            chan bool
 	StopCh             chan bool
-	BestOrderCh        chan Order
-	PeersOnlineCh      chan NewPeersMessage
 	ElevatorsCh        chan []Elevator
 	MasterBarkCh       chan Order
 	SlaveBarkCh        chan Order
