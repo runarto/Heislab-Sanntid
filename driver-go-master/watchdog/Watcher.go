@@ -9,7 +9,7 @@ import (
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-func MasterBark(e utils.Elevator, c *utils.Channels, m *utils.OrderWatcherArray) {
+func MasterBark(e utils.Elevator, m *utils.OrderWatcherArray, MasterBarkCh chan utils.Order) {
 
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
@@ -19,6 +19,7 @@ func MasterBark(e utils.Elevator, c *utils.Channels, m *utils.OrderWatcherArray)
 		if utils.Master {
 
 			currentTime := time.Now()
+			m.WatcherMutex.Lock()
 
 			for button := 0; button < utils.NumButtons-1; button++ {
 				for floor := 0; floor < utils.NumFloors; floor++ {
@@ -37,15 +38,16 @@ func MasterBark(e utils.Elevator, c *utils.Channels, m *utils.OrderWatcherArray)
 							Button: elevio.ButtonType(button),
 						}
 
-						c.MasterBarkCh <- order
+						MasterBarkCh <- order
 					}
 				}
 			}
+			m.WatcherMutex.Unlock()
 		}
 	}
 }
 
-func SlaveBark(e utils.Elevator, c *utils.Channels, s *utils.OrderWatcherArray) {
+func SlaveBark(e utils.Elevator, s *utils.OrderWatcherArray, SlaveBarkCh chan utils.Order) {
 
 	fmt.Println("Barker started.")
 
@@ -57,6 +59,7 @@ func SlaveBark(e utils.Elevator, c *utils.Channels, s *utils.OrderWatcherArray) 
 		if utils.Master {
 
 			currentTime := time.Now()
+			s.WatcherMutex.Lock()
 
 			for button := 0; button < utils.NumButtons-1; button++ {
 				for floor := 0; floor < utils.NumFloors; floor++ {
@@ -74,27 +77,29 @@ func SlaveBark(e utils.Elevator, c *utils.Channels, s *utils.OrderWatcherArray) 
 							Button: elevio.ButtonType(button),
 						}
 
-						c.SlaveBarkCh <- order
+						SlaveBarkCh <- order
 					}
 				}
 			}
+			s.WatcherMutex.Unlock()
 		}
 	}
 }
 
-func Watchdog(c *utils.Channels, e utils.Elevator, m *utils.OrderWatcherArray, s *utils.OrderWatcherArray) {
+func Watchdog(e utils.Elevator, m *utils.OrderWatcherArray, s *utils.OrderWatcherArray, MasterBarkCh chan utils.Order,
+	SlaveBarkCh chan utils.Order, ButtonCh chan elevio.ButtonEvent, ch chan interface{}) {
 
 	fmt.Println("Watchdog started.")
 
-	go MasterBark(e, c, m)
+	go MasterBark(e, m, MasterBarkCh)
 
-	go SlaveBark(e, c, m)
+	go SlaveBark(e, s, SlaveBarkCh)
 
 	for {
 
 		select {
 
-		case order := <-c.MasterBarkCh:
+		case order := <-MasterBarkCh:
 
 			fmt.Println("Master bark received, resending order", order)
 
@@ -102,22 +107,25 @@ func Watchdog(c *utils.Channels, e utils.Elevator, m *utils.OrderWatcherArray, s
 
 			if BestElevator.ID == e.ID {
 
-				c.ButtonCh <- elevio.ButtonEvent{
+				ButtonCh <- elevio.ButtonEvent{
 					Floor:  order.Floor,
 					Button: order.Button,
 				}
 
 			} else {
 
-				utils.CreateAndSendMessage(c, "MessageNewOrder", order, BestElevator.ID, e.ID)
+				msg := utils.PackMessage("MessageNewOrder", order, BestElevator.ID, e.ID)
+				ch <- msg
 
 			}
 
-		case order := <-c.SlaveBarkCh:
+		case order := <-SlaveBarkCh:
 
 			fmt.Println("Slave bark received, resending order to master", order)
 
-			utils.CreateAndSendMessage(c, "MessageNewOrder", order, utils.MasterID, e.ID)
+			msg := utils.PackMessage("MessageNewOrder", order, utils.MasterID, e.ID)
+			ch <- msg
+
 		}
 	}
 }

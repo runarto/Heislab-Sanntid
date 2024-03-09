@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -15,7 +16,10 @@ type Elevator struct {
 	IsActive         bool                        // Is the elevator active or not
 }
 
-var Elevators []Elevator
+var (
+	Elevators      []Elevator
+	ElevatorsMutex sync.Mutex
+)
 
 var (
 	Master      bool
@@ -60,6 +64,7 @@ func (e *Elevator) SetDoorState(state bool) {
 }
 
 func (e *Elevator) SetState(state State) {
+	fmt.Println("Setting state to: ", state)
 	e.CurrentState = state
 }
 

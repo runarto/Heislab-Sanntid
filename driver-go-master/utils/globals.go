@@ -3,8 +3,6 @@ package utils
 import (
 	"sync"
 	"time"
-
-	"github.com/runarto/Heislab-Sanntid/elevio"
 )
 
 const (
@@ -46,6 +44,8 @@ var (
 	MasterIDmutex sync.Mutex
 )
 
+var ID int
+
 type State int
 
 const (
@@ -76,10 +76,6 @@ var SlaveOrderWatcher = OrderWatcherArray{
 	HallOrderArray: [2][NumFloors]HallAck{},
 	CabOrderArray:  [NumOfElevators][NumFloors]CabAck{},
 }
-
-var BestOrder = Order{
-	Floor:  NotDefined,
-	Button: elevio.BT_HallUp}
 
 type GlobalOrderUpdate struct {
 	Order          Order
@@ -124,4 +120,9 @@ type OrderWatcher struct {
 	IsComplete    bool
 	IsNew         bool
 	IsConfirmed   bool
+}
+
+type Status struct {
+	ID       int
+	IsOnline bool
 }

@@ -8,9 +8,12 @@ import (
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-func FSM(c *utils.Channels, e utils.Elevator) {
+func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
+	ObstrCh chan bool, LocalStateUpdateCh chan utils.Elevator, PeerTxEnable chan bool,
+	IsOnlineCh <-chan bool, LocalLightsCh <-chan [utils.NumButtons - 1][utils.NumFloors]bool,
+	LightsRx <-chan utils.MessageLights, ch chan interface{}) {
 
-	Online := false
+	Online := true
 
 	const DoorOpenTime = 3 * time.Second
 	const MotorLossTime = 5 * time.Second
@@ -31,13 +34,14 @@ func FSM(c *utils.Channels, e utils.Elevator) {
 
 		select {
 
-		case newOrder := <-c.DoOrderCh:
+		case newOrder := <-DoOrderCh:
 
 			fmt.Println("New order to do received")
 
 			floor := newOrder.Floor
 			button := newOrder.Button
 
+			fmt.Println("Current state is: ", e.CurrentState)
 			switch e.CurrentState {
 
 			case utils.DoorOpen:
@@ -46,7 +50,7 @@ func FSM(c *utils.Channels, e utils.Elevator) {
 					e = ClearOrder(e, floor, int(button))
 					doorTimer.Reset(DoorOpenTime)
 				} else {
-					e.LocalOrderArray[floor][button] = true
+					e.LocalOrderArray[button][floor] = true
 				}
 
 			case utils.Still:
@@ -55,10 +59,11 @@ func FSM(c *utils.Channels, e utils.Elevator) {
 					e = ClearOrder(e, floor, int(button))
 					doorTimer.Reset(DoorOpenTime)
 				} else {
-					e.LocalOrderArray[floor][button] = true
+					e.LocalOrderArray[button][floor] = true
 				}
 
 				e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
+				fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
 
 				switch e.CurrentState {
 				case utils.Moving:
@@ -72,14 +77,14 @@ func FSM(c *utils.Channels, e utils.Elevator) {
 				}
 
 			case utils.Moving:
-				e.LocalOrderArray[floor][button] = true
+				e.LocalOrderArray[button][floor] = true
 
 			}
 
-			c.LocalStateUpdateCh <- e // Update the local elevator instance
+			LocalStateUpdateCh <- e // Update the local elevator instance
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
-		case floor := <-c.FloorCh:
+		case floor := <-FloorCh:
 
 			fmt.Println("Arrived at floor", floor)
 
@@ -94,62 +99,79 @@ func FSM(c *utils.Channels, e utils.Elevator) {
 				e.SetDoorState(Open)
 				e = ClearOrdersAtFloor(e)
 				doorTimer.Reset(DoorOpenTime)
+
+				e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
+				fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
+
+				if e.CurrentState == utils.Still {
+					e.SetDoorState(Open)
+					e = ClearOrdersAtFloor(e)
+					doorTimer.Reset(DoorOpenTime)
+				} else {
+					elevio.SetMotorDirection(e.CurrentDirection)
+					SetMotorLossTimer(int(e.CurrentDirection), motorLossTimer, MotorLossTime)
+				}
+
 			}
 
-			c.LocalStateUpdateCh <- e
+			LocalStateUpdateCh <- e
+			fmt.Println("Local state update sent...")
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
-		case obstruction := <-c.ObstrCh:
+		case obstruction := <-ObstrCh:
 
 			if obstruction {
 				e.Obstruction(true)
 				doorTimer.Reset(DoorOpenTime)
-				c.PeerTxEnable <- false
+				PeerTxEnable <- false
 			} else {
 				e.Obstruction(false)
-				c.PeerTxEnable <- true
+				PeerTxEnable <- true
 			}
 
 		case <-doorTimer.C:
 
-			fmt.Println("Door timer expired")
+			fmt.Println("Door timer expired...")
 
 			e.SetDoorState(Close)
-			e.CurrentState = utils.Still
+			e.SetState(utils.Still)
 			e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
+			fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
+
 			motorLossTimer.Reset(MotorLossTime)
 
 			if e.CurrentState == utils.DoorOpen {
 
-				c.FloorCh <- e.CurrentFloor
+				FloorCh <- e.CurrentFloor
 
 			}
 
-			c.LocalStateUpdateCh <- e
+			LocalStateUpdateCh <- e
+			fmt.Println("Local state update sent...")
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
-		case <-motorLossTimer.C:
+		//case <-motorLossTimer.C:
 
-			c.PeerTxEnable <- false
+		//PeerTxEnable <- false
 
 		case <-lastUpdateTimer.C:
-			c.LocalStateUpdateCh <- e
+			LocalStateUpdateCh <- e
+			fmt.Println("State update timer expired... sending update")
 
-		case update := <-c.IsOnlineCh:
+		case update := <-IsOnlineCh:
 			Online = update
 
-		case lights := <-c.LocalLightsCh:
-			if utils.Master {
-				SetHallLights(lights)
-			}
+		case lights := <-LocalLightsCh:
+			SetHallLights(lights)
 
-		case l := <-c.LightsRx:
+		case l := <-LightsRx:
 
 			lights := l.Lights
 
 			if l.FromElevatorID != e.ID {
 				SetHallLights(lights)
-				utils.CreateAndSendMessage(c, "MessageLightsConfirmed", true, e.ID)
+				msg := utils.PackMessage("MessageLightsAck", true, e.ID)
+				ch <- msg
 			}
 
 		}

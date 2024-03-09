@@ -20,16 +20,18 @@ func NullButtons() {
 	}
 }
 
-func InitializeElevator(thisElevator *utils.Elevator) {
+func InitializeElevator() utils.Elevator {
 
-	utils.Master = false
-
+	if utils.ID == 0 {
+		utils.Master = true
+		utils.MasterID = 0
+	}
 	NullButtons()
 	fmt.Println("Function: InitializeElevator")
 	floor := elevio.GetFloor()
 	direction := utils.Up
 	maxTime := 2000
-	thisElevator.GoUp()
+	elevio.SetMotorDirection(elevio.MD_Up)
 	startTime := time.Now()
 
 	for floor == utils.NotDefined {
@@ -37,16 +39,23 @@ func InitializeElevator(thisElevator *utils.Elevator) {
 
 		if time.Since(startTime).Milliseconds() > int64(maxTime) {
 			if direction == 1 {
-				thisElevator.GoDown()
+				elevio.SetMotorDirection(elevio.MD_Up)
 				direction = -1
 			} else {
-				thisElevator.GoUp()
+				elevio.SetMotorDirection(elevio.MD_Down)
 				direction = 1
 			}
 			startTime = time.Now()
 		}
 	}
-	thisElevator.StopElevator()
+
+	return utils.Elevator{
+		CurrentFloor:     floor,
+		CurrentDirection: elevio.MD_Stop,
+		CurrentState:     utils.Still,
+		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]bool{},
+		ID:               utils.ID,
+	}
 }
 
 func FloorLights(floor int, e utils.Elevator) utils.Elevator {
@@ -108,6 +117,8 @@ func OrderAtCurrentFloor(e utils.Elevator) bool {
 }
 
 func GetElevatorDirection(e utils.Elevator) (elevio.MotorDirection, utils.State) {
+
+	fmt.Println("Function: GetElevatorDirection")
 
 	switch e.CurrentDirection {
 	case utils.Up:
@@ -182,7 +193,7 @@ func OpenAndCloseDoor() {
 	elevio.SetDoorOpenLamp(false)
 }
 
-func ClearOrder(e utils.Elevator, b int, f int) utils.Elevator {
+func ClearOrder(e utils.Elevator, f int, b int) utils.Elevator {
 	e.LocalOrderArray[b][f] = false
 	return e
 }
@@ -192,7 +203,6 @@ func ShouldClearOrderAtFloor(e utils.Elevator, f int, b int) bool {
 	return e.CurrentFloor == f && ((e.CurrentDirection == utils.Up && b == utils.HallUp) ||
 		(e.CurrentDirection == utils.Down && b == utils.HallDown) ||
 		(e.CurrentDirection == utils.Stopped || b == utils.Cab))
-
 }
 
 func SetMotorLossTimer(direction int, timer *time.Timer, duration time.Duration) {

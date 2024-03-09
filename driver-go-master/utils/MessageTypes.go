@@ -55,45 +55,7 @@ type MessageLightsConfirmed struct {
 	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
 }
 
-func SendMessage(msgChan <-chan interface{}, c *Channels) {
-
-	msg := <-msgChan
-	var msgType string
-
-	switch m := msg.(type) {
-	case MessageGlobalOrderArrays:
-		msgType = "MessageGlobalOrderArrays"
-		c.OrderArraysTx <- m
-	case MessageOrderComplete:
-		msgType = "MessageOrderComplete"
-		c.OrderCompleteTx <- m
-	case MessageNewOrder:
-		msgType = "MessageNewOrder"
-		c.NewOrderTx <- m
-	case MessageElevatorStatus:
-		msgType = "MessageElevatorStatus"
-		c.ElevatorStatusTx <- m
-	case MessageOrderWatcher:
-		msgType = "MessageOrderWatcher"
-		c.MasterOrderWatcherTx <- m
-	case MessageOrderConfirmed:
-		msgType = "MessageOrderConfirmed"
-		c.AckTx <- m
-	case MessageLights:
-		msgType = "MessageLights"
-		c.LightsTx <- m
-	}
-
-	fmt.Println("Sent a", msgType, "message")
-}
-
-func PrepareMessage(message interface{}) chan interface{} {
-	messageCh := make(chan interface{}, 1)
-	messageCh <- message
-	return messageCh
-}
-
-func CreateAndSendMessage(c *Channels, msgType string, params ...interface{}) {
+func PackMessage(msgType string, params ...interface{}) interface{} {
 	switch msgType {
 	case "MessageGlobalOrderArrays":
 		msg := MessageGlobalOrderArrays{
@@ -101,7 +63,7 @@ func CreateAndSendMessage(c *Channels, msgType string, params ...interface{}) {
 			GlobalOrders:   params[0].(GlobalOrderArray),
 			FromElevatorID: params[1].(int)}
 
-		SendMessage(PrepareMessage(msg), c)
+		return msg
 	case "MessageOrderComplete":
 		msg := MessageOrderComplete{
 			Type:           msgType,
@@ -109,7 +71,7 @@ func CreateAndSendMessage(c *Channels, msgType string, params ...interface{}) {
 			ToElevatorID:   params[1].(int),
 			FromElevatorID: params[2].(int)}
 
-		SendMessage(PrepareMessage(msg), c)
+		return msg
 	case "MessageNewOrder":
 		msg := MessageNewOrder{
 			Type:           msgType,
@@ -117,13 +79,13 @@ func CreateAndSendMessage(c *Channels, msgType string, params ...interface{}) {
 			ToElevatorID:   params[1].(int),
 			FromElevatorID: params[2].(int)}
 
-		SendMessage(PrepareMessage(msg), c)
+		return msg
 	case "MessageElevatorStatus":
 		msg := MessageElevatorStatus{
 			Type:         msgType,
 			FromElevator: params[0].(Elevator)}
 
-		SendMessage(PrepareMessage(msg), c)
+		return msg
 	case "MessageOrderWatcher":
 		msg := MessageOrderWatcher{
 			Type:           msgType,
@@ -131,7 +93,7 @@ func CreateAndSendMessage(c *Channels, msgType string, params ...interface{}) {
 			CabOrders:      params[1].([NumOfElevators][NumFloors]CabAck),
 			FromElevatorID: params[2].(int)}
 
-		SendMessage(PrepareMessage(msg), c)
+		return msg
 	case "MessageOrderConfirmed":
 		msg := MessageOrderConfirmed{
 			Type:           msgType,
@@ -139,19 +101,68 @@ func CreateAndSendMessage(c *Channels, msgType string, params ...interface{}) {
 			FromElevatorID: params[1].(int),
 			ForOrder:       params[2].(Order)}
 
-		SendMessage(PrepareMessage(msg), c)
+		return msg
 	case "MessageLights":
 		msg := MessageLights{
 			Type:           msgType,
 			Lights:         params[0].([NumButtons - 1][NumFloors]bool),
 			FromElevatorID: params[1].(int)}
-		SendMessage(PrepareMessage(msg), c)
 
+		return msg
 	case "MessageLightsConfirmed":
 		msg := MessageLightsConfirmed{
 			Type:           msgType,
 			Confirmed:      params[0].(bool),
 			FromElevatorID: params[1].(int)}
-		SendMessage(PrepareMessage(msg), c)
+		return msg
+	}
+
+	return nil
+}
+
+func HandleMessage(msg interface{}, params ...interface{}) {
+	switch m := msg.(type) {
+	case MessageGlobalOrderArrays:
+		m.Type = "MessageGlobalOrderArrays"
+		if ch, ok := params[0].(chan MessageGlobalOrderArrays); ok {
+			ch <- m
+			fmt.Println("Sent a", m.Type, "message")
+		}
+	case MessageOrderComplete:
+		m.Type = "MessageOrderComplete"
+		if ch, ok := params[0].(chan MessageOrderComplete); ok {
+			ch <- m
+			fmt.Println("Sent a", m.Type, "message")
+		}
+	case MessageNewOrder:
+		m.Type = "MessageNewOrder"
+		if ch, ok := params[0].(chan MessageNewOrder); ok {
+			ch <- m
+			fmt.Println("Sent a", m.Type, "message")
+		}
+	case MessageElevatorStatus:
+		m.Type = "MessageElevatorStatus"
+		if ch, ok := params[0].(chan MessageElevatorStatus); ok {
+			ch <- m
+			fmt.Println("Sent a", m.Type, "message")
+		}
+	case MessageOrderWatcher:
+		m.Type = "MessageOrderWatcher"
+		if ch, ok := params[0].(chan MessageOrderWatcher); ok {
+			ch <- m
+			fmt.Println("Sent a", m.Type, "message")
+		}
+	case MessageOrderConfirmed:
+		m.Type = "MessageOrderConfirmed"
+		if ch, ok := params[0].(chan MessageOrderConfirmed); ok {
+			ch <- m
+			fmt.Println("Sent a", m.Type, "message")
+		}
+	case MessageLights:
+		m.Type = "MessageLights"
+		if ch, ok := params[0].(chan MessageLights); ok {
+			ch <- m
+			fmt.Println("Sent a", m.Type, "message")
+		}
 	}
 }

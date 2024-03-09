@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
-	"github.com/runarto/Heislab-Sanntid/elevio"
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
@@ -19,40 +18,50 @@ type peerUpdate struct {
 var ActiveElevatorIDs []int
 var Elevators []utils.Elevator
 
-func SendOrder(order utils.Order, e utils.Elevator, c *utils.Channels, toElevatorID int) {
+func SendOrder(order utils.Order, e utils.Elevator, ch chan interface{}, toElevatorID int) {
 
-	utils.CreateAndSendMessage(c, "MessageNewOrder", order, toElevatorID, e.ID)
+	msg := utils.PackMessage("MessageNewOrder", order, toElevatorID, e.ID)
+	ch <- msg
 
 }
 
-func ProcessNewOrder(order utils.Order, e utils.Elevator, c *utils.Channels) {
+func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate,
+	DoOrderCh chan utils.Order) {
+
+	fmt.Println("Function: ProcessNewOrder")
 
 	switch utils.Master {
 	case true:
 		BestElevator := ChooseElevator(order)
+		fmt.Println("Best elevator for order", order, ": ", BestElevator.ID)
+		//time.Sleep(5 * time.Second)
 		if BestElevator.ID == e.ID {
-			c.ButtonCh <- elevio.ButtonEvent{
-				Floor:  order.Floor,
-				Button: order.Button,
-			}
+			DoOrderCh <- order
+			fmt.Println("Sending order to FSM...")
 		} else {
-			SendOrder(order, e, c, BestElevator.ID)
+			SendOrder(order, e, ch, BestElevator.ID)
 		}
 
-		c.GlobalUpdateCh <- utils.GlobalOrderUpdate{
-			Order:          order,
-			FromElevatorID: e.ID,
-			IsComplete:     false,
-			IsNew:          true}
+		fmt.Println("Sending message for global order update...")
+		//time.Sleep(5 * time.Second)
+		go func() {
+			GlobalUpdateCh <- utils.GlobalOrderUpdate{
+				Order:          order,
+				FromElevatorID: e.ID,
+				IsComplete:     false,
+				IsNew:          true}
+		}()
 
 	case false:
-		SendOrder(order, e, c, utils.MasterID)
+		SendOrder(order, e, ch, utils.MasterID)
 
 	}
 
 }
 
-func ProcessOrderComplete(orderComplete utils.MessageOrderComplete, e utils.Elevator, channels *utils.Channels) {
+func ProcessOrderComplete(orderComplete utils.MessageOrderComplete, e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
+
+	fmt.Println("ProcessOrderComplete")
 
 	GlobalOrderUpdate := utils.GlobalOrderUpdate{
 		Order:          orderComplete.Order,
@@ -60,11 +69,11 @@ func ProcessOrderComplete(orderComplete utils.MessageOrderComplete, e utils.Elev
 		IsComplete:     true,
 		IsNew:          false}
 
-	channels.GlobalUpdateCh <- GlobalOrderUpdate
+	GlobalUpdateCh <- GlobalOrderUpdate
 
 }
 
-func HandlePeersUpdate(p peers.PeerUpdate, c *utils.Channels) {
+func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, MasterUpdateCh chan int, ActiveElevatorUpdate chan utils.Status) {
 
 	fmt.Println("Function: HandlePeersUpdate")
 
@@ -79,29 +88,31 @@ func HandlePeersUpdate(p peers.PeerUpdate, c *utils.Channels) {
 
 		fmt.Println("No peers available, elevator is disconnected")
 
-		c.IsOnlineCh <- false
+		IsOnlineCh <- false
+
+		MasterUpdateCh <- utils.ID
 
 		return
 
 	} else {
 
-		c.IsOnlineCh <- true
+		IsOnlineCh <- true
 
-		DetermineMaster(p, c)
+		DetermineMaster(p, MasterUpdateCh)
 
-		ActiveElevators = HandleNewPeers(p, c, ActiveElevators)
-		ActiveElevators = HandleLostPeers(p, c, ActiveElevators)
+		ActiveElevators = HandleNewPeers(p, ActiveElevators)
+		ActiveElevators = HandleLostPeers(p, ActiveElevators)
 
 		if ActiveElevators.New != "" || ActiveElevators.Lost != nil {
 
-			HandleActiveElevators(ActiveElevators, c)
+			HandleActiveElevators(ActiveElevators, ActiveElevatorUpdate)
 
 		}
 	}
 
 }
 
-func HandleNewPeers(p peers.PeerUpdate, c *utils.Channels, peerUpdate peerUpdate) peerUpdate {
+func HandleNewPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
 
 	if p.New != "" {
 		newElevatorID := p.New
@@ -111,7 +122,7 @@ func HandleNewPeers(p peers.PeerUpdate, c *utils.Channels, peerUpdate peerUpdate
 	return peerUpdate
 }
 
-func HandleLostPeers(p peers.PeerUpdate, c *utils.Channels, peerUpdate peerUpdate) peerUpdate {
+func HandleLostPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
 
 	if p.Lost != nil {
 
@@ -126,41 +137,43 @@ func HandleLostPeers(p peers.PeerUpdate, c *utils.Channels, peerUpdate peerUpdat
 
 }
 
-func DetermineMaster(p peers.PeerUpdate, c *utils.Channels) {
+func DetermineMaster(p peers.PeerUpdate, MasterUpdateCh chan int) {
 
 	fmt.Println("Function: DetermineMaster")
-
+	fmt.Println("Master ID: ", utils.MasterID)
 	newMasterID, _ := strconv.Atoi(p.Peers[0])
 
 	if newMasterID != utils.MasterID {
-
-		c.MasterUpdateCh <- newMasterID
+		fmt.Println("The new master is ", newMasterID)
+		MasterUpdateCh <- newMasterID
 	}
 
 }
 
-func HandleActiveElevators(ActiveElevators peerUpdate, c *utils.Channels) {
+func HandleActiveElevators(ActiveElevators peerUpdate, ActiveElevatorUpdate chan utils.Status) {
 
 	if ActiveElevators.New != "" {
 		newElevatorID, _ := strconv.Atoi(ActiveElevators.New)
-		UpdateElevatorsOnNetwork(newElevatorID, true)
+		UpdateElevatorsOnNetwork(newElevatorID, true, ActiveElevatorUpdate)
 	}
 
 	if ActiveElevators.Lost != nil {
 		for i, _ := range ActiveElevators.Lost {
 			lostElevatorID, _ := strconv.Atoi(ActiveElevators.Lost[i])
-			UpdateElevatorsOnNetwork(lostElevatorID, false)
+			UpdateElevatorsOnNetwork(lostElevatorID, false, ActiveElevatorUpdate)
 		}
 	}
 
 }
 
-func UpdateElevatorsOnNetwork(elevatorID int, isActive bool) {
+func UpdateElevatorsOnNetwork(elevatorID int, isActive bool, ActiveElevatorUpdate chan utils.Status) {
 
 	if isActive {
 		ActiveElevatorIDs = appendElevatorID(ActiveElevatorIDs, elevatorID)
+		ActiveElevatorUpdate <- utils.Status{ID: elevatorID, IsOnline: true}
 	} else {
 		ActiveElevatorIDs = removeElevatorID(ActiveElevatorIDs, elevatorID)
+		ActiveElevatorUpdate <- utils.Status{ID: elevatorID, IsOnline: false}
 	}
 }
 
@@ -182,7 +195,7 @@ func removeElevatorID(slice []int, value int) []int {
 	return slice // Return the original slice if value doesn't exist
 }
 
-func WaitForAck(msgCh chan interface{}, c *utils.Channels, e utils.Elevator, msgType string) {
+func WaitForAck(msgCh chan interface{}, e utils.Elevator, msgType string, watcher chan utils.OrderWatcher, IsOnlineCh chan bool) {
 	var id_received []int
 
 	timeout := 1 * time.Second
@@ -204,7 +217,7 @@ func WaitForAck(msgCh chan interface{}, c *utils.Channels, e utils.Elevator, msg
 			case utils.MessageOrderConfirmed:
 				if msgType == m.Type && m.Confirmed && m.FromElevatorID == utils.MasterID {
 					fmt.Println("Received MessageOrderConfirmed")
-					c.OrderWatcher <- utils.OrderWatcher{
+					watcher <- utils.OrderWatcher{
 						Order:         m.ForOrder,
 						ForElevatorID: e.ID,
 						IsComplete:    false,
@@ -220,7 +233,7 @@ func WaitForAck(msgCh chan interface{}, c *utils.Channels, e utils.Elevator, msg
 			}
 		case <-timer.C:
 
-			UpdatePeers(ActiveElevatorIDs, id_received, c)
+			UpdatePeers(ActiveElevatorIDs, id_received, IsOnlineCh)
 
 			fmt.Println("Timeout")
 
@@ -229,7 +242,7 @@ func WaitForAck(msgCh chan interface{}, c *utils.Channels, e utils.Elevator, msg
 	}
 }
 
-func ProcessElevatorStatus(new utils.Elevator, c *utils.Channels) {
+func ProcessElevatorStatus(new utils.Elevator) {
 
 	found := false
 	for i, elevator := range Elevators {
@@ -263,12 +276,12 @@ func IsEqual(a []int, b []int) bool {
 	return true
 }
 
-func UpdatePeers(prev []int, new []int, c *utils.Channels) {
+func UpdatePeers(prev []int, new []int, IsOnlineCh chan bool) {
 
 	peers, _, _ := Compare(prev, new)
 
-	if len(peers) == 0 {
-		c.IsOnlineCh <- false
+	if len(peers) == 0 && len(new) == 0 {
+		IsOnlineCh <- false
 		return
 	}
 

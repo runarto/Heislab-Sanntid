@@ -6,7 +6,7 @@ import (
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-func BroadcastElevatorStatus(e *utils.Elevator, c *utils.Channels) {
+func BroadcastElevatorStatus(e utils.Elevator, ch chan interface{}) {
 
 	// BroadcastElevatorStatus broadcasts the elevator status periodically to other elevators.
 	// It takes an elevator pointer and a channel for transmitting the elevator status.
@@ -21,17 +21,14 @@ func BroadcastElevatorStatus(e *utils.Elevator, c *utils.Channels) {
 	for range ticker.C {
 		if len(utils.Elevators) > 1 {
 
-			elevatorStatusMessage := utils.MessageElevatorStatus{
-				Type:         "ElevatorStatus",
-				FromElevator: *e,
-			}
+			msg := utils.PackMessage("ElevatorStatus", e)
+			ch <- msg
 
-			utils.SendMessage(utils.PrepareMessage(elevatorStatusMessage), c)
 		}
 	}
 }
 
-func BroadcastMasterOrderWatcher(e *utils.Elevator, c *utils.Channels) {
+func BroadcastMasterOrderWatcher(e utils.Elevator, ch chan interface{}) {
 
 	// BroadcastAckMatrix broadcasts the acknowledgement matrix to other elevators.
 	// It waits for 5 seconds before starting the broadcast and then sends the acknowledgement matrix every 5 seconds.
@@ -46,14 +43,10 @@ func BroadcastMasterOrderWatcher(e *utils.Elevator, c *utils.Channels) {
 
 		if len(utils.Elevators) > 1 && utils.Master {
 
-			OrderWatcherArrayToSend := utils.MessageOrderWatcher{
-				Type:           "AckMatrix",
-				HallOrders:     utils.MasterOrderWatcher.HallOrderArray,
-				CabOrders:      utils.MasterOrderWatcher.CabOrderArray,
-				FromElevatorID: e.ID,
-			}
+			msg := utils.PackMessage("MessageOrderWatcher", utils.MasterOrderWatcher.HallOrderArray,
+				utils.MasterOrderWatcher.CabOrderArray, e.ID)
 
-			utils.SendMessage(utils.PrepareMessage(OrderWatcherArrayToSend), c)
+			ch <- msg
 		}
 	}
 }
