@@ -107,3 +107,12 @@ func (e *Elevator) StopBtnPressed(btn bool) {
 		elevio.SetStopLamp(false)
 	}
 }
+
+func PrintLocalOrderArray(e Elevator) {
+	for i := 0; i < NumButtons; i++ {
+		for j := 0; j < NumFloors; j++ {
+			fmt.Print(e.LocalOrderArray[i][j], " ")
+		}
+		fmt.Println()
+	}
+}

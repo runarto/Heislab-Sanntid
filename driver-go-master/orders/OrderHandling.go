@@ -20,7 +20,7 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 		select {
 
 		case newOrder := <-ButtonCh:
-			fmt.Println("Button pressed")
+			fmt.Println("---LOCAL BUTTON PRESSED---")
 
 			order := utils.Order{
 				Floor:  newOrder.Floor,
@@ -46,15 +46,17 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 		case newOrder := <-NewOrderRx:
 
-			fmt.Println("New order received")
-
 			order := newOrder.NewOrder
 
 			if utils.Master && newOrder.FromElevatorID != e.ID {
 
+				fmt.Println("---NEW ORDER RECEIVED---")
+
 				ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh)
 
 			} else if newOrder.ToElevatorID == e.ID {
+
+				fmt.Println("---NEW ORDER RECEIVED---")
 
 				DoOrderCh <- order
 
@@ -62,13 +64,9 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 		case orderComplete := <-OrderCompleteRx:
 
-			if e.ID != orderComplete.FromElevatorID {
+			fmt.Println("---ORDER COMPLETE RECEIVED---")
 
-				fmt.Println("Order complete received")
-
-				ProcessOrderComplete(orderComplete, e, GlobalUpdateCh)
-
-			}
+			ProcessOrderComplete(orderComplete, e, GlobalUpdateCh)
 
 		case peerUpdate := <-PeerUpdateCh:
 
@@ -78,9 +76,9 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 		case E := <-ElevatorStatusRx:
 
-			fmt.Println("Elevator status received")
-
 			if E.FromElevator.ID != e.ID {
+
+				fmt.Println("---ELEVATOR STATUS RECEIVED---")
 
 				ProcessElevatorStatus(E.FromElevator)
 
@@ -88,7 +86,7 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 		case val := <-MasterUpdateCh:
 
-			fmt.Println("Master update received")
+			fmt.Println("---MASTER UPDATE RECEIVED---")
 			fmt.Println("Master ID: ", val)
 
 			utils.MasterMutex.Lock()

@@ -81,6 +81,8 @@ func Updater(e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate, Orde
 
 		case elevatorID := <-ActiveElevatorUpdate:
 
+			fmt.Println("---ACTIVE ELEVATOR UPDATE RECEIVED---")
+
 			UpdateActiveElevators(elevatorID)
 
 		}

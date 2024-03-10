@@ -36,7 +36,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 		case newOrder := <-DoOrderCh:
 
-			fmt.Println("New order to do received")
+			fmt.Println("---DO ORDER RECEIVED---")
 
 			floor := newOrder.Floor
 			button := newOrder.Button
@@ -81,12 +81,13 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 			}
 
+			utils.PrintLocalOrderArray(e)
 			LocalStateUpdateCh <- e // Update the local elevator instance
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
 		case floor := <-FloorCh:
 
-			fmt.Println("Arrived at floor", floor)
+			fmt.Println("---ARRIVED AT FLOOR ", floor, "---")
 
 			motorLossTimer.Reset(MotorLossTime)
 			e.CurrentFloor = floor
@@ -116,9 +117,12 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 			LocalStateUpdateCh <- e
 			fmt.Println("Local state update sent...")
+			utils.PrintLocalOrderArray(e)
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
 		case obstruction := <-ObstrCh:
+
+			fmt.Println("---OBSTRUCTION DETECTED---")
 
 			if obstruction {
 				e.Obstruction(true)
@@ -131,7 +135,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 		case <-doorTimer.C:
 
-			fmt.Println("Door timer expired...")
+			fmt.Println("---DOOR TIMER EXPIRED---")
 
 			e.SetDoorState(Close)
 			e.SetState(utils.Still)
@@ -148,6 +152,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 			LocalStateUpdateCh <- e
 			fmt.Println("Local state update sent...")
+			utils.PrintLocalOrderArray(e)
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
 		//case <-motorLossTimer.C:

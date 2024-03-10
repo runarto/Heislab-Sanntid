@@ -75,8 +75,8 @@ func isOrderActive(o utils.Order, id int, CabOrders *[utils.NumOfElevators][util
 	}
 }
 
-func UpdateWatcher(WatcherUpdate utils.OrderWatcher, o utils.Order, e utils.Elevator, MasterOrderWatcher *utils.OrderWatcherArray,
-	SlaveOrderWatcher *utils.OrderWatcherArray) {
+func UpdateWatcher(WatcherUpdate utils.OrderWatcher, o utils.Order, e utils.Elevator, m *utils.OrderWatcherArray,
+	s *utils.OrderWatcherArray) {
 
 	isNew := WatcherUpdate.IsNew
 	isComplete := WatcherUpdate.IsComplete
@@ -84,38 +84,44 @@ func UpdateWatcher(WatcherUpdate utils.OrderWatcher, o utils.Order, e utils.Elev
 
 	if isNew && utils.Master && o.Button != utils.Cab {
 
-		MasterOrderWatcher.WatcherMutex.Lock()
-		MasterOrderWatcher.HallOrderArray[o.Button][o.Floor].Active = true
-		MasterOrderWatcher.HallOrderArray[o.Button][o.Floor].Completed = false
-		MasterOrderWatcher.HallOrderArray[o.Button][o.Floor].Time = time.Now()
-		MasterOrderWatcher.WatcherMutex.Unlock()
+		m.WatcherMutex.Lock()
+		m.HallOrderArray[o.Button][o.Floor].Active = true
+		m.HallOrderArray[o.Button][o.Floor].Completed = false
+		m.HallOrderArray[o.Button][o.Floor].Time = time.Now()
+		m.WatcherMutex.Unlock()
 	} else if isNew && !utils.Master && o.Button != utils.Cab {
-		SlaveOrderWatcher.WatcherMutex.Lock()
-		SlaveOrderWatcher.HallOrderArray[o.Button][o.Floor].Active = true
-		SlaveOrderWatcher.HallOrderArray[o.Button][o.Floor].Confirmed = false
-		SlaveOrderWatcher.HallOrderArray[o.Button][o.Floor].Time = time.Now()
-		SlaveOrderWatcher.WatcherMutex.Unlock()
+		s.WatcherMutex.Lock()
+		s.HallOrderArray[o.Button][o.Floor].Active = true
+		s.HallOrderArray[o.Button][o.Floor].Confirmed = false
+		s.HallOrderArray[o.Button][o.Floor].Time = time.Now()
+		s.WatcherMutex.Unlock()
 	}
 
 	if isComplete && utils.Master && o.Button != utils.Cab {
-		MasterOrderWatcher.WatcherMutex.Lock()
-		MasterOrderWatcher.HallOrderArray[o.Button][o.Floor].Active = false
-		MasterOrderWatcher.HallOrderArray[o.Button][o.Floor].Completed = true
-		MasterOrderWatcher.HallOrderArray[o.Button][o.Floor].Time = time.Now()
-		MasterOrderWatcher.WatcherMutex.Unlock()
+		m.WatcherMutex.Lock()
+		m.HallOrderArray[o.Button][o.Floor].Active = false
+		m.HallOrderArray[o.Button][o.Floor].Completed = true
+		m.HallOrderArray[o.Button][o.Floor].Time = time.Now()
+		m.WatcherMutex.Unlock()
 	} else if isConfirmed && !utils.Master && o.Button != utils.Cab {
-		SlaveOrderWatcher.WatcherMutex.Lock()
-		SlaveOrderWatcher.HallOrderArray[o.Button][o.Floor].Active = false
-		SlaveOrderWatcher.HallOrderArray[o.Button][o.Floor].Confirmed = true
-		SlaveOrderWatcher.HallOrderArray[o.Button][o.Floor].Time = time.Now()
-		SlaveOrderWatcher.WatcherMutex.Unlock()
+		s.WatcherMutex.Lock()
+		s.HallOrderArray[o.Button][o.Floor].Active = false
+		s.HallOrderArray[o.Button][o.Floor].Confirmed = true
+		s.HallOrderArray[o.Button][o.Floor].Time = time.Now()
+		s.WatcherMutex.Unlock()
 	}
+
+	m.WatcherMutex.Lock()
+	fmt.Println("Master order watcher")
+	printOrderWatcher(m)
+	m.WatcherMutex.Unlock()
 
 }
 
 func UpdateAndSendNewState(e *utils.Elevator, s utils.Elevator, ch chan interface{}) {
 
 	ReadAndSendOrdersDone(e, s, ch)
+	time.Sleep(100 * time.Millisecond)
 	*e = s
 	msg := utils.PackMessage("MessageElevatorStatus", *e)
 	ch <- msg
@@ -123,6 +129,13 @@ func UpdateAndSendNewState(e *utils.Elevator, s utils.Elevator, ch chan interfac
 }
 
 func ReadAndSendOrdersDone(e *utils.Elevator, s utils.Elevator, ch chan interface{}) {
+
+	fmt.Println("Func: ReadAndSendOrdersDone")
+
+	fmt.Println("Old State")
+	utils.PrintLocalOrderArray(*e)
+	fmt.Println("New State")
+	utils.PrintLocalOrderArray(s)
 
 	for b := 0; b < utils.NumButtons; b++ {
 		for f := 0; f < utils.NumFloors; f++ {
@@ -180,4 +193,13 @@ func SearchForElevatorAndRemove(id int) []utils.Elevator {
 		}
 	}
 	return activeElevators
+}
+
+func printOrderWatcher(m *utils.OrderWatcherArray) {
+	fmt.Println("HALL ORDERS")
+	for i := 0; i < 2; i++ {
+		for j := 0; j < utils.NumFloors; j++ {
+			fmt.Println(m.HallOrderArray[i][j].Active, "")
+		}
+	}
 }

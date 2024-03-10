@@ -49,7 +49,6 @@ func main() {
 	LightsRx := make(chan utils.MessageLights, bufferSize)
 	LightsTx := make(chan utils.MessageLights, bufferSize)
 	LightsConfirmedTx := make(chan utils.MessageLightsConfirmed, bufferSize)
-	OrderWatcherTx := make(chan utils.MessageOrderWatcher, bufferSize)
 	OrderConfirmed := make(chan utils.MessageOrderConfirmed, bufferSize)
 	GlobalOrderArrayTx := make(chan utils.MessageGlobalOrderArrays, bufferSize)
 	OrderCompleteTx := make(chan utils.MessageOrderComplete, bufferSize)
@@ -76,10 +75,10 @@ func main() {
 	go elevio.PollObstructionSwitch(ObstrCh)
 	go elevio.PollStopButton(StopCh)
 
-	go net.MessagePasser(ch, GlobalOrderArrayTx, OrderCompleteTx, NewOrderTx, ElevStatusTx,
-		OrderWatcherTx, OrderConfirmed, LightsTx, LightsConfirmedTx)
+	go net.MessagePasser(ch, GlobalOrderArrayTx, OrderCompleteTx, NewOrderTx, ElevStatusTx, MasterOrderWatcherTx, OrderConfirmed, LightsTx, LightsConfirmedTx)
 
 	go fsm.FSM(e, DoOrderCh, FloorSensorCh, ObstrCh, LocalStateUpdateCh, PeerTxEnable, IsOnlineCh, LocalLightsCh, LightsRx, ch)
+
 	go orders.OrderHandler(e, ButtonPressCh, GlobalUpdateCh, NewOrderRx, OrderCompleteRx, PeerUpdateCh,
 		DoOrderCh, LocalStateUpdateCh, ElevStatusRx, MasterUpdateCh, ch, IsOnlineCh, ActiveElevatorUpdateCh)
 
