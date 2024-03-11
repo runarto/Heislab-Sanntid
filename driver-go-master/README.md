@@ -1,4 +1,4 @@
-Elevator driver for Go
+How to start:
 ======================
 
 In order to run, first connect to the elevatorserver by typing ´elevatorserver´ in the terminal. Then, type ´go run main.go -id=x´ in another terminal. Make sure you use IDs in the range of 0-2.
