@@ -30,7 +30,8 @@ func main() {
 	fsm.NullButtons()
 	e = fsm.InitializeElevator()
 
-	ch := make(chan interface{}, bufferSize)
+	messageSender := make(chan interface{}, bufferSize)
+	messageDistributor := make(chan interface{}, bufferSize)
 	ButtonPressCh := make(chan elevio.ButtonEvent, bufferSize)
 	FloorSensorCh := make(chan int, bufferSize)
 	ObstrCh := make(chan bool, bufferSize)
@@ -41,16 +42,20 @@ func main() {
 	IsOnlineCh := make(chan bool, bufferSize)
 	LocalLightsCh := make(chan [2][utils.NumFloors]bool, bufferSize)
 	ActiveElevatorUpdateCh := make(chan utils.Status, bufferSize)
+	OrderComplete := make(chan utils.MessageOrderComplete, bufferSize)
+	NewOrder := make(chan utils.MessageNewOrder, bufferSize)
+	ElevStatus := make(chan utils.MessageElevatorStatus, bufferSize)
+	OrderWatcherMsg := make(chan utils.MessageOrderWatcher, bufferSize)
 
 	DoOrderCh := make(chan utils.Order, bufferSize)
 	LocalStateUpdateCh := make(chan utils.Elevator, bufferSize)
 	PeerUpdateCh := make(chan peers.PeerUpdate, bufferSize)
 	PeerTxEnable := make(chan bool, bufferSize)
 	LightsRx := make(chan utils.MessageLights, bufferSize)
+	Lights := make(chan utils.MessageLights, bufferSize)
 	LightsTx := make(chan utils.MessageLights, bufferSize)
 	LightsConfirmedTx := make(chan utils.MessageLightsConfirmed, bufferSize)
 	OrderConfirmed := make(chan utils.MessageOrderConfirmed, bufferSize)
-	GlobalOrderArrayTx := make(chan utils.MessageGlobalOrderArrays, bufferSize)
 	OrderCompleteTx := make(chan utils.MessageOrderComplete, bufferSize)
 	OrderCompleteRx := make(chan utils.MessageOrderComplete, bufferSize)
 	NewOrderTx := make(chan utils.MessageNewOrder, bufferSize)
@@ -59,15 +64,16 @@ func main() {
 	ElevStatusRx := make(chan utils.MessageElevatorStatus, bufferSize)
 	MasterOrderWatcherTx := make(chan utils.MessageOrderWatcher, bufferSize)
 	MasterOrderWatcherRx := make(chan utils.MessageOrderWatcher, bufferSize)
+	AckRx := make(chan utils.MessageConfirmed, bufferSize)
 
 	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(e.ID), PeerTxEnable)
 	go peers.Receiver(utils.ListeningPort+1, PeerUpdateCh)
 
-	go bcast.Transmitter(utils.ListeningPort, NewOrderTx, OrderCompleteTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx)
+	go bcast.Transmitter(utils.ListeningPort, NewOrderTx, OrderCompleteTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx,
+		LightsConfirmedTx, OrderConfirmed)
 	go bcast.Receiver(utils.ListeningPort, NewOrderRx, OrderCompleteRx, ElevStatusRx, MasterOrderWatcherRx, LightsRx)
 
-	go net.BroadcastElevatorStatus(e, ch)
-	go net.BroadcastMasterOrderWatcher(e, ch)
+	go updater.BroadcastMasterOrderWatcher(e, messageSender)
 
 	// Start polling functions in separate goroutines
 	go elevio.PollButtons(ButtonPressCh)
@@ -75,15 +81,19 @@ func main() {
 	go elevio.PollObstructionSwitch(ObstrCh)
 	go elevio.PollStopButton(StopCh)
 
-	go net.MessagePasser(ch, GlobalOrderArrayTx, OrderCompleteTx, NewOrderTx, ElevStatusTx, MasterOrderWatcherTx, OrderConfirmed, LightsTx, LightsConfirmedTx)
+	go net.MessagePasser(messageSender, OrderCompleteTx, NewOrderTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx, AckRx)
+	go net.MessageReceiver(OrderCompleteRx, ElevStatusRx, NewOrderRx, MasterOrderWatcherRx, LightsRx, messageSender, messageDistributor)
+	go net.MessageDistributor(messageDistributor, OrderComplete, ElevStatus, NewOrder, OrderWatcherMsg, Lights)
 
-	go fsm.FSM(e, DoOrderCh, FloorSensorCh, ObstrCh, LocalStateUpdateCh, PeerTxEnable, IsOnlineCh, LocalLightsCh, LightsRx, ch)
+	go fsm.FSM(e, DoOrderCh, FloorSensorCh, ObstrCh, LocalStateUpdateCh, PeerTxEnable, IsOnlineCh, LocalLightsCh, Lights, messageSender)
 
-	go orders.OrderHandler(e, ButtonPressCh, GlobalUpdateCh, NewOrderRx, OrderCompleteRx, PeerUpdateCh,
-		DoOrderCh, LocalStateUpdateCh, ElevStatusRx, MasterUpdateCh, ch, IsOnlineCh, ActiveElevatorUpdateCh)
+	go orders.OrderHandler(e, ButtonPressCh, GlobalUpdateCh, NewOrder, OrderComplete, PeerUpdateCh,
+		DoOrderCh, LocalStateUpdateCh, MasterUpdateCh, messageSender, IsOnlineCh, ActiveElevatorUpdateCh, OrderWatcher)
 
-	go updater.Updater(e, GlobalUpdateCh, OrderWatcher, LocalStateUpdateCh, MasterOrderWatcherRx, ch, LocalLightsCh,
-		ButtonPressCh, IsOnlineCh, ElevStatusRx, ActiveElevatorUpdateCh)
+	go updater.LocalUpdater(e, GlobalUpdateCh, OrderWatcher, LocalStateUpdateCh, messageSender,
+		LocalLightsCh, ButtonPressCh, IsOnlineCh, ActiveElevatorUpdateCh, DoOrderCh)
+
+	go updater.GlobalUpdater(ElevStatus, OrderWatcherMsg)
 
 	select {}
 

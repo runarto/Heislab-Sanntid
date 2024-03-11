@@ -68,13 +68,11 @@ var GlobalOrders = GlobalOrderArray{
 var MasterOrderWatcher = OrderWatcherArray{
 	WatcherMutex:   sync.Mutex{},
 	HallOrderArray: [2][NumFloors]HallAck{},
-	CabOrderArray:  [NumOfElevators][NumFloors]CabAck{},
 }
 
 var SlaveOrderWatcher = OrderWatcherArray{
 	WatcherMutex:   sync.Mutex{},
 	HallOrderArray: [2][NumFloors]HallAck{},
-	CabOrderArray:  [NumOfElevators][NumFloors]CabAck{},
 }
 
 type GlobalOrderUpdate struct {
@@ -105,13 +103,7 @@ type CabAck struct {
 
 type OrderWatcherArray struct {
 	WatcherMutex   sync.Mutex
-	HallOrderArray [2][NumFloors]HallAck             // Represents the hall orders
-	CabOrderArray  [NumOfElevators][NumFloors]CabAck // Represents the cab orders
-}
-
-type OrderWatcherArrayToSend struct {
-	HallOrderArray [2][NumFloors]HallAck
-	CabOrderArray  [NumOfElevators][NumFloors]CabAck
+	HallOrderArray [2][NumFloors]HallAck // Represents the hall orders
 }
 
 type OrderWatcher struct {

@@ -11,9 +11,9 @@ import (
 // Only local stuff
 
 func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpdateCh chan utils.GlobalOrderUpdate,
-	NewOrderRx <-chan utils.MessageNewOrder, OrderCompleteRx <-chan utils.MessageOrderComplete, PeerUpdateCh chan peers.PeerUpdate,
-	DoOrderCh chan utils.Order, LocalStateUpdateCh chan utils.Elevator, ElevatorStatusRx <-chan utils.MessageElevatorStatus,
-	MasterUpdateCh chan int, ch chan interface{}, IsOnlineCh chan bool, ActiveElevatorUpdate chan utils.Status) {
+	NewOrder <-chan utils.MessageNewOrder, OrderComplete <-chan utils.MessageOrderComplete, PeerUpdateCh chan peers.PeerUpdate,
+	DoOrderCh chan utils.Order, LocalStateUpdateCh chan utils.Elevator, MasterUpdateCh chan int, ch chan interface{}, IsOnlineCh chan bool, ActiveElevatorUpdate chan utils.Status,
+	WatcherUpdate chan utils.OrderWatcher) {
 
 	for {
 
@@ -38,13 +38,16 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 					IsComplete:     false,
 					IsNew:          true}
 
+				msg := utils.PackMessage("MessageNewOrder", order, utils.MasterID, e.ID)
+				ch <- msg
+
 			} else {
 
-				ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh)
+				ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh)
 
 			}
 
-		case newOrder := <-NewOrderRx:
+		case newOrder := <-NewOrder:
 
 			order := newOrder.NewOrder
 
@@ -52,37 +55,36 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 				fmt.Println("---NEW ORDER RECEIVED---")
 
-				ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh)
+				ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh)
 
-			} else if newOrder.ToElevatorID == e.ID {
+			} else if !utils.Master && newOrder.ToElevatorID == e.ID {
 
 				fmt.Println("---NEW ORDER RECEIVED---")
 
 				DoOrderCh <- order
 
+			} else if !utils.Master && newOrder.ToElevatorID != e.ID {
+
+				go func() {
+					GlobalUpdateCh <- utils.GlobalOrderUpdate{
+						Order:          order,
+						FromElevatorID: e.ID,
+						IsComplete:     false,
+						IsNew:          true}
+				}()
 			}
 
-		case orderComplete := <-OrderCompleteRx:
+		case orderComplete := <-OrderComplete:
 
 			fmt.Println("---ORDER COMPLETE RECEIVED---")
 
-			ProcessOrderComplete(orderComplete, e, GlobalUpdateCh)
+			go ProcessOrderComplete(orderComplete, e, GlobalUpdateCh)
 
 		case peerUpdate := <-PeerUpdateCh:
 
 			fmt.Println("---PEER UPDATE RECEIVED---")
 
 			HandlePeersUpdate(peerUpdate, IsOnlineCh, MasterUpdateCh, ActiveElevatorUpdate)
-
-		case E := <-ElevatorStatusRx:
-
-			if E.FromElevator.ID != e.ID {
-
-				fmt.Println("---ELEVATOR STATUS RECEIVED---")
-
-				ProcessElevatorStatus(E.FromElevator)
-
-			}
 
 		case val := <-MasterUpdateCh:
 

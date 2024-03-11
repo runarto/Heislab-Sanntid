@@ -15,9 +15,6 @@ type Channels struct {
 	OrderCompleteTx chan MessageOrderComplete
 	OrderCompleteRx chan MessageOrderComplete
 
-	OrderArraysTx chan MessageGlobalOrderArrays
-	OrderArraysRx chan MessageGlobalOrderArrays
-
 	ElevatorStatusTx chan MessageElevatorStatus
 	ElevatorStatusRx chan MessageElevatorStatus
 

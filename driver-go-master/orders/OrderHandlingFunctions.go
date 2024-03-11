@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/utils"
@@ -26,9 +25,19 @@ func SendOrder(order utils.Order, e utils.Elevator, ch chan interface{}, toEleva
 }
 
 func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate,
-	DoOrderCh chan utils.Order) {
+	DoOrderCh chan utils.Order, watcher chan utils.OrderWatcher, IsOnlineCh chan bool) {
 
 	fmt.Println("Function: ProcessNewOrder")
+
+	if order.Button == utils.Cab {
+		fmt.Println("Sending cab order to updater...")
+		GlobalUpdateCh <- utils.GlobalOrderUpdate{
+			Order:          order,
+			FromElevatorID: e.ID,
+			IsComplete:     false,
+			IsNew:          true}
+		return
+	}
 
 	switch utils.Master {
 	case true:
@@ -53,6 +62,7 @@ func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, G
 		}()
 
 	case false:
+
 		SendOrder(order, e, ch, utils.MasterID)
 
 	}
@@ -193,53 +203,6 @@ func removeElevatorID(slice []int, value int) []int {
 		}
 	}
 	return slice // Return the original slice if value doesn't exist
-}
-
-func WaitForAck(msgCh chan interface{}, e utils.Elevator, msgType string, watcher chan utils.OrderWatcher, IsOnlineCh chan bool) {
-	var id_received []int
-
-	timeout := 1 * time.Second
-	timer := time.NewTimer(timeout)
-	for {
-		select {
-		case msg := <-msgCh:
-			switch m := msg.(type) {
-			case utils.MessageLightsConfirmed:
-				if msgType == m.Type {
-					fmt.Println("Received MessageLights")
-					timer.Reset(timeout)
-					id_received = append(id_received, m.FromElevatorID)
-					if IsEqual(id_received, ActiveElevatorIDs) {
-						return
-					}
-				}
-
-			case utils.MessageOrderConfirmed:
-				if msgType == m.Type && m.Confirmed && m.FromElevatorID == utils.MasterID {
-					fmt.Println("Received MessageOrderConfirmed")
-					watcher <- utils.OrderWatcher{
-						Order:         m.ForOrder,
-						ForElevatorID: e.ID,
-						IsComplete:    false,
-						IsNew:         false,
-						IsConfirmed:   true}
-
-					timer.Reset(timeout)
-					return
-				}
-
-			default:
-				fmt.Printf("Unsupported message type: %T\n", m)
-			}
-		case <-timer.C:
-
-			UpdatePeers(ActiveElevatorIDs, id_received, IsOnlineCh)
-
-			fmt.Println("Timeout")
-
-			return
-		}
-	}
 }
 
 func ProcessElevatorStatus(new utils.Elevator) {

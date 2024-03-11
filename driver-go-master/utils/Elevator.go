@@ -32,50 +32,56 @@ type Order struct {
 	// An order contains the floor (from/to), and the type of button.
 }
 
-func (e *Elevator) GoUp() {
+func GoUp(e Elevator) Elevator {
 
 	e.CurrentDirection = Up
 	elevio.SetMotorDirection(e.CurrentDirection)
-	e.SetState(Moving)
+	e = SetState(Moving, e)
+	return e
 }
 
-func (e *Elevator) GoDown() {
+func GoDown(e Elevator) Elevator {
 
 	e.CurrentDirection = Down
 	elevio.SetMotorDirection(e.CurrentDirection)
-	e.SetState(Moving)
+	e = SetState(Moving, e)
+	return e
 }
 
-func (e *Elevator) StopElevator() {
+func StopElevator(e Elevator) Elevator {
 	// e.CurrentDirection = elevio.MD_Stop
 	e.CurrentDirection = Stopped
 	elevio.SetMotorDirection(elevio.MD_Stop)
-	e.SetState(Still)
+	e = SetState(Still, e)
+	return e
 }
 
-func (e *Elevator) SetDoorState(state bool) {
+func SetDoorState(state bool, e Elevator) Elevator {
 	if state {
 		elevio.SetDoorOpenLamp(state)
-		e.SetState(DoorOpen)
+		SetState(DoorOpen, e)
 	} else {
 		elevio.SetDoorOpenLamp(state)
-		e.SetState(Still)
+		SetState(Still, e)
 	}
+	return e
 }
 
-func (e *Elevator) SetState(state State) {
+func SetState(state State, e Elevator) Elevator {
 	fmt.Println("Setting state to: ", state)
 	e.CurrentState = state
+	return e
 }
 
-func (e *Elevator) Obstruction(state bool) {
+func Obstruction(state bool, e Elevator) Elevator {
 	if state {
 		elevio.SetStopLamp(state)
-		e.SetDoorState(state)
+		SetDoorState(state, e)
 	} else {
 		elevio.SetStopLamp(state)
-		e.SetDoorState(state)
+		SetDoorState(state, e)
 	}
+	return e
 }
 
 func CheckIfMaster() bool {
@@ -96,16 +102,18 @@ func (e *Elevator) SetLights() {
 	}
 }
 
-func (e *Elevator) StopBtnPressed(btn bool) {
+func StopBtnPressed(btn bool, e Elevator) Elevator {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	if btn {
 		if elevio.GetFloor() != NotDefined {
 			elevio.SetStopLamp(true)
-			e.SetDoorState(Open)
+			e = SetDoorState(Open, e)
 		}
 	} else {
 		elevio.SetStopLamp(false)
 	}
+
+	return e
 }
 
 func PrintLocalOrderArray(e Elevator) {

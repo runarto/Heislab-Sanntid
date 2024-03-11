@@ -2,61 +2,133 @@ package net
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/runarto/Heislab-Sanntid/updater"
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-func MessagePasser(msg <-chan interface{}, arrays chan utils.MessageGlobalOrderArrays, orderComplete chan utils.MessageOrderComplete,
-	newOrder chan utils.MessageNewOrder, elevatorStatus chan utils.MessageElevatorStatus, orderWatcher chan utils.MessageOrderWatcher,
-	orderConfirmed chan utils.MessageOrderConfirmed, lights chan utils.MessageLights, lightsConfirmed chan utils.MessageLightsConfirmed) {
+func MessagePasser(messageSender <-chan interface{}, OrderCompleteTx chan utils.MessageOrderComplete,
+	NewOrderTx chan utils.MessageNewOrder, ElevatorStatusTx chan utils.MessageElevatorStatus,
+	MasterOrderWatcherTx chan utils.MessageOrderWatcher, LightsTx chan utils.MessageLights, ack chan utils.MessageConfirmed) {
+
+	activeElevators := updater.GetActiveElevators()
 
 	for {
 		select {
 
-		case newMsg := <-msg:
+		case newMsg := <-messageSender:
 
 			switch m := newMsg.(type) {
-			case utils.MessageGlobalOrderArrays:
-				m.Type = "MessageGlobalOrderArrays"
-				arrays <- m
-				fmt.Println("Sent a", m.Type, "message")
 
 			case utils.MessageOrderComplete:
 				m.Type = "MessageOrderComplete"
-				orderComplete <- m
+				OrderCompleteTx <- newMsg.(utils.MessageOrderComplete)
 				fmt.Println("Sent a", m.Type, "message")
+				go WaitForAck(newMsg, m.Type, activeElevators, ack, OrderCompleteTx)
 
 			case utils.MessageNewOrder:
 				m.Type = "MessageNewOrder"
-				newOrder <- m
+				NewOrderTx <- newMsg.(utils.MessageNewOrder)
 				fmt.Println("Sent a", m.Type, "message")
+				go WaitForAck(newMsg, m.Type, activeElevators, ack, NewOrderTx)
 
 			case utils.MessageElevatorStatus:
 				m.Type = "MessageElevatorStatus"
-				elevatorStatus <- m
+				ElevatorStatusTx <- newMsg.(utils.MessageElevatorStatus)
 				fmt.Println("Sent a", m.Type, "message")
 
 			case utils.MessageOrderWatcher:
 				m.Type = "MessageOrderWatcher"
-				orderWatcher <- m
-				fmt.Println("Sent a", m.Type, "message")
-
-			case utils.MessageOrderConfirmed:
-				m.Type = "MessageOrderConfirmed"
-				orderConfirmed <- m
+				MasterOrderWatcherTx <- newMsg.(utils.MessageOrderWatcher)
 				fmt.Println("Sent a", m.Type, "message")
 
 			case utils.MessageLights:
 				m.Type = "MessageLights"
-				lights <- m
+				LightsTx <- newMsg.(utils.MessageLights)
 				fmt.Println("Sent a", m.Type, "message")
-
-			case utils.MessageLightsConfirmed:
-				m.Type = "MessageLightsConfirmed"
-				lightsConfirmed <- m
-				fmt.Println("Sent a", m.Type, "message")
+				go WaitForAck(newMsg, m.Type, activeElevators, ack, LightsTx)
 
 			}
+
+			activeElevators = updater.GetActiveElevators()
+
 		}
+
+	}
+}
+
+func WaitForAck(msg interface{}, msgType string, activeElevators []int, ack chan utils.MessageConfirmed, channel ...interface{}) {
+	responses := make(map[int]bool)
+	timeout := 1 * time.Second
+	responseTimer := time.NewTimer(timeout)
+
+	for {
+		select {
+		case newMsg := <-ack:
+			responses = response(responses, newMsg)
+			responseTimer.Reset(timeout)
+			if len(responses) == len(activeElevators) {
+				return
+			}
+		case <-responseTimer.C:
+			fmt.Println("Response timeout, resending message")
+			ResendMessage(msg, msgType, channel[0])
+		}
+	}
+}
+
+func response(responses map[int]bool, newMsg utils.MessageConfirmed) map[int]bool {
+	responses[newMsg.FromElevatorID] = newMsg.Confirmed
+	return responses
+}
+
+func ResendMessage(msg interface{}, msgType string, channel ...interface{}) {
+	switch m := msg.(type) {
+	case utils.MessageOrderComplete:
+		m.Type = "MessageOrderComplete"
+		ch, ok := channel[0].(chan utils.MessageOrderComplete)
+		if !ok {
+			fmt.Println("Invalid channel type")
+			return
+		}
+		ch <- m
+		fmt.Println("Resent a", m.Type, "message")
+	case utils.MessageNewOrder:
+		m.Type = "MessageNewOrder"
+		ch, ok := channel[0].(chan utils.MessageNewOrder)
+		if !ok {
+			fmt.Println("Invalid channel type")
+			return
+		}
+		ch <- m
+		fmt.Println("Resent a", m.Type, "message")
+	case utils.MessageElevatorStatus:
+		m.Type = "MessageElevatorStatus"
+		ch, ok := channel[0].(chan utils.MessageElevatorStatus)
+		if !ok {
+			fmt.Println("Invalid channel type")
+			return
+		}
+		ch <- m
+		fmt.Println("Resent a", m.Type, "message")
+	case utils.MessageOrderWatcher:
+		m.Type = "MessageOrderWatcher"
+		ch, ok := channel[0].(chan utils.MessageOrderWatcher)
+		if !ok {
+			fmt.Println("Invalid channel type")
+			return
+		}
+		ch <- m
+		fmt.Println("Resent a", m.Type, "message")
+	case utils.MessageLights:
+		m.Type = "MessageLights"
+		ch, ok := channel[0].(chan utils.MessageLights)
+		if !ok {
+			fmt.Println("Invalid channel type")
+			return
+		}
+		ch <- m
+		fmt.Println("Resent a", m.Type, "message")
 	}
 }

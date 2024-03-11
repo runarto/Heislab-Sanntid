@@ -56,7 +56,7 @@ func SlaveBark(e utils.Elevator, s *utils.OrderWatcherArray, SlaveBarkCh chan ut
 
 	for range ticker.C {
 
-		if utils.Master {
+		if !utils.Master {
 
 			currentTime := time.Now()
 			s.WatcherMutex.Lock()

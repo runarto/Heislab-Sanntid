@@ -67,11 +67,13 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 				switch e.CurrentState {
 				case utils.Moving:
+					fmt.Println("Moving...")
 					elevio.SetMotorDirection(e.CurrentDirection)
 					SetMotorLossTimer(int(e.CurrentDirection), motorLossTimer, MotorLossTime)
 
 				case utils.Still:
-					e.SetDoorState(Open)
+					fmt.Println("Still...")
+					e = utils.SetDoorState(Open, e)
 					doorTimer.Reset(DoorOpenTime)
 					e = ClearOrdersAtFloor(e)
 				}
@@ -97,22 +99,9 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 				elevio.SetMotorDirection(elevio.MD_Stop)
 				SetMotorLossTimer(int(elevio.MD_Stop), motorLossTimer, MotorLossTime)
-				e.SetDoorState(Open)
+				e = utils.SetDoorState(utils.Open, e)
 				e = ClearOrdersAtFloor(e)
 				doorTimer.Reset(DoorOpenTime)
-
-				e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
-				fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
-
-				if e.CurrentState == utils.Still {
-					e.SetDoorState(Open)
-					e = ClearOrdersAtFloor(e)
-					doorTimer.Reset(DoorOpenTime)
-				} else {
-					elevio.SetMotorDirection(e.CurrentDirection)
-					SetMotorLossTimer(int(e.CurrentDirection), motorLossTimer, MotorLossTime)
-				}
-
 			}
 
 			LocalStateUpdateCh <- e
@@ -125,11 +114,11 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 			fmt.Println("---OBSTRUCTION DETECTED---")
 
 			if obstruction {
-				e.Obstruction(true)
+				e = utils.Obstruction(true, e)
 				doorTimer.Reset(DoorOpenTime)
 				PeerTxEnable <- false
 			} else {
-				e.Obstruction(false)
+				e = utils.Obstruction(false, e)
 				PeerTxEnable <- true
 			}
 
@@ -137,8 +126,8 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 			fmt.Println("---DOOR TIMER EXPIRED---")
 
-			e.SetDoorState(Close)
-			e.SetState(utils.Still)
+			e = utils.SetDoorState(Close, e)
+			e = utils.SetState(utils.Still, e)
 			e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
 			fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
 
@@ -148,6 +137,9 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 				FloorCh <- e.CurrentFloor
 
+			} else {
+				elevio.SetMotorDirection(e.CurrentDirection)
+				SetMotorLossTimer(int(e.CurrentDirection), motorLossTimer, MotorLossTime)
 			}
 
 			LocalStateUpdateCh <- e
@@ -161,6 +153,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 		case <-lastUpdateTimer.C:
 			LocalStateUpdateCh <- e
+			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 			fmt.Println("State update timer expired... sending update")
 
 		case update := <-IsOnlineCh:
@@ -171,12 +164,9 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 		case l := <-LightsRx:
 
-			lights := l.Lights
-
-			if l.FromElevatorID != e.ID {
-				SetHallLights(lights)
-				msg := utils.PackMessage("MessageLightsAck", true, e.ID)
-				ch <- msg
+			if !utils.Master {
+				fmt.Println("Received lights from master...")
+				SetHallLights(l.Lights)
 			}
 
 		}

@@ -4,12 +4,6 @@ import (
 	"fmt"
 )
 
-type MessageGlobalOrderArrays struct { // Send periodically to update the global order system
-	Type           string           `json:"type"` // Explicitly indicate the message type
-	GlobalOrders   GlobalOrderArray `json:"globalOrders"`
-	FromElevatorID int              `json:"fromElevatorID"` // The elevator that sent the order
-}
-
 type MessageOrderComplete struct { // Send when an order is completed
 	Type           string `json:"type"` // Explicitly indicate the message type
 	Order          Order  `json:"orders"`
@@ -30,10 +24,10 @@ type MessageElevatorStatus struct {
 }
 
 type MessageOrderWatcher struct {
-	Type           string                            `json:"type"`           // A type identifier for decoding on the receiving end
-	HallOrders     [2][NumFloors]HallAck             `json:"hallOrders"`     // The hall orders of the elevator
-	CabOrders      [NumOfElevators][NumFloors]CabAck `json:"cabOrders"`      // The cab orders of the elevator
-	FromElevatorID int                               `json:"fromElevatorID"` // The elevator to send the order to
+	Type           string                          `json:"type"`           // A type identifier for decoding on the receiving end
+	HallOrders     [2][NumFloors]bool              `json:"hallOrders"`     // The hall orders of the elevator
+	CabOrders      [NumOfElevators][NumFloors]bool `json:"cabOrders"`      // The cab orders of the elevator
+	FromElevatorID int                             `json:"fromElevatorID"` // The elevator to send the order to
 }
 
 type MessageOrderConfirmed struct {
@@ -44,9 +38,9 @@ type MessageOrderConfirmed struct {
 }
 
 type MessageLights struct {
-	Type           string                          `json:"type"`           // A type identifier for decoding on the receiving end
-	Lights         [NumButtons - 1][NumFloors]bool `json:"lights"`         // The lights of the elevator
-	FromElevatorID int                             `json:"fromElevatorID"` // The elevator to send the order to
+	Type           string             `json:"type"`           // A type identifier for decoding on the receiving end
+	Lights         [2][NumFloors]bool `json:"lights"`         // The lights of the elevator
+	FromElevatorID int                `json:"fromElevatorID"` // The elevator to send the order to
 }
 
 type MessageLightsConfirmed struct {
@@ -55,15 +49,15 @@ type MessageLightsConfirmed struct {
 	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
 }
 
+type MessageConfirmed struct {
+	Type           string `json:"type"`           // A type identifier for decoding on the receiving end
+	Msg            string `json:"msg"`            // The message to be confirmed
+	Confirmed      bool   `json:"confirmed"`      // Whether or not the order was confirmed by the master
+	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
+}
+
 func PackMessage(msgType string, params ...interface{}) interface{} {
 	switch msgType {
-	case "MessageGlobalOrderArrays":
-		msg := MessageGlobalOrderArrays{
-			Type:           msgType,
-			GlobalOrders:   params[0].(GlobalOrderArray),
-			FromElevatorID: params[1].(int)}
-
-		return msg
 	case "MessageOrderComplete":
 		msg := MessageOrderComplete{
 			Type:           msgType,
@@ -89,31 +83,26 @@ func PackMessage(msgType string, params ...interface{}) interface{} {
 	case "MessageOrderWatcher":
 		msg := MessageOrderWatcher{
 			Type:           msgType,
-			HallOrders:     params[0].([2][NumFloors]HallAck),
-			CabOrders:      params[1].([NumOfElevators][NumFloors]CabAck),
+			HallOrders:     params[0].([2][NumFloors]bool),
+			CabOrders:      params[1].([NumOfElevators][NumFloors]bool),
 			FromElevatorID: params[2].(int)}
 
 		return msg
-	case "MessageOrderConfirmed":
-		msg := MessageOrderConfirmed{
-			Type:           msgType,
-			Confirmed:      params[0].(bool),
-			FromElevatorID: params[1].(int),
-			ForOrder:       params[2].(Order)}
 
-		return msg
 	case "MessageLights":
 		msg := MessageLights{
 			Type:           msgType,
-			Lights:         params[0].([NumButtons - 1][NumFloors]bool),
+			Lights:         params[0].([2][NumFloors]bool),
 			FromElevatorID: params[1].(int)}
 
 		return msg
-	case "MessageLightsConfirmed":
-		msg := MessageLightsConfirmed{
+
+	case "MessageConfirmed":
+		msg := MessageConfirmed{
 			Type:           msgType,
-			Confirmed:      params[0].(bool),
-			FromElevatorID: params[1].(int)}
+			Msg:            params[0].(string),
+			Confirmed:      params[1].(bool),
+			FromElevatorID: params[2].(int)}
 		return msg
 	}
 
@@ -122,12 +111,6 @@ func PackMessage(msgType string, params ...interface{}) interface{} {
 
 func HandleMessage(msg interface{}, params ...interface{}) {
 	switch m := msg.(type) {
-	case MessageGlobalOrderArrays:
-		m.Type = "MessageGlobalOrderArrays"
-		if ch, ok := params[0].(chan MessageGlobalOrderArrays); ok {
-			ch <- m
-			fmt.Println("Sent a", m.Type, "message")
-		}
 	case MessageOrderComplete:
 		m.Type = "MessageOrderComplete"
 		if ch, ok := params[0].(chan MessageOrderComplete); ok {
