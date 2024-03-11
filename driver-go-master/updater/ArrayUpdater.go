@@ -65,7 +65,7 @@ func LocalUpdater(e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 
 		case s := <-LocalStateUpdateCh: // Update the local elevator instance
 
-			UpdateAndSendNewState(&e, s, ch, GlobalUpdateCh)
+			UpdateAndSendNewState(&e, s, ch, GlobalUpdateCh, HallOrders)
 
 		case elevatorID := <-ActiveElevatorUpdate:
 

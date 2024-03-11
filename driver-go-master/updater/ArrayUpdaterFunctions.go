@@ -14,12 +14,12 @@ func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.
 	IsOnlineCh chan bool, CabOrders *[utils.NumOfElevators][utils.NumFloors]bool, HallOrders *map[int][2][utils.NumFloors]bool) {
 
 	change := false
-	temp := (*HallOrders)[fromElevatorID]
+	temp := (*HallOrders)[forElevatorID]
 
 	switch isNew {
 	case true:
 		if o.Button == utils.Cab && !isOrderActive(o, forElevatorID, CabOrders, temp) {
-			CabOrders[fromElevatorID][o.Floor] = true
+			CabOrders[forElevatorID][o.Floor] = true
 			change = true
 		} else if o.Button != utils.Cab && !isOrderActive(o, forElevatorID, CabOrders, temp) {
 			temp[o.Button][o.Floor] = true
@@ -29,7 +29,7 @@ func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.
 	case false:
 
 		if o.Button == utils.Cab && isOrderActive(o, forElevatorID, CabOrders, temp) {
-			CabOrders[fromElevatorID][o.Floor] = false
+			CabOrders[forElevatorID][o.Floor] = false
 			change = true
 		} else if o.Button != utils.Cab && isOrderActive(o, forElevatorID, CabOrders, temp) {
 			temp[o.Button][o.Floor] = false
@@ -159,9 +159,9 @@ func UpdateWatcher(WatcherUpdate utils.OrderWatcher, o utils.Order, e utils.Elev
 
 }
 
-func UpdateAndSendNewState(e *utils.Elevator, s utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
+func UpdateAndSendNewState(e *utils.Elevator, s utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate, HallOrders map[int][2][utils.NumFloors]bool) {
 
-	ReadAndSendOrdersDone(e, s, ch, GlobalUpdateCh)
+	ReadAndSendOrdersDone(*e, s, ch, GlobalUpdateCh, HallOrders)
 	time.Sleep(100 * time.Millisecond)
 	*e = s
 	HandleActiveElevators(utils.MessageElevatorStatus{FromElevator: *e})
@@ -170,7 +170,8 @@ func UpdateAndSendNewState(e *utils.Elevator, s utils.Elevator, ch chan interfac
 
 }
 
-func ReadAndSendOrdersDone(e *utils.Elevator, s utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
+func ReadAndSendOrdersDone(e utils.Elevator, s utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate,
+	HallOrders map[int][2][utils.NumFloors]bool) {
 
 	fmt.Println("Func: ReadAndSendOrdersDone")
 
