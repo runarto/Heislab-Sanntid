@@ -76,11 +76,12 @@ func SetState(state State, e Elevator) Elevator {
 func Obstruction(state bool, e Elevator) Elevator {
 	if state {
 		elevio.SetStopLamp(state)
-		SetDoorState(state, e)
+		e = SetDoorState(state, e)
 	} else {
 		elevio.SetStopLamp(state)
-		SetDoorState(state, e)
+		e = SetDoorState(state, e)
 	}
+	e = SetState(DoorOpen, e)
 	return e
 }
 

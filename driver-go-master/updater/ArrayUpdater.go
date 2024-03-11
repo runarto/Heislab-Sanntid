@@ -10,7 +10,7 @@ import (
 )
 
 var CabOrders [utils.NumOfElevators][utils.NumFloors]bool
-var HallOrders [2][utils.NumFloors]bool
+var HallOrders map[int][2][utils.NumFloors]bool
 
 var MasterOrderWatcher utils.OrderWatcherArray
 var SlaveOrderWatcher utils.OrderWatcherArray
@@ -37,11 +37,11 @@ func LocalUpdater(e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 
 			switch isNew {
 			case true: // New order
-				UpdateGlobalOrderArray(true, false, GlobalUpdate.Order, e, GlobalUpdate.FromElevatorID, OrderWatcher,
+				UpdateGlobalOrderArray(true, false, GlobalUpdate.Order, e, GlobalUpdate.ForElevatorID, OrderWatcher,
 					LocalLightsCh, ch, IsOnlineCh, &CabOrders, &HallOrders)
 
 			case false: // Coplete order
-				UpdateGlobalOrderArray(false, true, GlobalUpdate.Order, e, GlobalUpdate.FromElevatorID, OrderWatcher,
+				UpdateGlobalOrderArray(false, true, GlobalUpdate.Order, e, GlobalUpdate.ForElevatorID, OrderWatcher,
 					LocalLightsCh, ch, IsOnlineCh, &CabOrders, &HallOrders)
 
 			}
@@ -64,8 +64,6 @@ func LocalUpdater(e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 			}
 
 		case s := <-LocalStateUpdateCh: // Update the local elevator instance
-
-			fmt.Println("---LOCAL STATE UPDATE RECEIVED---")
 
 			UpdateAndSendNewState(&e, s, ch, GlobalUpdateCh)
 
@@ -93,7 +91,6 @@ func GlobalUpdater(ElevStatus <-chan utils.MessageElevatorStatus, MasterOrderWat
 
 		case copy := <-MasterOrderWatcherUpdate:
 
-			fmt.Println("---MASTER ORDER WATCHER UPDATE RECEIVED---")
 			CopyMasterOrderWatcher(copy, &MasterOrderWatcher, &CabOrders)
 
 		}
@@ -114,7 +111,7 @@ func BroadcastMasterOrderWatcher(e utils.Elevator, ch chan interface{}) {
 
 		if utils.Master {
 
-			msg := utils.PackMessage("MessageOrderWatcher", HallOrders, CabOrders, e.ID)
+			msg := utils.PackMessage("MessageOrderWatcher", HallOrders[e.ID], CabOrders, e.ID)
 			ch <- msg
 		}
 	}

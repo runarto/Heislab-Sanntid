@@ -30,23 +30,10 @@ type MessageOrderWatcher struct {
 	FromElevatorID int                             `json:"fromElevatorID"` // The elevator to send the order to
 }
 
-type MessageOrderConfirmed struct {
-	Type           string `json:"type"`           // A type identifier for decoding on the receiving end
-	Confirmed      bool   `json:"confirmed"`      // Whether or not the order was confirmed by the master
-	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
-	ForOrder       Order  `json:"forOrder"`
-}
-
 type MessageLights struct {
 	Type           string             `json:"type"`           // A type identifier for decoding on the receiving end
 	Lights         [2][NumFloors]bool `json:"lights"`         // The lights of the elevator
 	FromElevatorID int                `json:"fromElevatorID"` // The elevator to send the order to
-}
-
-type MessageLightsConfirmed struct {
-	Type           string `json:"type"`           // A type identifier for decoding on the receiving end
-	Confirmed      bool   `json:"confirmed"`      // Whether or not the order was confirmed by the master
-	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
 }
 
 type MessageConfirmed struct {
@@ -135,12 +122,7 @@ func HandleMessage(msg interface{}, params ...interface{}) {
 			ch <- m
 			fmt.Println("Sent a", m.Type, "message")
 		}
-	case MessageOrderConfirmed:
-		m.Type = "MessageOrderConfirmed"
-		if ch, ok := params[0].(chan MessageOrderConfirmed); ok {
-			ch <- m
-			fmt.Println("Sent a", m.Type, "message")
-		}
+
 	case MessageLights:
 		m.Type = "MessageLights"
 		if ch, ok := params[0].(chan MessageLights); ok {

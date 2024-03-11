@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/runarto/Heislab-Sanntid/crash"
 	"github.com/runarto/Heislab-Sanntid/elevio"
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
@@ -21,6 +22,8 @@ func NullButtons() {
 }
 
 func InitializeElevator() utils.Elevator {
+
+	e := crash.CheckCrashDump()
 
 	if utils.ID == 0 {
 		utils.Master = true
@@ -49,14 +52,12 @@ func InitializeElevator() utils.Elevator {
 		}
 	}
 
-	return utils.Elevator{
-		CurrentFloor:     floor,
-		CurrentDirection: elevio.MD_Stop,
-		CurrentState:     utils.Still,
-		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]bool{},
-		ID:               utils.ID,
-		IsActive:         true,
-	}
+	e.CurrentFloor = floor
+	e.CurrentDirection = elevio.MD_Stop
+	e.CurrentState = utils.Still
+
+	return e
+
 }
 
 func FloorLights(floor int, e utils.Elevator) utils.Elevator {

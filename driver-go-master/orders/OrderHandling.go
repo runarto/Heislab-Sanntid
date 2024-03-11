@@ -33,10 +33,10 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 				DoOrderCh <- order // Send to FSM
 
 				GlobalUpdateCh <- utils.GlobalOrderUpdate{
-					Order:          order,
-					FromElevatorID: e.ID,
-					IsComplete:     false,
-					IsNew:          true}
+					Order:         order,
+					ForElevatorID: e.ID,
+					IsComplete:    false,
+					IsNew:         true}
 
 				msg := utils.PackMessage("MessageNewOrder", order, utils.NotDefined, e.ID)
 				ch <- msg
@@ -67,10 +67,10 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 				go func() {
 					GlobalUpdateCh <- utils.GlobalOrderUpdate{
-						Order:          order,
-						FromElevatorID: newOrder.FromElevatorID,
-						IsComplete:     false,
-						IsNew:          true}
+						Order:         order,
+						ForElevatorID: newOrder.FromElevatorID,
+						IsComplete:    false,
+						IsNew:         true}
 				}()
 			}
 

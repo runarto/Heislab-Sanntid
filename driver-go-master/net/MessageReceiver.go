@@ -21,7 +21,6 @@ func MessageReceiver(OrderCompleteRx chan utils.MessageOrderComplete, ElevatorSt
 
 		case newMsg := <-ElevatorStatusRx:
 			if newMsg.FromElevator.ID != utils.ID {
-				fmt.Println("Received a MessageElevatorStatus message")
 				distribute <- newMsg
 			}
 
@@ -34,7 +33,6 @@ func MessageReceiver(OrderCompleteRx chan utils.MessageOrderComplete, ElevatorSt
 
 		case newMsg := <-MasterOrderWatcherRx:
 			if newMsg.FromElevatorID != utils.ID {
-				fmt.Println("Received a MessageOrderWatcher message")
 				distribute <- newMsg
 			}
 

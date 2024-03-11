@@ -44,6 +44,8 @@ var (
 	MasterIDmutex sync.Mutex
 )
 
+var NextMasterID int
+
 var ID int
 
 type State int
@@ -76,10 +78,10 @@ var SlaveOrderWatcher = OrderWatcherArray{
 }
 
 type GlobalOrderUpdate struct {
-	Order          Order
-	FromElevatorID int
-	IsComplete     bool
-	IsNew          bool
+	Order         Order
+	ForElevatorID int
+	IsComplete    bool
+	IsNew         bool
 }
 
 type NewPeersMessage struct {

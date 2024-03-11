@@ -24,7 +24,6 @@ func MessagePasser(messageSender <-chan interface{}, OrderCompleteTx chan utils.
 
 			case utils.MessageOrderComplete:
 				if len(activeElevators) == 1 {
-					fmt.Println("No other elevators online.")
 					continue
 				}
 				m.Type = "MessageOrderComplete"
@@ -33,7 +32,6 @@ func MessagePasser(messageSender <-chan interface{}, OrderCompleteTx chan utils.
 
 			case utils.MessageNewOrder:
 				if len(activeElevators) == 1 {
-					fmt.Println("No other elevators online.")
 					continue
 				}
 				m.Type = "MessageNewOrder"
@@ -44,20 +42,16 @@ func MessagePasser(messageSender <-chan interface{}, OrderCompleteTx chan utils.
 			case utils.MessageElevatorStatus:
 				m.Type = "MessageElevatorStatus"
 				ElevatorStatusTx <- newMsg.(utils.MessageElevatorStatus)
-				fmt.Println("Sent a", m.Type, "message")
 
 			case utils.MessageOrderWatcher:
 				if len(activeElevators) == 1 {
-					fmt.Println("No other elevators online.")
 					continue
 				}
 				m.Type = "MessageOrderWatcher"
 				MasterOrderWatcherTx <- newMsg.(utils.MessageOrderWatcher)
-				fmt.Println("Sent a", m.Type, "message")
 
 			case utils.MessageLights:
 				if len(activeElevators) == 1 {
-					fmt.Println("No other elevators online.")
 					continue
 				}
 				m.Type = "MessageLights"
@@ -86,7 +80,6 @@ func WaitForAck(msg interface{}, msgType string, activeElevators []int, ack chan
 		case newMsg := <-ack:
 			quit, responses = HandleConfirmation(newMsg, msgType, msg, responses, channel[0])
 			if quit && responses == nil {
-
 				return
 			} else if quit && len(responses) == len(activeElevators)-1 {
 				fmt.Println("All elevators have confirmed the message")

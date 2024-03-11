@@ -14,6 +14,10 @@ import (
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
+//TODO: Have three elevators running. Disconnect the master, and see what happens.
+// If the master is disconnected, the other elevators should elect a new master, and
+// reallocate the actice orders of the master.
+
 const bufferSize = 100
 
 func main() {
@@ -29,6 +33,7 @@ func main() {
 	var e utils.Elevator
 	fsm.NullButtons()
 	e = fsm.InitializeElevator()
+	utils.Elevators = append(utils.Elevators, e)
 
 	messageSender := make(chan interface{}, bufferSize)
 	messageDistributor := make(chan interface{}, bufferSize)
@@ -54,8 +59,6 @@ func main() {
 	LightsRx := make(chan utils.MessageLights, bufferSize)
 	Lights := make(chan utils.MessageLights, bufferSize)
 	LightsTx := make(chan utils.MessageLights, bufferSize)
-	LightsConfirmedTx := make(chan utils.MessageLightsConfirmed, bufferSize)
-	OrderConfirmed := make(chan utils.MessageOrderConfirmed, bufferSize)
 	OrderCompleteTx := make(chan utils.MessageOrderComplete, bufferSize)
 	OrderCompleteRx := make(chan utils.MessageOrderComplete, bufferSize)
 	NewOrderTx := make(chan utils.MessageNewOrder, bufferSize)
@@ -69,8 +72,7 @@ func main() {
 	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(e.ID), PeerTxEnable)
 	go peers.Receiver(utils.ListeningPort+1, PeerUpdateCh)
 
-	go bcast.Transmitter(utils.ListeningPort, NewOrderTx, OrderCompleteTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx,
-		LightsConfirmedTx, OrderConfirmed)
+	go bcast.Transmitter(utils.ListeningPort, NewOrderTx, OrderCompleteTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx)
 	go bcast.Receiver(utils.ListeningPort, NewOrderRx, OrderCompleteRx, ElevStatusRx, MasterOrderWatcherRx, LightsRx)
 
 	go updater.BroadcastMasterOrderWatcher(e, messageSender)
