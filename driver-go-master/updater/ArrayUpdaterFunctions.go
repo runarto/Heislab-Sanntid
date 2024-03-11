@@ -79,7 +79,7 @@ func UpdateWatcher(WatcherUpdate utils.OrderWatcher, o utils.Order, e utils.Elev
 	isComplete := WatcherUpdate.IsComplete
 	isConfirmed := WatcherUpdate.IsConfirmed
 
-	if isNew && o.Button != utils.Cab {
+	if isNew && !isConfirmed && o.Button != utils.Cab {
 		m.WatcherMutex.Lock()
 		s.WatcherMutex.Lock()
 
@@ -104,7 +104,7 @@ func UpdateWatcher(WatcherUpdate utils.OrderWatcher, o utils.Order, e utils.Elev
 
 		m.WatcherMutex.Unlock()
 
-	} else if isConfirmed && o.Button != utils.Cab {
+	} else if isNew && isConfirmed && o.Button != utils.Cab {
 		s.WatcherMutex.Lock()
 		s.HallOrderArray[o.Button][o.Floor].Active = false
 		s.HallOrderArray[o.Button][o.Floor].Confirmed = true
@@ -119,17 +119,18 @@ func UpdateWatcher(WatcherUpdate utils.OrderWatcher, o utils.Order, e utils.Elev
 
 }
 
-func UpdateAndSendNewState(e *utils.Elevator, s utils.Elevator, ch chan interface{}) {
+func UpdateAndSendNewState(e *utils.Elevator, s utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
 
-	ReadAndSendOrdersDone(e, s, ch)
+	ReadAndSendOrdersDone(e, s, ch, GlobalUpdateCh)
 	time.Sleep(100 * time.Millisecond)
 	*e = s
+	HandleActiveElevators(utils.MessageElevatorStatus{FromElevator: s})
 	msg := utils.PackMessage("MessageElevatorStatus", s)
 	ch <- msg
 
 }
 
-func ReadAndSendOrdersDone(e *utils.Elevator, s utils.Elevator, ch chan interface{}) {
+func ReadAndSendOrdersDone(e *utils.Elevator, s utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
 
 	fmt.Println("Func: ReadAndSendOrdersDone")
 
@@ -145,6 +146,15 @@ func ReadAndSendOrdersDone(e *utils.Elevator, s utils.Elevator, ch chan interfac
 
 				msg := utils.PackMessage("MessageOrderComplete", utils.Order{Floor: f, Button: elevio.ButtonType(b)}, e.ID, s.ID)
 				ch <- msg
+
+				GlobalUpdate := utils.GlobalOrderUpdate{
+					Order:          utils.Order{Floor: f, Button: elevio.ButtonType(b)},
+					FromElevatorID: e.ID,
+					IsComplete:     true,
+					IsNew:          false}
+
+				fmt.Println("Sending global order update")
+				GlobalUpdateCh <- GlobalUpdate
 
 			}
 		}
@@ -205,25 +215,31 @@ func HandleActiveElevators(new utils.MessageElevatorStatus) {
 }
 
 func UpdateActiveElevators(status utils.Status, CabOrders [utils.NumOfElevators][utils.NumFloors]bool,
-	ch chan interface{}, DoOrderCh chan utils.Order) {
+	ch chan interface{}, DoOrderCh chan utils.Order, MasterUpdateCh chan int) {
+
+	fmt.Println("Function: UpdateActiveElevators")
 	if !status.IsOnline {
 		utils.ElevatorsMutex.Lock()
-		utils.Elevators = SearchForElevatorAndRemove(status.ID)
+		SearchForElevatorAndUpdate(status.ID, status.IsOnline)
 		RedistributeHallOrders(status.ID, utils.Elevators, ch, DoOrderCh)
 		utils.ElevatorsMutex.Unlock()
 	} else {
+		utils.ElevatorsMutex.Lock()
+		SearchForElevatorAndUpdate(status.ID, status.IsOnline)
+		utils.ElevatorsMutex.Unlock()
 		SendCabOrders(CabOrders, status.ID, ch)
 	}
+
+	DetermineMaster(utils.Elevators, MasterUpdateCh)
 }
 
-func SearchForElevatorAndRemove(id int) []utils.Elevator {
-	var activeElevators []utils.Elevator
-	for i, e := range utils.Elevators {
-		if e.ID == id {
-			activeElevators = append(utils.Elevators[:i], utils.Elevators[i+1:]...)
+func SearchForElevatorAndUpdate(id int, online bool) {
+	for i := range utils.Elevators {
+		if utils.Elevators[i].ID == id {
+			utils.Elevators[i].IsActive = online
+			break
 		}
 	}
-	return activeElevators
 }
 
 func RedistributeHallOrders(id int, elevators []utils.Elevator, ch chan interface{},
@@ -232,7 +248,7 @@ func RedistributeHallOrders(id int, elevators []utils.Elevator, ch chan interfac
 	if !utils.Master {
 		return
 	}
-
+	fmt.Println("Function: RedistributeHallOrders")
 	var elevator utils.Elevator
 	for _, e := range elevators {
 		if e.ID == id {
@@ -256,9 +272,11 @@ func RedistributeHallOrders(id int, elevators []utils.Elevator, ch chan interfac
 }
 
 func SendCabOrders(CabOrders [utils.NumOfElevators][utils.NumFloors]bool, id int, ch chan interface{}) {
+
 	if !utils.Master {
 		return
 	}
+	fmt.Println("Function: SendCabOrders")
 	for f := 0; f < utils.NumFloors; f++ {
 		if CabOrders[id][f] {
 			msg := utils.PackMessage("MessageNewOrder", utils.Order{Floor: f, Button: elevio.BT_Cab}, id, utils.ID)
@@ -284,4 +302,23 @@ func GetActiveElevators() []int {
 	}
 	utils.ElevatorsMutex.Unlock()
 	return activeElevators
+}
+
+func DetermineMaster(Elevators []utils.Elevator, MasterUpdateCh chan int) {
+
+	fmt.Println("Function: DetermineMaster")
+	fmt.Println("Master ID: ", utils.MasterID)
+	var newMasterID int
+
+	for _, e := range Elevators {
+		if e.IsActive && e.ID < utils.MasterID {
+			newMasterID = e.ID
+		}
+	}
+
+	if newMasterID != utils.MasterID {
+		fmt.Println("The new master is ", newMasterID)
+		MasterUpdateCh <- newMasterID
+	}
+
 }

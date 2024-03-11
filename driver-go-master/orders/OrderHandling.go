@@ -38,7 +38,7 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 					IsComplete:     false,
 					IsNew:          true}
 
-				msg := utils.PackMessage("MessageNewOrder", order, utils.MasterID, e.ID)
+				msg := utils.PackMessage("MessageNewOrder", order, utils.NotDefined, e.ID)
 				ch <- msg
 
 			} else {
@@ -51,9 +51,9 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 			order := newOrder.NewOrder
 
-			if utils.Master && newOrder.FromElevatorID != e.ID {
+			if utils.Master && newOrder.ToElevatorID == utils.MasterID {
 
-				fmt.Println("---NEW ORDER RECEIVED---")
+				fmt.Println("---NEW ORDER TO DELEGATE---")
 
 				ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh)
 
@@ -63,12 +63,12 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 				DoOrderCh <- order
 
-			} else if !utils.Master && newOrder.ToElevatorID != e.ID {
+			} else if newOrder.ToElevatorID != e.ID {
 
 				go func() {
 					GlobalUpdateCh <- utils.GlobalOrderUpdate{
 						Order:          order,
-						FromElevatorID: e.ID,
+						FromElevatorID: newOrder.FromElevatorID,
 						IsComplete:     false,
 						IsNew:          true}
 				}()

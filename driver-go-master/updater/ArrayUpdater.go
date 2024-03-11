@@ -17,7 +17,8 @@ var SlaveOrderWatcher utils.OrderWatcherArray
 
 func LocalUpdater(e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate, OrderWatcher chan utils.OrderWatcher,
 	LocalStateUpdateCh chan utils.Elevator, ch chan interface{}, LocalLightsCh chan [2][utils.NumFloors]bool,
-	ButtonCh chan elevio.ButtonEvent, IsOnlineCh chan bool, ActiveElevatorUpdate <-chan utils.Status, DoOrderCh chan utils.Order) {
+	ButtonCh chan elevio.ButtonEvent, IsOnlineCh chan bool, ActiveElevatorUpdate <-chan utils.Status, DoOrderCh chan utils.Order,
+	MasterUpdateCh chan int) {
 
 	MasterBarkCh := make(chan utils.Order)
 	SlaveBarkCh := make(chan utils.Order)
@@ -66,13 +67,13 @@ func LocalUpdater(e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 
 			fmt.Println("---LOCAL STATE UPDATE RECEIVED---")
 
-			UpdateAndSendNewState(&e, s, ch)
+			UpdateAndSendNewState(&e, s, ch, GlobalUpdateCh)
 
 		case elevatorID := <-ActiveElevatorUpdate:
 
 			fmt.Println("---ACTIVE ELEVATOR UPDATE RECEIVED---")
 
-			UpdateActiveElevators(elevatorID, CabOrders, ch, DoOrderCh)
+			UpdateActiveElevators(elevatorID, CabOrders, ch, DoOrderCh, MasterUpdateCh)
 
 		}
 

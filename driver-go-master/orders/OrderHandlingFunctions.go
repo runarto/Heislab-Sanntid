@@ -29,16 +29,6 @@ func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, G
 
 	fmt.Println("Function: ProcessNewOrder")
 
-	if order.Button == utils.Cab {
-		fmt.Println("Sending cab order to updater...")
-		GlobalUpdateCh <- utils.GlobalOrderUpdate{
-			Order:          order,
-			FromElevatorID: e.ID,
-			IsComplete:     false,
-			IsNew:          true}
-		return
-	}
-
 	switch utils.Master {
 	case true:
 		BestElevator := ChooseElevator(order)
@@ -108,8 +98,6 @@ func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, MasterUpdateCh 
 
 		IsOnlineCh <- true
 
-		DetermineMaster(p, MasterUpdateCh)
-
 		ActiveElevators = HandleNewPeers(p, ActiveElevators)
 		ActiveElevators = HandleLostPeers(p, ActiveElevators)
 
@@ -118,6 +106,7 @@ func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, MasterUpdateCh 
 			HandleActiveElevators(ActiveElevators, ActiveElevatorUpdate)
 
 		}
+
 	}
 
 }
@@ -136,7 +125,7 @@ func HandleLostPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
 
 	if p.Lost != nil {
 
-		for i, _ := range p.Lost {
+		for i := range p.Lost {
 			lostElevatorID := p.Lost[i]
 			peerUpdate.Lost = append(peerUpdate.Lost, lostElevatorID)
 		}
@@ -144,19 +133,6 @@ func HandleLostPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
 	}
 
 	return peerUpdate
-
-}
-
-func DetermineMaster(p peers.PeerUpdate, MasterUpdateCh chan int) {
-
-	fmt.Println("Function: DetermineMaster")
-	fmt.Println("Master ID: ", utils.MasterID)
-	newMasterID, _ := strconv.Atoi(p.Peers[0])
-
-	if newMasterID != utils.MasterID {
-		fmt.Println("The new master is ", newMasterID)
-		MasterUpdateCh <- newMasterID
-	}
 
 }
 
@@ -168,7 +144,7 @@ func HandleActiveElevators(ActiveElevators peerUpdate, ActiveElevatorUpdate chan
 	}
 
 	if ActiveElevators.Lost != nil {
-		for i, _ := range ActiveElevators.Lost {
+		for i := range ActiveElevators.Lost {
 			lostElevatorID, _ := strconv.Atoi(ActiveElevators.Lost[i])
 			UpdateElevatorsOnNetwork(lostElevatorID, false, ActiveElevatorUpdate)
 		}

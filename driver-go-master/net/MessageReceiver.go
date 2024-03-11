@@ -13,27 +13,37 @@ func MessageReceiver(OrderCompleteRx chan utils.MessageOrderComplete, ElevatorSt
 		select {
 
 		case newMsg := <-OrderCompleteRx:
-			fmt.Println("Received a MessageOrderComplete message")
-			SendAck(newMsg.Type, sender)
-			distribute <- newMsg
+			if newMsg.FromElevatorID != utils.ID {
+				fmt.Println("Received a MessageOrderComplete message")
+				SendAck(newMsg.Type, sender)
+				distribute <- newMsg
+			}
 
 		case newMsg := <-ElevatorStatusRx:
-			fmt.Println("Received a MessageElevatorStatus message")
-			distribute <- newMsg
+			if newMsg.FromElevator.ID != utils.ID {
+				fmt.Println("Received a MessageElevatorStatus message")
+				distribute <- newMsg
+			}
 
 		case newMsg := <-NewOrderRx:
-			fmt.Println("Received a MessageNewOrder message")
-			SendAck(newMsg.Type, sender)
-			distribute <- newMsg
+			if newMsg.FromElevatorID != utils.ID {
+				fmt.Println("Received a MessageNewOrder message")
+				SendAck(newMsg.Type, sender)
+				distribute <- newMsg
+			}
 
 		case newMsg := <-MasterOrderWatcherRx:
-			fmt.Println("Received a MessageOrderWatcher message")
-			distribute <- newMsg
+			if newMsg.FromElevatorID != utils.ID {
+				fmt.Println("Received a MessageOrderWatcher message")
+				distribute <- newMsg
+			}
 
 		case newMsg := <-LightsRx:
-			fmt.Println("Received a MessageLights message")
-			SendAck(newMsg.Type, sender)
-			distribute <- newMsg
+			if newMsg.FromElevatorID != utils.ID {
+				fmt.Println("Received a MessageLights message")
+				SendAck(newMsg.Type, sender)
+				distribute <- newMsg
+			}
 		}
 	}
 

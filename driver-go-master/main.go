@@ -81,7 +81,7 @@ func main() {
 	go elevio.PollObstructionSwitch(ObstrCh)
 	go elevio.PollStopButton(StopCh)
 
-	go net.MessagePasser(messageSender, OrderCompleteTx, NewOrderTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx, AckRx)
+	go net.MessagePasser(messageSender, OrderCompleteTx, NewOrderTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx, AckRx, OrderWatcher)
 	go net.MessageReceiver(OrderCompleteRx, ElevStatusRx, NewOrderRx, MasterOrderWatcherRx, LightsRx, messageSender, messageDistributor)
 	go net.MessageDistributor(messageDistributor, OrderComplete, ElevStatus, NewOrder, OrderWatcherMsg, Lights)
 
@@ -91,7 +91,7 @@ func main() {
 		DoOrderCh, LocalStateUpdateCh, MasterUpdateCh, messageSender, IsOnlineCh, ActiveElevatorUpdateCh, OrderWatcher)
 
 	go updater.LocalUpdater(e, GlobalUpdateCh, OrderWatcher, LocalStateUpdateCh, messageSender,
-		LocalLightsCh, ButtonPressCh, IsOnlineCh, ActiveElevatorUpdateCh, DoOrderCh)
+		LocalLightsCh, ButtonPressCh, IsOnlineCh, ActiveElevatorUpdateCh, DoOrderCh, MasterUpdateCh)
 
 	go updater.GlobalUpdater(ElevStatus, OrderWatcherMsg)
 

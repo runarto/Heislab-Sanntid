@@ -17,7 +17,7 @@ func ChooseElevator(order utils.Order) utils.Elevator {
 	lowestCost := int(^uint(0) >> 1) // Sets "lowestCost" to max int value
 
 	//Iterate through all elevators and calculate the cost for each. Update bestElevator if a lower cost is found
-	for i, _ := range utils.Elevators {
+	for i := range utils.Elevators {
 		if utils.Elevators[i].IsActive {
 			cost := CalculateCost(utils.Elevators[i], order)
 			if cost <= lowestCost {
