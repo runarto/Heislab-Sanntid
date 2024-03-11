@@ -25,11 +25,7 @@ func Transmitter(port int, chans ...interface{}) error {
 		typeNames[i] = reflect.TypeOf(ch).Elem().String()
 	}
 
-	conn, err := conn.DialBroadcastUDP(port)
-
-	if err != nil {
-		fmt.Printf("bcast.Transmitter(%d, ...): DialBroadcastUDP() failed: \"%+v\"\n", port, err)
-	}
+	conn := conn.DialBroadcastUDP(port)
 
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
 	for {
@@ -63,11 +59,7 @@ func Receiver(port int, chans ...interface{}) {
 	}
 
 	var buf [bufSize]byte
-	conn, err := conn.DialBroadcastUDP(port)
-
-	if err != nil {
-		fmt.Printf("bcast.Receiver(%d, ...): DialBroadcastUDP() failed: \"%+v\"\n", port, err)
-	}
+	conn := conn.DialBroadcastUDP(port)
 
 	for {
 		n, _, e := conn.ReadFrom(buf[0:])
