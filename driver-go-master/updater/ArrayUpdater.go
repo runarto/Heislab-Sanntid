@@ -37,11 +37,11 @@ func LocalUpdater(e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 
 			switch isNew {
 			case true: // New order
-				UpdateGlobalOrderArray(true, false, GlobalUpdate.Order, e, GlobalUpdate.ForElevatorID, OrderWatcher,
+				UpdateGlobalOrderArray(true, false, GlobalUpdate.Order, e, GlobalUpdate.ForElevatorID, GlobalUpdate.FromElevatorID, OrderWatcher,
 					LocalLightsCh, ch, IsOnlineCh, &CabOrders, &HallOrders)
 
 			case false: // Coplete order
-				UpdateGlobalOrderArray(false, true, GlobalUpdate.Order, e, GlobalUpdate.ForElevatorID, OrderWatcher,
+				UpdateGlobalOrderArray(false, true, GlobalUpdate.Order, e, GlobalUpdate.ForElevatorID, GlobalUpdate.FromElevatorID, OrderWatcher,
 					LocalLightsCh, ch, IsOnlineCh, &CabOrders, &HallOrders)
 
 			}

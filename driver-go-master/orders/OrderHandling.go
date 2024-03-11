@@ -2,6 +2,7 @@ package orders
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -33,10 +34,11 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 				DoOrderCh <- order // Send to FSM
 
 				GlobalUpdateCh <- utils.GlobalOrderUpdate{
-					Order:         order,
-					ForElevatorID: e.ID,
-					IsComplete:    false,
-					IsNew:         true}
+					Order:          order,
+					ForElevatorID:  e.ID,
+					FromElevatorID: e.ID,
+					IsComplete:     false,
+					IsNew:          true}
 
 				msg := utils.PackMessage("MessageNewOrder", order, utils.NotDefined, e.ID)
 				ch <- msg
@@ -61,16 +63,27 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 				fmt.Println("---NEW ORDER RECEIVED---")
 
+				GlobalUpdateCh <- utils.GlobalOrderUpdate{
+					Order:          order,
+					ForElevatorID:  e.ID,
+					FromElevatorID: newOrder.FromElevatorID,
+					IsComplete:     false,
+					IsNew:          true,
+				}
+
+				time.Sleep(100 * time.Millisecond)
+
 				DoOrderCh <- order
 
-			} else if newOrder.ToElevatorID != e.ID {
+			} else if newOrder.ToElevatorID != e.ID && newOrder.FromElevatorID == utils.MasterID {
 
 				go func() {
 					GlobalUpdateCh <- utils.GlobalOrderUpdate{
-						Order:         order,
-						ForElevatorID: newOrder.FromElevatorID,
-						IsComplete:    false,
-						IsNew:         true}
+						Order:          order,
+						ForElevatorID:  newOrder.ToElevatorID,
+						FromElevatorID: newOrder.FromElevatorID,
+						IsComplete:     false,
+						IsNew:          true}
 				}()
 			}
 

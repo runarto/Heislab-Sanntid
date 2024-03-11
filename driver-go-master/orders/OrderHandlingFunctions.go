@@ -45,10 +45,11 @@ func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, G
 		//time.Sleep(5 * time.Second)
 		go func() {
 			GlobalUpdateCh <- utils.GlobalOrderUpdate{
-				Order:         order,
-				ForElevatorID: BestElevator.ID,
-				IsComplete:    false,
-				IsNew:         true}
+				Order:          order,
+				ForElevatorID:  BestElevator.ID,
+				FromElevatorID: e.ID,
+				IsComplete:     false,
+				IsNew:          true}
 		}()
 
 	case false:
@@ -64,10 +65,11 @@ func ProcessOrderComplete(orderComplete utils.MessageOrderComplete, e utils.Elev
 	fmt.Println("ProcessOrderComplete")
 
 	GlobalOrderUpdate := utils.GlobalOrderUpdate{
-		Order:         orderComplete.Order,
-		ForElevatorID: orderComplete.FromElevatorID,
-		IsComplete:    true,
-		IsNew:         false}
+		Order:          orderComplete.Order,
+		ForElevatorID:  orderComplete.FromElevatorID,
+		FromElevatorID: orderComplete.FromElevatorID,
+		IsComplete:     true,
+		IsNew:          false}
 
 	GlobalUpdateCh <- GlobalOrderUpdate
 

@@ -37,7 +37,7 @@ func MessagePasser(messageSender <-chan interface{}, OrderCompleteTx chan utils.
 				m.Type = "MessageNewOrder"
 				NewOrderTx <- newMsg.(utils.MessageNewOrder)
 				fmt.Println("Sent a", m.Type, "message")
-				go WaitForAck(newMsg, m.Type, activeElevators, ack, NewOrderTx, OrderWatcher)
+				//go WaitForAck(newMsg, m.Type, activeElevators, ack, NewOrderTx, OrderWatcher)
 
 			case utils.MessageElevatorStatus:
 				m.Type = "MessageElevatorStatus"
@@ -72,7 +72,7 @@ func WaitForAck(msg interface{}, msgType string, activeElevators []int, ack chan
 	var quit bool
 	var responses map[int]bool
 
-	timeout := 1 * time.Second
+	timeout := 2 * time.Second
 	responseTimer := time.NewTimer(timeout)
 
 	for {

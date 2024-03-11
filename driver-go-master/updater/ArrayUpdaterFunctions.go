@@ -10,7 +10,7 @@ import (
 )
 
 func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.Elevator,
-	fromElevatorID int, orderWatcher chan utils.OrderWatcher, LocalLightsCh chan [2][utils.NumFloors]bool, ch chan interface{},
+	forElevatorID int, fromElevatorID int, orderWatcher chan utils.OrderWatcher, LocalLightsCh chan [2][utils.NumFloors]bool, ch chan interface{},
 	IsOnlineCh chan bool, CabOrders *[utils.NumOfElevators][utils.NumFloors]bool, HallOrders *map[int][2][utils.NumFloors]bool) {
 
 	change := false
@@ -18,20 +18,20 @@ func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.
 
 	switch isNew {
 	case true:
-		if o.Button == utils.Cab && !isOrderActive(o, fromElevatorID, CabOrders, temp) {
+		if o.Button == utils.Cab && !isOrderActive(o, forElevatorID, CabOrders, temp) {
 			CabOrders[fromElevatorID][o.Floor] = true
 			change = true
-		} else if o.Button != utils.Cab && !isOrderActive(o, fromElevatorID, CabOrders, temp) {
+		} else if o.Button != utils.Cab && !isOrderActive(o, forElevatorID, CabOrders, temp) {
 			temp[o.Button][o.Floor] = true
 			change = true
 		}
 
 	case false:
 
-		if o.Button == utils.Cab && isOrderActive(o, fromElevatorID, CabOrders, temp) {
+		if o.Button == utils.Cab && isOrderActive(o, forElevatorID, CabOrders, temp) {
 			CabOrders[fromElevatorID][o.Floor] = false
 			change = true
-		} else if o.Button != utils.Cab && isOrderActive(o, fromElevatorID, CabOrders, temp) {
+		} else if o.Button != utils.Cab && isOrderActive(o, forElevatorID, CabOrders, temp) {
 			temp[o.Button][o.Floor] = false
 			change = true
 		}
@@ -39,13 +39,13 @@ func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.
 
 	go func() {
 
-		if change {
+		if change && fromElevatorID == e.ID {
 
 			fmt.Println("Change was true.")
 
 			watcherUpdate := utils.OrderWatcher{
 				Order:         o,
-				ForElevatorID: fromElevatorID,
+				ForElevatorID: forElevatorID,
 				IsComplete:    isComplete,
 				IsNew:         isNew,
 				IsConfirmed:   false}
@@ -53,6 +53,9 @@ func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.
 			orderWatcher <- watcherUpdate
 
 		}
+	}()
+
+	go func() {
 
 		if *HallOrders == nil {
 			*HallOrders = make(map[int][2][utils.NumFloors]bool)

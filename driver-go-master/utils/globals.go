@@ -67,21 +67,12 @@ var GlobalOrders = GlobalOrderArray{
 	CabOrderArray:  [NumOfElevators][NumFloors]bool{},
 }
 
-var MasterOrderWatcher = OrderWatcherArray{
-	WatcherMutex:   sync.Mutex{},
-	HallOrderArray: [2][NumFloors]HallAck{},
-}
-
-var SlaveOrderWatcher = OrderWatcherArray{
-	WatcherMutex:   sync.Mutex{},
-	HallOrderArray: [2][NumFloors]HallAck{},
-}
-
 type GlobalOrderUpdate struct {
-	Order         Order
-	ForElevatorID int
-	IsComplete    bool
-	IsNew         bool
+	Order          Order
+	ForElevatorID  int
+	FromElevatorID int
+	IsComplete     bool
+	IsNew          bool
 }
 
 type NewPeersMessage struct {
