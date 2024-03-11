@@ -204,6 +204,7 @@ func HandleActiveElevators(new utils.MessageElevatorStatus) {
 	found := false
 	for i, e := range utils.Elevators {
 		if e.ID == new.FromElevator.ID {
+			utils.Elevators[i].IsActive = new.FromElevator.IsActive
 			utils.Elevators[i] = new.FromElevator
 			found = true
 		}

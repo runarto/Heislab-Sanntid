@@ -55,6 +55,7 @@ func InitializeElevator() utils.Elevator {
 		CurrentState:     utils.Still,
 		LocalOrderArray:  [utils.NumButtons][utils.NumFloors]bool{},
 		ID:               utils.ID,
+		IsActive:         true,
 	}
 }
 
