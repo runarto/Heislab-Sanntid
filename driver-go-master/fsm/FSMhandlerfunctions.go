@@ -119,6 +119,7 @@ func OrderAtCurrentFloor(e utils.Elevator) bool {
 func GetElevatorDirection(e utils.Elevator) (elevio.MotorDirection, utils.State) {
 
 	fmt.Println("Function: GetElevatorDirection")
+	fmt.Println("Current direction is: ", e.CurrentDirection)
 
 	switch e.CurrentDirection {
 	case utils.Up:
@@ -126,7 +127,7 @@ func GetElevatorDirection(e utils.Elevator) (elevio.MotorDirection, utils.State)
 			return elevio.MD_Up, utils.Moving
 		} else if OrderAtCurrentFloor(e) {
 			return elevio.MD_Stop, utils.DoorOpen
-		} else if OrderAtCurrentFloor(e) {
+		} else if OrdersBelow(e) {
 			return elevio.MD_Down, utils.Moving
 		} else {
 			return elevio.MD_Stop, utils.Still
@@ -135,9 +136,9 @@ func GetElevatorDirection(e utils.Elevator) (elevio.MotorDirection, utils.State)
 		if OrdersBelow(e) {
 			return elevio.MD_Down, utils.Moving
 		} else if OrderAtCurrentFloor(e) {
-			return elevio.MD_Up, utils.Moving
+			return elevio.MD_Up, utils.Still
 		} else if OrdersAbove(e) {
-			return elevio.MD_Up, utils.DoorOpen
+			return elevio.MD_Up, utils.Moving
 		} else {
 			return elevio.MD_Stop, utils.Still
 		}

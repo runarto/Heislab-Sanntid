@@ -100,12 +100,14 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 				elevio.SetMotorDirection(elevio.MD_Stop)
 				SetMotorLossTimer(int(elevio.MD_Stop), motorLossTimer, MotorLossTime)
 				e = utils.SetDoorState(utils.Open, e)
+				e = utils.SetState(utils.DoorOpen, e)
 				e = ClearOrdersAtFloor(e)
 				doorTimer.Reset(DoorOpenTime)
 			}
 
 			LocalStateUpdateCh <- e
 			fmt.Println("Local state update sent...")
+			fmt.Println("Current state is: ", e.CurrentState)
 			utils.PrintLocalOrderArray(e)
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
@@ -128,6 +130,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 
 			e = utils.SetDoorState(Close, e)
 			e = utils.SetState(utils.Still, e)
+			utils.PrintLocalOrderArray(e)
 			e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
 			fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
 
