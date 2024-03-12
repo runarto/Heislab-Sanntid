@@ -9,7 +9,7 @@ import (
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-func UpdateGlobalOrderArray(GlobalUpdate utils.GlobalOrderUpdate, e utils.Elevator, orderWatcher chan utils.OrderWatcher, LocalLightsCh chan [2][utils.NumFloors]bool, ch chan interface{},
+func UpdateGlobalOrderArray(GlobalUpdate utils.GlobalOrderUpdate, e utils.Elevator, orderWatcher chan utils.OrderWatcher, LightsCh chan [2][utils.NumFloors]bool, ch chan interface{},
 	IsOnlineCh chan bool, CabOrders *[utils.NumOfElevators][utils.NumFloors]bool, HallOrders *map[int][2][utils.NumFloors]bool) {
 
 	isNew := GlobalUpdate.IsNew
@@ -48,7 +48,7 @@ func UpdateGlobalOrderArray(GlobalUpdate utils.GlobalOrderUpdate, e utils.Elevat
 	}
 	(*HallOrders)[fromElevatorID] = temp
 
-	go SendLightsIfChange(change, e, HallOrders, ch, LocalLightsCh)
+	go SendLightsIfChange(change, e, HallOrders, ch, LightsCh)
 }
 
 func Printlights(lights [2][utils.NumFloors]bool) {
@@ -371,16 +371,14 @@ func SendWatcherUpdateIfChanged(change bool, e utils.Elevator, GlobalUpdate util
 }
 
 func SendLightsIfChange(change bool, e utils.Elevator, HallOrders *map[int][2][utils.NumFloors]bool,
-	ch chan interface{}, LocalLightsCh chan [2][utils.NumFloors]bool) {
+	ch chan interface{}, LightsCh chan [2][utils.NumFloors]bool) {
 
 	if utils.Master && change {
 
 		fmt.Println("Sending lights from master")
 		Lights := LightsToSend(*HallOrders)
-		LocalLightsCh <- Lights
-
-		msg := utils.PackMessage("MessageLights", Lights, e.ID)
-		ch <- msg
+		Printlights(Lights)
+		LightsCh <- Lights
 
 		Printlights(Lights)
 	}

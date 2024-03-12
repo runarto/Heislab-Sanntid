@@ -10,8 +10,7 @@ import (
 
 func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 	ObstrCh chan bool, LocalStateUpdateCh chan utils.Elevator, PeerTxEnable chan bool,
-	IsOnlineCh <-chan bool, LocalLightsCh <-chan [utils.NumButtons - 1][utils.NumFloors]bool,
-	LightsRx <-chan utils.MessageLights, ch chan interface{}) {
+	IsOnlineCh <-chan bool, SetLights <-chan [2][utils.NumFloors]bool, ch chan interface{}) {
 
 	Online := true
 
@@ -92,17 +91,11 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, FloorCh chan int,
 		case update := <-IsOnlineCh:
 			Online = update
 
-		case lights := <-LocalLightsCh:
+		case lights := <-SetLights:
+
+			fmt.Println("Received lights from master...")
 			SetHallLights(lights)
 			lightsTimer.Reset(LightsTimeout)
-
-		case l := <-LightsRx:
-
-			if !utils.Master {
-				fmt.Println("Received lights from master...")
-				SetHallLights(l.Lights)
-				lightsTimer.Reset(LightsTimeout)
-			}
 
 		case <-lightsTimer.C:
 			SetHallLights(GetHallLights(e))

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/runarto/Heislab-Sanntid/elevio"
 	"github.com/runarto/Heislab-Sanntid/updater"
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
@@ -51,13 +52,13 @@ func MessagePasser(messageSender <-chan interface{}, OrderCompleteTx chan utils.
 				MasterOrderWatcherTx <- newMsg.(utils.MessageOrderWatcher)
 
 			case utils.MessageLights:
-				if len(activeElevators) == 1 {
-					continue
-				}
 				m.Type = "MessageLights"
 				LightsTx <- newMsg.(utils.MessageLights)
 				fmt.Println("Sent a", m.Type, "message")
-				go WaitForAck(newMsg, m.Type, activeElevators, ack, LightsTx)
+				//go WaitForAck(newMsg, m.Type, activeElevators, ack, LightsTx)
+				// Is it a better idea to broadcast lights instead?
+				// Assume that you each time the lights are updated, you simply update the lights that are sending.
+				// You could for example send it to a specific channel that handles it.
 
 			}
 
@@ -178,4 +179,50 @@ func HandleConfirmation(c utils.MessageConfirmed, msgType string, msg interface{
 		}
 	}
 	return false, nil
+}
+
+func BroadcastLights(SendLights chan [2][utils.NumFloors]bool, ch chan interface{}) {
+
+	lightsForSending := [2][utils.NumFloors]bool{}
+
+	for {
+		if utils.Master {
+			select {
+			case lights := <-SendLights:
+				lightsForSending = lights
+			case <-time.After(1 * time.Second):
+				msg := utils.PackMessage("MessageLights", lightsForSending, utils.MasterID)
+				ch <- msg
+			}
+		}
+	}
+}
+
+func BroadcastOrders(update chan [3][utils.NumFloors]bool, newOrder chan utils.MessageNewOrder, ch chan interface{}) {
+
+	orders := [3][utils.NumFloors]bool{}
+
+	for {
+		select {
+		case ordersUpdate := <-update:
+			orders = ordersUpdate
+		case <-time.After(3 * time.Second):
+			ResendOrders(orders, ch)
+		}
+	}
+}
+
+func ResendOrders(orders [3][utils.NumFloors]bool, ch chan interface{}) {
+	for b := 0; b < 3; b++ {
+		for f := 0; f < utils.NumFloors; f++ {
+			if orders[b][f] {
+				order := utils.Order{
+					Floor:  f,
+					Button: elevio.ButtonType(b),
+				}
+				msg := utils.PackMessage("MessageNewOrder", order, utils.MasterID, utils.ID)
+				ch <- msg
+			}
+		}
+	}
 }

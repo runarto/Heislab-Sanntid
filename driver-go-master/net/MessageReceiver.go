@@ -37,11 +37,10 @@ func MessageReceiver(OrderCompleteRx chan utils.MessageOrderComplete, ElevatorSt
 			}
 
 		case newMsg := <-LightsRx:
-			if newMsg.FromElevatorID != utils.ID {
-				fmt.Println("Received a MessageLights message")
-				SendAck(newMsg.Type, sender)
-				distribute <- newMsg
-			}
+			fmt.Println("Received a MessageLights message")
+			SendAck(newMsg.Type, sender)
+			distribute <- newMsg
+
 		}
 	}
 
@@ -49,7 +48,7 @@ func MessageReceiver(OrderCompleteRx chan utils.MessageOrderComplete, ElevatorSt
 
 func MessageDistributor(distribute chan interface{}, OrderComplete chan utils.MessageOrderComplete,
 	ElevatorStatus chan utils.MessageElevatorStatus, NewOrder chan utils.MessageNewOrder, OrderWatcher chan utils.MessageOrderWatcher,
-	Lights chan utils.MessageLights) {
+	Lights chan [2][utils.NumFloors]bool) {
 
 	for {
 
@@ -66,7 +65,7 @@ func MessageDistributor(distribute chan interface{}, OrderComplete chan utils.Me
 			case utils.MessageOrderWatcher:
 				OrderWatcher <- m
 			case utils.MessageLights:
-				Lights <- m
+				Lights <- m.Lights
 			}
 		}
 	}
