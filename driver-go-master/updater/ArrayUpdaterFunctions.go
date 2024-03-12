@@ -9,9 +9,13 @@ import (
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.Elevator,
-	forElevatorID int, fromElevatorID int, orderWatcher chan utils.OrderWatcher, LocalLightsCh chan [2][utils.NumFloors]bool, ch chan interface{},
+func UpdateGlobalOrderArray(GlobalUpdate utils.GlobalOrderUpdate, e utils.Elevator, orderWatcher chan utils.OrderWatcher, LocalLightsCh chan [2][utils.NumFloors]bool, ch chan interface{},
 	IsOnlineCh chan bool, CabOrders *[utils.NumOfElevators][utils.NumFloors]bool, HallOrders *map[int][2][utils.NumFloors]bool) {
+
+	isNew := GlobalUpdate.IsNew
+	o := GlobalUpdate.Order
+	forElevatorID := GlobalUpdate.ForElevatorID
+	fromElevatorID := GlobalUpdate.FromElevatorID
 
 	change := false
 	temp := (*HallOrders)[forElevatorID]
@@ -37,43 +41,14 @@ func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.
 		}
 	}
 
-	go func() {
+	go SendWatcherUpdateIfChanged(change, e, GlobalUpdate, orderWatcher)
 
-		if change && fromElevatorID == e.ID {
+	if *HallOrders == nil {
+		*HallOrders = make(map[int][2][utils.NumFloors]bool)
+	}
+	(*HallOrders)[fromElevatorID] = temp
 
-			fmt.Println("Change was true.")
-
-			watcherUpdate := utils.OrderWatcher{
-				Order:         o,
-				ForElevatorID: forElevatorID,
-				IsComplete:    isComplete,
-				IsNew:         isNew,
-				IsConfirmed:   false}
-
-			orderWatcher <- watcherUpdate
-
-		}
-	}()
-
-	go func() {
-
-		if *HallOrders == nil {
-			*HallOrders = make(map[int][2][utils.NumFloors]bool)
-		}
-		(*HallOrders)[fromElevatorID] = temp
-
-		if utils.Master && change {
-
-			fmt.Println("Sending lights from master")
-			Lights := LightsToSend(*HallOrders)
-			LocalLightsCh <- Lights
-
-			msg := utils.PackMessage("MessageLights", Lights, e.ID)
-			ch <- msg
-
-			Printlights(Lights)
-		}
-	}()
+	go SendLightsIfChange(change, e, HallOrders, ch, LocalLightsCh)
 }
 
 func Printlights(lights [2][utils.NumFloors]bool) {
@@ -369,5 +344,44 @@ func DetermineMaster(Elevators []utils.Elevator, MasterUpdateCh chan int) {
 	if utils.NextMasterID != utils.MasterID {
 		MasterUpdateCh <- utils.NextMasterID
 		return
+	}
+}
+
+func SendWatcherUpdateIfChanged(change bool, e utils.Elevator, GlobalUpdate utils.GlobalOrderUpdate, orderWatcher chan utils.OrderWatcher) {
+
+	isNew := GlobalUpdate.IsNew
+	isComplete := GlobalUpdate.IsComplete
+	o := GlobalUpdate.Order
+	forElevatorID := GlobalUpdate.ForElevatorID
+	fromElevatorID := GlobalUpdate.FromElevatorID
+
+	if change && fromElevatorID == e.ID {
+
+		fmt.Println("Change was true.")
+
+		watcherUpdate := utils.OrderWatcher{
+			Order:         o,
+			ForElevatorID: forElevatorID,
+			IsComplete:    isComplete,
+			IsNew:         isNew,
+			IsConfirmed:   false}
+
+		orderWatcher <- watcherUpdate
+	}
+}
+
+func SendLightsIfChange(change bool, e utils.Elevator, HallOrders *map[int][2][utils.NumFloors]bool,
+	ch chan interface{}, LocalLightsCh chan [2][utils.NumFloors]bool) {
+
+	if utils.Master && change {
+
+		fmt.Println("Sending lights from master")
+		Lights := LightsToSend(*HallOrders)
+		LocalLightsCh <- Lights
+
+		msg := utils.PackMessage("MessageLights", Lights, e.ID)
+		ch <- msg
+
+		Printlights(Lights)
 	}
 }

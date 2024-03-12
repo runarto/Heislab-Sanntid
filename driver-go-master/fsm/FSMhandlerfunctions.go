@@ -286,3 +286,127 @@ func GetHallLights(e utils.Elevator) [2][utils.NumFloors]bool {
 
 	return lights
 }
+
+func ExecuteOrder(newOrder utils.Order, e utils.Elevator, doorTimer *time.Timer,
+	motorLossTimer *time.Timer, DoorOpenTime time.Duration, MotorLossTime time.Duration) utils.Elevator {
+
+	floor := newOrder.Floor
+	button := newOrder.Button
+
+	fmt.Println("Current state is: ", e.CurrentState)
+	switch e.CurrentState {
+
+	case utils.DoorOpen:
+
+		if ShouldClearOrderAtFloor(e, floor, int(button)) {
+			e = ClearOrder(e, floor, int(button))
+			doorTimer.Reset(DoorOpenTime)
+		} else {
+			e.LocalOrderArray[button][floor] = true
+		}
+
+	case utils.Still:
+
+		if ShouldClearOrderAtFloor(e, floor, int(button)) {
+			e = ClearOrder(e, floor, int(button))
+			doorTimer.Reset(DoorOpenTime)
+		} else {
+			e.LocalOrderArray[button][floor] = true
+		}
+
+		e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
+		fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
+
+		switch e.CurrentState {
+		case utils.Moving:
+			fmt.Println("Moving...")
+			elevio.SetMotorDirection(e.CurrentDirection)
+			SetMotorLossTimer(int(e.CurrentDirection), motorLossTimer, MotorLossTime)
+
+		case utils.Still:
+			fmt.Println("Still...")
+			e = utils.SetDoorState(utils.Open, e)
+			doorTimer.Reset(DoorOpenTime)
+			e = ClearOrdersAtFloor(e)
+		}
+
+	case utils.Moving:
+		e.LocalOrderArray[button][floor] = true
+
+	}
+
+	return e
+}
+
+func HandleArrivalAtFloor(floor int, e utils.Elevator, motorLossTimer *time.Timer, doorTimer *time.Timer,
+	DoorOpenTime time.Duration, MotorLossTime time.Duration) utils.Elevator {
+
+	motorLossTimer.Reset(MotorLossTime)
+	e.CurrentFloor = floor
+	elevio.SetFloorIndicator(floor)
+
+	if ShouldStop(e) {
+
+		elevio.SetMotorDirection(elevio.MD_Stop)
+		SetMotorLossTimer(int(elevio.MD_Stop), motorLossTimer, MotorLossTime)
+		e = utils.SetDoorState(utils.Open, e)
+		e = utils.SetState(utils.DoorOpen, e)
+		e = ClearOrdersAtFloor(e)
+		doorTimer.Reset(DoorOpenTime)
+	}
+
+	return e
+}
+
+func DoorTimerExpired(e utils.Elevator, doorTimer *time.Timer, DoorOpenTime time.Duration,
+	motorLossTimer *time.Timer, MotorLossTime time.Duration, FloorCh chan int) utils.Elevator {
+
+	e = utils.SetDoorState(utils.Close, e)
+	e = utils.SetState(utils.Still, e)
+	//utils.PrintLocalOrderArray(e)
+	e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
+	fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
+
+	motorLossTimer.Reset(MotorLossTime)
+
+	if e.CurrentState == utils.DoorOpen {
+
+		FloorCh <- e.CurrentFloor
+
+	} else {
+		elevio.SetMotorDirection(e.CurrentDirection)
+		SetMotorLossTimer(int(e.CurrentDirection), motorLossTimer, MotorLossTime)
+	}
+
+	return e
+}
+
+func Obstruction(obstruction bool, e utils.Elevator, doorTimer *time.Timer, DoorOpenTime time.Duration, ObstructionTimeout time.Duration,
+	obstructionTimer *time.Timer, ObstrCh <-chan bool, PeerTxEnable chan bool) utils.Elevator {
+	if obstruction {
+		e = utils.Obstruction(true, e)
+		doorTimer.Reset(DoorOpenTime)
+		obstructionTimer.Reset(ObstructionTimeout)
+		PeerTxEnable <- false
+
+		for obstruction {
+			select {
+			case obstruction = <-ObstrCh:
+				if !obstruction {
+					e = utils.Obstruction(false, e)
+					PeerTxEnable <- true
+					fmt.Println("---OBSTRUCTION CLEARED---")
+					doorTimer.Reset(DoorOpenTime)
+					return e
+				}
+			case <-time.After(ObstructionTimeout):
+				fmt.Println("Obstruction timeout occurred.")
+				crash.Crash(e)
+			}
+		}
+	} else {
+		PeerTxEnable <- true
+	}
+
+	return e
+}

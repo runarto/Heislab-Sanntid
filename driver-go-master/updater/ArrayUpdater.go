@@ -33,35 +33,13 @@ func LocalUpdater(e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 
 			fmt.Println("---GLOBAL ORDER UPDATE RECEIVED---")
 
-			isNew := GlobalUpdate.IsNew
-
-			switch isNew {
-			case true: // New order
-				UpdateGlobalOrderArray(true, false, GlobalUpdate.Order, e, GlobalUpdate.ForElevatorID, GlobalUpdate.FromElevatorID, OrderWatcher,
-					LocalLightsCh, ch, IsOnlineCh, &CabOrders, &HallOrders)
-
-			case false: // Coplete order
-				UpdateGlobalOrderArray(false, true, GlobalUpdate.Order, e, GlobalUpdate.ForElevatorID, GlobalUpdate.FromElevatorID, OrderWatcher,
-					LocalLightsCh, ch, IsOnlineCh, &CabOrders, &HallOrders)
-
-			}
+			UpdateGlobalOrderArray(GlobalUpdate, e, OrderWatcher, LocalLightsCh, ch, IsOnlineCh, &CabOrders, &HallOrders)
 
 		case WatcherUpdate := <-OrderWatcher:
 
 			fmt.Println("---ORDER WATCHER UPDATE RECEIVED---")
 
-			IsNew := WatcherUpdate.IsNew
-
-			switch IsNew {
-			case true:
-
-				UpdateWatcher(WatcherUpdate, WatcherUpdate.Order, e, &MasterOrderWatcher, &SlaveOrderWatcher)
-
-			case false:
-
-				UpdateWatcher(WatcherUpdate, WatcherUpdate.Order, e, &MasterOrderWatcher, &SlaveOrderWatcher)
-
-			}
+			UpdateWatcher(WatcherUpdate, WatcherUpdate.Order, e, &MasterOrderWatcher, &SlaveOrderWatcher)
 
 		case s := <-LocalStateUpdateCh: // Update the local elevator instance
 
