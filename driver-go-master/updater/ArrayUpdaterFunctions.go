@@ -18,8 +18,8 @@ func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.
 
 	switch isNew {
 	case true:
-		if o.Button == utils.Cab && !isOrderActive(o, forElevatorID, CabOrders, temp) {
-			CabOrders[forElevatorID][o.Floor] = true
+		if o.Button == utils.Cab && !isOrderActive(o, fromElevatorID, CabOrders, temp) {
+			CabOrders[fromElevatorID][o.Floor] = true
 			change = true
 		} else if o.Button != utils.Cab && !isOrderActive(o, forElevatorID, CabOrders, temp) {
 			temp[o.Button][o.Floor] = true
@@ -28,8 +28,8 @@ func UpdateGlobalOrderArray(isNew bool, isComplete bool, o utils.Order, e utils.
 
 	case false:
 
-		if o.Button == utils.Cab && isOrderActive(o, forElevatorID, CabOrders, temp) {
-			CabOrders[forElevatorID][o.Floor] = false
+		if o.Button == utils.Cab && isOrderActive(o, fromElevatorID, CabOrders, temp) {
+			CabOrders[fromElevatorID][o.Floor] = false
 			change = true
 		} else if o.Button != utils.Cab && isOrderActive(o, forElevatorID, CabOrders, temp) {
 			temp[o.Button][o.Floor] = false

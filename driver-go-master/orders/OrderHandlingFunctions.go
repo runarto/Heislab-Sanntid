@@ -101,6 +101,10 @@ func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, MasterUpdateCh 
 		val, _ := strconv.Atoi(p.Peers[0])
 		utils.NextMasterID = val
 
+		if DidMasterGoOffline(val) {
+			MasterUpdateCh <- val
+		}
+
 		IsOnlineCh <- true
 
 		ActiveElevators = HandleNewPeers(p, ActiveElevators)
@@ -116,6 +120,14 @@ func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, MasterUpdateCh 
 
 }
 
+func DidMasterGoOffline(val int) bool {
+	if val > utils.MasterID {
+		return true
+	} else {
+		return false
+	}
+}
+
 func HandleNewPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
 
 	if p.New != "" {
@@ -129,12 +141,7 @@ func HandleNewPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
 func HandleLostPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
 
 	if p.Lost != nil {
-
-		for i := range p.Lost {
-			lostElevatorID := p.Lost[i]
-			peerUpdate.Lost = append(peerUpdate.Lost, lostElevatorID)
-		}
-
+		peerUpdate.Lost = append(peerUpdate.Lost, p.Lost...)
 	}
 
 	return peerUpdate
