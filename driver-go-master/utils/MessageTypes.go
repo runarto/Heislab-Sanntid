@@ -24,10 +24,9 @@ type MessageElevatorStatus struct {
 }
 
 type MessageOrderWatcher struct {
-	Type           string                          `json:"type"`           // A type identifier for decoding on the receiving end
-	HallOrders     [2][NumFloors]bool              `json:"hallOrders"`     // The hall orders of the elevator
-	CabOrders      [NumOfElevators][NumFloors]bool `json:"cabOrders"`      // The cab orders of the elevator
-	FromElevatorID int                             `json:"fromElevatorID"` // The elevator to send the order to
+	Type           string                                 `json:"type"`           // A type identifier for decoding on the receiving end
+	Orders         map[string][NumButtons][NumFloors]bool `json:"orders"`         // The hall orders of the elevator
+	FromElevatorID int                                    `json:"fromElevatorID"` // The elevator to send the order to
 }
 
 type MessageLights struct {
@@ -70,9 +69,8 @@ func PackMessage(msgType string, params ...interface{}) interface{} {
 	case "MessageOrderWatcher":
 		msg := MessageOrderWatcher{
 			Type:           msgType,
-			HallOrders:     params[0].([2][NumFloors]bool),
-			CabOrders:      params[1].([NumOfElevators][NumFloors]bool),
-			FromElevatorID: params[2].(int)}
+			Orders:         params[0].(map[string][NumButtons][NumFloors]bool),
+			FromElevatorID: params[1].(int)}
 
 		return msg
 

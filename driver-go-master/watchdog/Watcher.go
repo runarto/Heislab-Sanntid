@@ -93,7 +93,7 @@ func Watchdog(e utils.Elevator, m *utils.OrderWatcherArray, s *utils.OrderWatche
 
 	go MasterBark(e, m, MasterBarkCh)
 
-	go SlaveBark(e, s, SlaveBarkCh)
+	//go SlaveBark(e, s, SlaveBarkCh)
 
 	for {
 

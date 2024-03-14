@@ -25,6 +25,10 @@ func InitializeElevator() utils.Elevator {
 
 	e := crash.CheckCrashDump()
 
+	const MotorLossTime = 5 * time.Second
+	motorLossTimer := time.NewTimer(MotorLossTime)
+	motorLossTimer.Stop()
+
 	if utils.ID == 0 {
 		utils.Master = true
 		utils.MasterID = 0
@@ -35,6 +39,7 @@ func InitializeElevator() utils.Elevator {
 	direction := utils.Up
 	maxTime := 2000
 	elevio.SetMotorDirection(elevio.MD_Up)
+	motorLossTimer.Reset(MotorLossTime)
 	startTime := time.Now()
 
 	for floor == utils.NotDefined {
@@ -50,8 +55,15 @@ func InitializeElevator() utils.Elevator {
 			}
 			startTime = time.Now()
 		}
+		select {
+		case <-motorLossTimer.C:
+			crash.Crash(e)
+		default:
+			time.Sleep(10 * time.Millisecond) // Sleep for a short time to avoid busy looping
+		}
 	}
 
+	motorLossTimer.Stop()
 	e.CurrentFloor = floor
 	e.CurrentDirection = elevio.MD_Stop
 	e.CurrentState = utils.Still
@@ -293,7 +305,6 @@ func ExecuteOrder(newOrder utils.Order, e utils.Elevator, doorTimer *time.Timer,
 	floor := newOrder.Floor
 	button := newOrder.Button
 
-	fmt.Println("Current state is: ", e.CurrentState)
 	switch e.CurrentState {
 
 	case utils.DoorOpen:
@@ -315,7 +326,6 @@ func ExecuteOrder(newOrder utils.Order, e utils.Elevator, doorTimer *time.Timer,
 		}
 
 		e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
-		fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
 
 		switch e.CurrentState {
 		case utils.Moving:
@@ -365,7 +375,6 @@ func DoorTimerExpired(e utils.Elevator, doorTimer *time.Timer, DoorOpenTime time
 	e = utils.SetState(utils.Still, e)
 	//utils.PrintLocalOrderArray(e)
 	e.CurrentDirection, e.CurrentState = GetElevatorDirection(e)
-	fmt.Println("Current direction is: ", e.CurrentDirection, "Current state is: ", e.CurrentState)
 
 	motorLossTimer.Reset(MotorLossTime)
 

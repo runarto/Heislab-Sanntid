@@ -2,7 +2,6 @@ package orders
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -14,109 +13,29 @@ import (
 func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 	NewOrder <-chan utils.MessageNewOrder, OrderComplete <-chan utils.MessageOrderComplete, PeerUpdateCh chan peers.PeerUpdate,
 	DoOrderCh chan utils.Order, LocalStateUpdateCh chan utils.Elevator, MasterUpdateCh chan int, ch chan interface{}, IsOnlineCh chan bool, ActiveElevatorUpdate chan utils.Status,
-	WatcherUpdate chan utils.OrderWatcher) {
+	WatcherUpdate chan utils.OrderWatcher, LocalOrdersUpdate chan [utils.NumButtons][utils.NumFloors]bool) {
+
+	LocalOrders := [utils.NumButtons][utils.NumFloors]bool{}
+	Online := false
 
 	for {
 
 		select {
 
 		case newOrder := <-ButtonCh:
-			fmt.Println("---LOCAL BUTTON PRESSED---")
-
-			order := utils.Order{
-				Floor:  newOrder.Floor,
-				Button: newOrder.Button,
-			}
-
-			if order.Button == utils.Cab {
-
-				fmt.Println("Sending cab order to FSM...")
-				DoOrderCh <- order // Send to FSM
-
-				GlobalUpdateCh <- utils.GlobalOrderUpdate{
-					Order:          order,
-					ForElevatorID:  e.ID,
-					FromElevatorID: e.ID,
-					IsComplete:     false,
-					IsNew:          true}
-
-				msg := utils.PackMessage("MessageNewOrder", order, utils.NotDefined, e.ID)
-				ch <- msg
-
-			} else {
-
-				ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh)
-
-			}
-
+			HandleButtonEvent(newOrder, e, ch, GlobalUpdateCh, LocalOrders, DoOrderCh, WatcherUpdate, IsOnlineCh, Online)
 		case newOrder := <-NewOrder:
-
-			order := newOrder.NewOrder
-
-			if utils.Master && newOrder.ToElevatorID == utils.MasterID {
-
-				fmt.Println("---NEW ORDER TO DELEGATE---")
-
-				ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh)
-
-			} else if !utils.Master && newOrder.ToElevatorID == e.ID {
-
-				fmt.Println("---NEW ORDER RECEIVED---")
-
-				GlobalUpdateCh <- utils.GlobalOrderUpdate{
-					Order:          order,
-					ForElevatorID:  e.ID,
-					FromElevatorID: newOrder.FromElevatorID,
-					IsComplete:     false,
-					IsNew:          true,
-				}
-
-				time.Sleep(100 * time.Millisecond)
-
-				DoOrderCh <- order
-
-			} else if newOrder.ToElevatorID != e.ID && newOrder.FromElevatorID == utils.MasterID {
-
-				go func() {
-					GlobalUpdateCh <- utils.GlobalOrderUpdate{
-						Order:          order,
-						ForElevatorID:  newOrder.ToElevatorID,
-						FromElevatorID: newOrder.FromElevatorID,
-						IsComplete:     false,
-						IsNew:          true}
-				}()
-			}
-
+			HandleNewOrder(newOrder, LocalOrders, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, Online)
 		case orderComplete := <-OrderComplete:
-
 			fmt.Println("---ORDER COMPLETE RECEIVED---")
-
-			go ProcessOrderComplete(orderComplete, e, GlobalUpdateCh)
-
+			ProcessOrderComplete(orderComplete, e, GlobalUpdateCh)
 		case peerUpdate := <-PeerUpdateCh:
-
 			fmt.Println("---PEER UPDATE RECEIVED---")
-
-			HandlePeersUpdate(peerUpdate, IsOnlineCh, MasterUpdateCh, ActiveElevatorUpdate)
-
+			HandlePeersUpdate(peerUpdate, IsOnlineCh, MasterUpdateCh, ActiveElevatorUpdate, &Online)
 		case val := <-MasterUpdateCh:
-
 			fmt.Println("---MASTER UPDATE RECEIVED---")
-			fmt.Println("Master ID: ", val)
-
-			utils.MasterMutex.Lock()
-			utils.MasterIDmutex.Lock()
-			if val == e.ID {
-				utils.MasterID = val
-				utils.Master = true
-			} else {
-				utils.MasterID = val
-				utils.Master = false
-			}
-			utils.MasterIDmutex.Unlock()
-			utils.MasterMutex.Unlock()
+			HandleMasterUpdate(val, e)
 
 		}
 	}
-
 }
