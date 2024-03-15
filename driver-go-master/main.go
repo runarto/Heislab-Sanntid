@@ -62,7 +62,7 @@ func main() {
 	IsOnlineCh := make(chan bool, bufferSize)
 
 	//Message sending channels
-	LightsTx := make(chan utils.MessageLights, bufferSize)
+	LightsTx := make(chan utils.MessageLights)
 	ElevStatusTx := make(chan utils.MessageElevatorStatus, bufferSize)
 	OrderCompleteTx := make(chan utils.MessageOrderComplete, bufferSize)
 	NewOrderTx := make(chan utils.MessageNewOrder, bufferSize)
@@ -71,7 +71,7 @@ func main() {
 	AckTx := make(chan utils.MessageConfirmed, bufferSize)
 
 	// Message receiving channels
-	LightsRx := make(chan utils.MessageLights, bufferSize)
+	LightsRx := make(chan utils.MessageLights)
 	SendLights := make(chan [2][utils.NumFloors]bool)
 	SetLights := make(chan [2][utils.NumFloors]bool)
 	OrderCompleteRx := make(chan utils.MessageOrderComplete, bufferSize)

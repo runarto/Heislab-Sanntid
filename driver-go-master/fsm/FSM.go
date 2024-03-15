@@ -54,6 +54,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 			e = ExecuteOrder(newOrder, e, doorTimer, motorLossTimer, DoorOpenTime, MotorLossTime)
 
 			//utils.PrintLocalOrderArray(e)
+			crash.SaveCabOrders(e)
 			LocalStateUpdateCh <- e // Update the local elevator instance
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
@@ -64,6 +65,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 			e = HandleArrivalAtFloor(floor, e, motorLossTimer, doorTimer, DoorOpenTime, MotorLossTime)
 
 			LocalStateUpdateCh <- e
+			crash.SaveCabOrders(e)
 			//utils.PrintLocalOrderArray(e)
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
@@ -105,7 +107,6 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 		}
 
 		SetCabLights(e)
-		crash.SaveCabOrders(e)
 
 		if !Online {
 

@@ -17,7 +17,6 @@ func Crash(e utils.Elevator) {
 }
 
 func SaveCabOrders(e utils.Elevator) {
-	fmt.Println("Saving cab orders")
 
 	var CabOrders [utils.NumFloors]bool
 
@@ -47,7 +46,6 @@ func SaveCabOrders(e utils.Elevator) {
 		return
 	}
 
-	fmt.Println("Cab orders saved successfully")
 }
 
 func CheckCrashDump() utils.Elevator {
