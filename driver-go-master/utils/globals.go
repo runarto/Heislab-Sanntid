@@ -48,6 +48,11 @@ var NextMasterID int
 
 var ID int
 
+var (
+	AckMatrix = make(map[int][NumButtons][NumFloors]Ack)
+	AckMutex  sync.Mutex
+)
+
 type State int
 
 const (
@@ -80,7 +85,7 @@ type NewPeersMessage struct {
 	NewPeers  []int
 }
 
-type HallAck struct {
+type Ack struct {
 	Active    bool
 	Completed bool
 	Confirmed bool
@@ -96,7 +101,7 @@ type CabAck struct {
 
 type OrderWatcherArray struct {
 	WatcherMutex   sync.Mutex
-	HallOrderArray [2][NumFloors]HallAck // Represents the hall orders
+	HallOrderArray [2][NumFloors]Ack // Represents the hall orders
 }
 
 type OrderWatcher struct {

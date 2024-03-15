@@ -11,7 +11,7 @@ import (
 // Only local stuff
 
 func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpdateCh chan utils.GlobalOrderUpdate,
-	NewOrder <-chan utils.MessageNewOrder, OrderComplete <-chan utils.MessageOrderComplete, PeerUpdateCh chan peers.PeerUpdate,
+	NewOrderRx <-chan utils.MessageNewOrder, OrderComplete <-chan utils.MessageOrderComplete, PeerUpdateCh chan peers.PeerUpdate,
 	DoOrderCh chan utils.Order, LocalStateUpdateCh chan utils.Elevator, MasterUpdateCh chan int, ch chan interface{}, IsOnlineCh chan bool, ActiveElevatorUpdate chan utils.Status,
 	WatcherUpdate chan utils.OrderWatcher, LocalOrdersUpdate chan [utils.NumButtons][utils.NumFloors]bool) {
 
@@ -24,7 +24,7 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 
 		case newOrder := <-ButtonCh:
 			HandleButtonEvent(newOrder, e, ch, GlobalUpdateCh, LocalOrders, DoOrderCh, WatcherUpdate, IsOnlineCh, Online)
-		case newOrder := <-NewOrder:
+		case newOrder := <-NewOrderRx:
 			HandleNewOrder(newOrder, LocalOrders, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, Online)
 		case orderComplete := <-OrderComplete:
 			fmt.Println("---ORDER COMPLETE RECEIVED---")

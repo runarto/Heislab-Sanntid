@@ -62,7 +62,7 @@ func main() {
 	IsOnlineCh := make(chan bool, bufferSize)
 
 	//Message sending channels
-	LightsTx := make(chan utils.MessageLights)
+	LightsTx := make(chan utils.MessageLights, bufferSize)
 	ElevStatusTx := make(chan utils.MessageElevatorStatus, bufferSize)
 	OrderCompleteTx := make(chan utils.MessageOrderComplete, bufferSize)
 	NewOrderTx := make(chan utils.MessageNewOrder, bufferSize)
@@ -71,19 +71,20 @@ func main() {
 	AckTx := make(chan utils.MessageConfirmed, bufferSize)
 
 	// Message receiving channels
-	LightsRx := make(chan utils.MessageLights)
+	LightsRx := make(chan utils.MessageLights, bufferSize)
 	SendLights := make(chan [2][utils.NumFloors]bool)
+	SetLights := make(chan [2][utils.NumFloors]bool)
 	OrderCompleteRx := make(chan utils.MessageOrderComplete, bufferSize)
 	NewOrderRx := make(chan utils.MessageNewOrder, bufferSize)
 	ElevStatusRx := make(chan utils.MessageElevatorStatus, bufferSize)
 	MasterOrderWatcherRx := make(chan utils.MessageOrderWatcher, bufferSize)
-	AckRx := make(chan utils.MessageConfirmed, bufferSize)
+	AckRx := make(chan utils.MessageConfirmed, bufferSize*10)
 
 	//---------------------------------------------------------------------------
 
-	// Peer handling -----------------------------------------------------------
-	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(e.ID), PeerTxEnable)
-	go peers.Receiver(utils.ListeningPort+1, PeerUpdateCh)
+	// Broadcasting -----------------------------------------------------------
+	go bcast.Transmitter(utils.ListeningPort, NewOrderTx, OrderCompleteTx, ElevStatusTx, LightsTx, MasterOrderWatcherTx, AckTx)
+	go bcast.Receiver(utils.ListeningPort, NewOrderRx, OrderCompleteRx, ElevStatusRx, LightsRx, MasterOrderWatcherRx, AckRx)
 
 	// Broadcasting -----------------------------------------------------------
 	go bcast.Transmitter(utils.ListeningPort, NewOrderTx, OrderCompleteTx, ElevStatusTx, LightsTx, MasterOrderWatcherTx, AckTx)
@@ -93,27 +94,29 @@ func main() {
 	go elevio.PollButtons(ButtonPressCh)
 
 	// Message sending, receiving and distributing------------------------------------------------
-	go net.MessagePasser(messageSender, OrderCompleteTx, NewOrderTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx, OrderWatcher, AckTx, AckRx)
-	go net.MessageReceiver(OrderCompleteRx, ElevStatusRx, messageSender, messageDistributor)
-	go net.MessageDistributor(messageDistributor, OrderComplete, ElevStatus)
-
-	go net.NewOrderReceiver(NewOrderRx, NewOrder, messageSender)
+	go net.MessagePasser(messageSender, OrderCompleteTx, NewOrderTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx, OrderWatcher, AckRx, DoOrderCh)
+	go net.MessageReceiver(NewOrderRx, OrderCompleteRx, ElevStatusRx, AckTx, messageDistributor, LightsRx)
+	go net.MessageDistributor(messageDistributor, OrderComplete, ElevStatus, NewOrder, SendLights)
+	go net.LightsReceiver(LightsRx, SetLights)
 
 	// FSM, Order-handling and variable-updaters ------------------------------------------------
-	go fsm.FSM(e, DoOrderCh, LocalStateUpdateCh, PeerTxEnable, IsOnlineCh, LightsRx, messageSender)
+	go fsm.FSM(e, DoOrderCh, LocalStateUpdateCh, PeerTxEnable, IsOnlineCh, SetLights, messageSender)
 
-	go orders.OrderHandler(e, ButtonPressCh, GlobalUpdateCh, NewOrder, OrderComplete, PeerUpdateCh,
+	go orders.OrderHandler(e, ButtonPressCh, GlobalUpdateCh, NewOrderRx, OrderComplete, PeerUpdateCh,
 		DoOrderCh, LocalStateUpdateCh, MasterUpdateCh, messageSender, IsOnlineCh, ActiveElevatorUpdateCh, OrderWatcher, LocalOrdersCh)
 
-	go updater.LocalUpdater(e, GlobalUpdateCh, OrderWatcher, LocalStateUpdateCh, messageSender,
-		SendLights, ButtonPressCh, IsOnlineCh, ActiveElevatorUpdateCh, DoOrderCh, MasterUpdateCh, OrdersUpdate, LocalOrdersCh)
+	go updater.LocalUpdater(e, GlobalUpdateCh, OrderWatcher, LocalStateUpdateCh, messageSender, ButtonPressCh, IsOnlineCh, ActiveElevatorUpdateCh,
+		DoOrderCh, MasterUpdateCh, OrdersUpdate, LocalOrdersCh, SendLights)
 
 	go updater.GlobalUpdater(ElevStatus, MasterOrderWatcherRx)
 
-	// Broadcasting lights, active orders, and OrderWatcher -----------------------------------------------------------
+	// Broadcasting lights and OrderWatcher -----------------------------------------------------------
 	go net.BroadcastLights(SendLights, LightsTx)
-	go net.BroadcastOrders(OrdersUpdate, NewOrderTx)
 	go updater.BroadcastMasterOrderWatcher(messageSender)
+
+	// Peer handling -----------------------------------------------------------
+	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(e.ID), PeerTxEnable)
+	go peers.Receiver(utils.ListeningPort+1, PeerUpdateCh)
 
 	select {}
 

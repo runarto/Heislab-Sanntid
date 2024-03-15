@@ -27,46 +27,68 @@ func SendOrder(order utils.Order, e utils.Elevator, ch chan interface{}, toEleva
 }
 
 func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate,
-	DoOrderCh chan utils.Order, watcher chan utils.OrderWatcher, IsOnlineCh chan bool, LocalOrders [3][utils.NumFloors]bool, isOnline bool) [3][utils.NumFloors]bool {
+	DoOrderCh chan utils.Order, watcher chan utils.OrderWatcher, IsOnlineCh chan bool, LocalOrders [3][utils.NumFloors]bool, isOnline bool, fromElevatorID int) {
 
 	fmt.Println("Function: ProcessNewOrder")
 
 	switch utils.Master {
 	case true:
-		BestElevator := ChooseElevator(order)
-		fmt.Println("Best elevator for order", order, ": ", BestElevator.ID)
 
-		fmt.Println("Sending message for global order update...")
+		// CAB ORDER----------------------------------------------
+
+		if order.Button == utils.Cab {
+			go func() {
+				GlobalUpdateCh <- utils.GlobalOrderUpdate{
+					Order:          order,
+					ForElevatorID:  fromElevatorID,
+					FromElevatorID: fromElevatorID,
+					IsComplete:     false,
+					IsNew:          true}
+			}()
+
+			SendOrder(order, e, ch, fromElevatorID)
+			return
+		}
+
+		// HALL ORDER---------------------------------------------
+
+		BestElevator := ChooseElevator(order)
 
 		go func() {
 			GlobalUpdateCh <- utils.GlobalOrderUpdate{
 				Order:          order,
 				ForElevatorID:  BestElevator.ID,
-				FromElevatorID: e.ID,
+				FromElevatorID: fromElevatorID,
 				IsComplete:     false,
 				IsNew:          true}
 		}()
+
+		fmt.Println("Best elevator for order", order, ": ", BestElevator.ID)
+
+		fmt.Println("Sending message for global order update...")
 
 		if BestElevator.ID == e.ID || !isOnline {
 
 			DoOrderCh <- order
 			fmt.Println("Sending order to FSM...")
+			return
+
 		} else {
 			SendOrder(order, e, ch, BestElevator.ID)
+			return
 		}
 
 	case false:
 
 		if isOnline {
-			SendOrder(order, e, ch, utils.MasterID)
+			SendOrder(order, e, ch, utils.MasterID) // Send to master if online
+			return
 		} else {
-			DoOrderCh <- order
+			DoOrderCh <- order // If offline, send to FSM
+			return
 		}
 
 	}
-
-	return LocalOrders
-
 }
 
 func ProcessOrderComplete(orderComplete utils.MessageOrderComplete, e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
@@ -299,15 +321,15 @@ func HandleMasterUpdate(val int, e utils.Elevator) {
 
 func HandleNewOrder(newOrder utils.MessageNewOrder, LocalOrders [3][utils.NumFloors]bool, e utils.Elevator, ch chan interface{},
 	GlobalUpdateCh chan utils.GlobalOrderUpdate, DoOrderCh chan utils.Order,
-	WatcherUpdate chan utils.OrderWatcher, IsOnlineCh chan bool, isOnline bool) [3][utils.NumFloors]bool {
+	WatcherUpdate chan utils.OrderWatcher, IsOnlineCh chan bool, isOnline bool) {
 
 	order := newOrder.NewOrder
 
-	if utils.Master && e.ID != newOrder.FromElevatorID && order.Button != utils.Cab {
+	if utils.Master && e.ID != newOrder.FromElevatorID {
 
 		fmt.Println("---NEW ORDER TO DELEGATE---")
 
-		ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, LocalOrders, isOnline)
+		ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, LocalOrders, isOnline, newOrder.FromElevatorID)
 
 	} else if !utils.Master && newOrder.ToElevatorID == e.ID && newOrder.FromElevatorID != e.ID {
 
@@ -325,9 +347,9 @@ func HandleNewOrder(newOrder utils.MessageNewOrder, LocalOrders [3][utils.NumFlo
 
 		DoOrderCh <- order
 
-	} else if (newOrder.ToElevatorID != e.ID && !utils.Master) || (order.Button == utils.Cab) {
+	} else if newOrder.ToElevatorID != e.ID && !utils.Master {
 
-		fmt.Println("Sending to updater...")
+		fmt.Println("Sending order", order, "from elevator", newOrder.FromElevatorID, "to updater")
 
 		if order.Button == utils.Cab {
 
@@ -352,8 +374,6 @@ func HandleNewOrder(newOrder utils.MessageNewOrder, LocalOrders [3][utils.NumFlo
 			}()
 		}
 	}
-
-	return LocalOrders
 }
 
 func HandleButtonEvent(newOrder elevio.ButtonEvent, e utils.Elevator, ch chan interface{},
@@ -372,26 +392,28 @@ func HandleButtonEvent(newOrder elevio.ButtonEvent, e utils.Elevator, ch chan in
 
 	if order.Button == utils.Cab {
 
-		go func() {
-			GlobalUpdateCh <- utils.GlobalOrderUpdate{
-				Order:          order,
-				ForElevatorID:  e.ID,
-				FromElevatorID: e.ID,
-				IsComplete:     false,
-				IsNew:          true}
-		}()
-
-		go func() {
+		if !utils.Master {
 			fmt.Println("Master ID: ", utils.MasterID)
 			SendOrder(order, e, ch, utils.MasterID)
-		}()
 
-		fmt.Println("Sending cab order to FSM...")
-		DoOrderCh <- order // Send to FSM
+		} else {
+
+			go func() {
+				GlobalUpdateCh <- utils.GlobalOrderUpdate{
+					Order:          order,
+					ForElevatorID:  e.ID,
+					FromElevatorID: e.ID,
+					IsComplete:     false,
+					IsNew:          true}
+			}()
+
+			fmt.Println("Sending cab order to FSM...")
+			DoOrderCh <- order // Send to FSM
+		}
 
 	} else {
 
-		ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, LocalOrders, isOnline)
+		ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, LocalOrders, isOnline, e.ID)
 
 	}
 

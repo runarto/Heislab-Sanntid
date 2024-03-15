@@ -1,33 +1,44 @@
 package net
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-func MessageReceiver(OrderCompleteRx chan utils.MessageOrderComplete, ElevatorStatusRx chan utils.MessageElevatorStatus,
-	sender chan interface{}, distribute chan interface{}) {
+func MessageReceiver(NewOrderRx chan utils.MessageNewOrder, OrderCompleteRx chan utils.MessageOrderComplete, ElevatorStatusRx chan utils.MessageElevatorStatus,
+	AckTx chan utils.MessageConfirmed, distribute chan interface{}, LightsRx chan utils.MessageLights) {
 
 	for {
 		time.Sleep(5 * time.Millisecond)
 		select {
 
 		case newMsg := <-OrderCompleteRx:
-			SendAck(newMsg.Type, sender)
-			distribute <- newMsg
+			if newMsg.FromElevatorID != utils.ID {
+				fmt.Println("Received order complete from elevator", newMsg.FromElevatorID)
+				SendAck(newMsg.Type, AckTx, newMsg.Order)
+				distribute <- newMsg
+			}
 
 		case newMsg := <-ElevatorStatusRx:
 			if newMsg.FromElevator.ID != utils.ID {
+				fmt.Println("Received elevator status from elevator", newMsg.FromElevator.ID)
+				distribute <- newMsg
+			}
+		case newMsg := <-NewOrderRx:
+			if newMsg.FromElevatorID != utils.ID {
+				fmt.Println("Received new order from elevator", newMsg.FromElevatorID)
+				fmt.Println("Order received is: ", newMsg.NewOrder)
+				SendAck(newMsg.Type, AckTx, newMsg.NewOrder)
 				distribute <- newMsg
 			}
 		}
 	}
-
 }
 
 func MessageDistributor(distribute chan interface{}, OrderComplete chan utils.MessageOrderComplete,
-	ElevatorStatus chan utils.MessageElevatorStatus) {
+	ElevatorStatus chan utils.MessageElevatorStatus, NewOrder chan utils.MessageNewOrder, SendLights chan [2][utils.NumFloors]bool) {
 
 	for {
 		time.Sleep(5 * time.Millisecond)
@@ -39,36 +50,39 @@ func MessageDistributor(distribute chan interface{}, OrderComplete chan utils.Me
 				OrderComplete <- m
 			case utils.MessageElevatorStatus:
 				ElevatorStatus <- m
+			case utils.MessageNewOrder:
+				NewOrder <- m
+			case utils.MessageLights:
+				SendLights <- m.Lights
 			}
 		}
 	}
 }
 
-func SendAck(typeOfMessage string, ch chan interface{}) {
-	msg := utils.PackMessage("MessageConfirmed", typeOfMessage, true, utils.ID)
-	ch <- msg
+func SendAck(typeOfMessage string, AckTx chan utils.MessageConfirmed, order utils.Order) {
+
+	AckTx <- utils.MessageConfirmed{
+		Type:           "MessageConfirmed",
+		Msg:            typeOfMessage,
+		Order:          order,
+		Confirmed:      true,
+		FromElevatorID: utils.ID}
+
+	fmt.Println("Sent ack for", typeOfMessage)
 }
 
 func LightsReceiver(LightsRx chan utils.MessageLights, SendLights chan [2][utils.NumFloors]bool) {
 	for {
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		newLights := <-LightsRx
 		SendLights <- newLights.Lights
-	}
-}
-
-func NewOrderReceiver(NewOrderRx chan utils.MessageNewOrder, NewOrder chan utils.MessageNewOrder, messageSender chan interface{}) {
-	for {
-		time.Sleep(5 * time.Millisecond)
-		SendAck("MessageNewOrder", messageSender)
-		NewOrder <- <-NewOrderRx
 	}
 }
 
 func OrderWatcherReceiver(MasterOrderWatcherRx chan utils.MessageOrderWatcher, OrderWatcher chan utils.MessageOrderWatcher) {
 
 	for {
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		if !utils.Master {
 			OrderWatcher <- <-MasterOrderWatcherRx
 		}

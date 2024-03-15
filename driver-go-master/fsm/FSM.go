@@ -12,7 +12,7 @@ import (
 const bufferSize = 1000
 
 func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan utils.Elevator, PeerTxEnable chan bool,
-	IsOnlineCh <-chan bool, LightsRx <-chan utils.MessageLights, ch chan interface{}) {
+	IsOnlineCh <-chan bool, SetLights chan [2][utils.NumFloors]bool, ch chan interface{}) {
 
 	Online := false
 
@@ -48,6 +48,8 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 		case newOrder := <-DoOrderCh:
 
 			fmt.Println("---DO ORDER RECEIVED---")
+
+			fmt.Println("New order for FSM: ", newOrder)
 
 			e = ExecuteOrder(newOrder, e, doorTimer, motorLossTimer, DoorOpenTime, MotorLossTime)
 
@@ -96,13 +98,14 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 			Online = update
 			fmt.Println("Online status updated: ", update)
 
-		case lights := <-LightsRx:
+		case lights := <-SetLights:
 
-			SetHallLights(lights.Lights)
+			SetHallLights(lights)
 
 		}
 
 		SetCabLights(e)
+		crash.SaveCabOrders(e)
 
 		if !Online {
 

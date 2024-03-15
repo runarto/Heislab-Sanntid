@@ -38,6 +38,7 @@ type MessageLights struct {
 type MessageConfirmed struct {
 	Type           string `json:"type"`           // A type identifier for decoding on the receiving end
 	Msg            string `json:"msg"`            // The message to be confirmed
+	Order          Order  `json:"order"`          // The order to be confirmed
 	Confirmed      bool   `json:"confirmed"`      // Whether or not the order was confirmed by the master
 	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
 }
@@ -86,8 +87,9 @@ func PackMessage(msgType string, params ...interface{}) interface{} {
 		msg := MessageConfirmed{
 			Type:           msgType,
 			Msg:            params[0].(string),
-			Confirmed:      params[1].(bool),
-			FromElevatorID: params[2].(int)}
+			Order:          params[1].(Order),
+			Confirmed:      params[2].(bool),
+			FromElevatorID: params[3].(int)}
 		return msg
 	}
 
