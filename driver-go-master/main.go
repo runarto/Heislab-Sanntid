@@ -78,7 +78,7 @@ func main() {
 	NewOrderRx := make(chan utils.MessageNewOrder, bufferSize)
 	ElevStatusRx := make(chan utils.MessageElevatorStatus, bufferSize)
 	MasterOrderWatcherRx := make(chan utils.MessageOrderWatcher, bufferSize)
-	AckRx := make(chan utils.MessageConfirmed, bufferSize*10)
+	AckRx := make(chan utils.MessageConfirmed, bufferSize)
 
 	//---------------------------------------------------------------------------
 

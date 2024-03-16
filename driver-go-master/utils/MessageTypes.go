@@ -1,9 +1,5 @@
 package utils
 
-import (
-	"fmt"
-)
-
 type MessageOrderComplete struct { // Send when an order is completed
 	Type           string `json:"type"` // Explicitly indicate the message type
 	Order          Order  `json:"orders"`
@@ -94,40 +90,4 @@ func PackMessage(msgType string, params ...interface{}) interface{} {
 	}
 
 	return nil
-}
-
-func HandleMessage(msg interface{}, params ...interface{}) {
-	switch m := msg.(type) {
-	case MessageOrderComplete:
-		m.Type = "MessageOrderComplete"
-		if ch, ok := params[0].(chan MessageOrderComplete); ok {
-			ch <- m
-			fmt.Println("Sent a", m.Type, "message")
-		}
-	case MessageNewOrder:
-		m.Type = "MessageNewOrder"
-		if ch, ok := params[0].(chan MessageNewOrder); ok {
-			ch <- m
-			fmt.Println("Sent a", m.Type, "message")
-		}
-	case MessageElevatorStatus:
-		m.Type = "MessageElevatorStatus"
-		if ch, ok := params[0].(chan MessageElevatorStatus); ok {
-			ch <- m
-			fmt.Println("Sent a", m.Type, "message")
-		}
-	case MessageOrderWatcher:
-		m.Type = "MessageOrderWatcher"
-		if ch, ok := params[0].(chan MessageOrderWatcher); ok {
-			ch <- m
-			fmt.Println("Sent a", m.Type, "message")
-		}
-
-	case MessageLights:
-		m.Type = "MessageLights"
-		if ch, ok := params[0].(chan MessageLights); ok {
-			ch <- m
-			fmt.Println("Sent a", m.Type, "message")
-		}
-	}
 }

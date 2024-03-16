@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/runarto/Heislab-Sanntid/elevio"
 	"github.com/runarto/Heislab-Sanntid/updater"
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
@@ -63,7 +62,18 @@ func UpdateAckMatrix(msgType string, id int, order utils.Order) {
 	}
 }
 
-func SendMessage(msg interface{}, AckRx chan utils.MessageConfirmed, NewOrderTx chan utils.MessageNewOrder,
+func AckReceiver(AckRx chan utils.MessageConfirmed) {
+
+	for {
+		time.Sleep(5 * time.Millisecond)
+		select {
+		case newMsg := <-AckRx:
+			UpdateAckMatrix("MessageConfirmed", newMsg.FromElevatorID, newMsg.Order)
+		}
+	}
+}
+
+func SendMessage(msg interface{}, NewOrderTx chan utils.MessageNewOrder,
 	OrderCompleteTx chan utils.MessageOrderComplete, DoOrderCh chan utils.Order) {
 
 	var ToElevatorID int
@@ -97,26 +107,31 @@ func SendMessage(msg interface{}, AckRx chan utils.MessageConfirmed, NewOrderTx 
 
 		select {
 
-		case ack := <-AckRx:
+		case <-resendTimer.C:
 
-			if ack.Confirmed && ack.Order == Order && ack.FromElevatorID == ToElevatorID {
-				UpdateAckMatrix(ack.Msg, ack.FromElevatorID, Order)
-				fmt.Println("Ack received")
+			if CheckIfConfirmed(Order, ToElevatorID) { // If the order is confirmed, we stop resending the message.
 				return
 			}
 
-		case <-resendTimer.C:
 			channel <- msg
 			fmt.Println("Resent message")
 
 		case <-timeout.C:
 			if msgType == "MessageNewOrder" {
-				DoOrderCh <- Order
+				UpdateAckMatrix(msgType, ToElevatorID, Order)
+				DoOrderCh <- Order // If no confirmation is received, the elevator will do the order itself.
 			}
 			return
 
 		}
 	}
+}
+
+func CheckIfConfirmed(order utils.Order, toElevatorID int) bool {
+
+	utils.AckMutex.Lock()
+	defer utils.AckMutex.Unlock()
+	return utils.AckMatrix[toElevatorID][order.Button][order.Floor].Confirmed
 }
 
 func MessagePasser(messageSender chan interface{}, OrderCompleteTx chan utils.MessageOrderComplete,
@@ -125,6 +140,8 @@ func MessagePasser(messageSender chan interface{}, OrderCompleteTx chan utils.Me
 	AckRx chan utils.MessageConfirmed, DoOrderCh chan utils.Order) {
 
 	var activeElevators []int
+
+	go AckReceiver(AckRx)
 
 	for {
 		time.Sleep(5 * time.Millisecond)
@@ -138,7 +155,7 @@ func MessagePasser(messageSender chan interface{}, OrderCompleteTx chan utils.Me
 			if len(activeElevators) == 1 {
 				continue
 			}
-			go SendMessage(m, AckRx, NewOrderTx, OrderCompleteTx, DoOrderCh)
+			go SendMessage(m, NewOrderTx, OrderCompleteTx, DoOrderCh)
 
 		case utils.MessageNewOrder:
 			activeElevators = updater.GetActiveElevators()
@@ -150,7 +167,7 @@ func MessagePasser(messageSender chan interface{}, OrderCompleteTx chan utils.Me
 			NewOrderTx <- newMsg.(utils.MessageNewOrder)
 			fmt.Println("Send a new order message", newMsg.(utils.MessageNewOrder).NewOrder)
 			order := newMsg.(utils.MessageNewOrder)
-			go SendMessage(order, AckRx, NewOrderTx, OrderCompleteTx, DoOrderCh)
+			go SendMessage(order, NewOrderTx, OrderCompleteTx, DoOrderCh)
 
 		case utils.MessageElevatorStatus:
 			m.Type = "MessageElevatorStatus"
@@ -165,63 +182,6 @@ func MessagePasser(messageSender chan interface{}, OrderCompleteTx chan utils.Me
 			MasterOrderWatcherTx <- newMsg.(utils.MessageOrderWatcher)
 		}
 	}
-}
-
-func WaitForAck(msg interface{}, msgType string, activeElevators []int, Ack chan utils.MessageConfirmed, toElevatorID int, ch chan interface{}) bool {
-	var quit bool
-
-	timeout := 150 * time.Millisecond
-	responseTimer := time.NewTimer(timeout)
-	responses := make(map[int]bool)
-
-	for {
-		time.Sleep(1 * time.Millisecond)
-		select {
-		case newMsg := <-Ack:
-			switch msgType {
-			case "MessageOrderComplete":
-				quit, _ = HandleConfirmation(newMsg, msgType, msg, toElevatorID, responses)
-				return quit
-			case "MessageNewOrder":
-				quit, _ = HandleConfirmation(newMsg, msgType, msg, toElevatorID, responses)
-				return quit
-			case "MessageLights":
-				quit, responses = HandleConfirmation(newMsg, msgType, msg, toElevatorID, responses)
-				if quit && len(responses) == len(activeElevators) {
-					return quit
-				} else {
-					responseTimer.Reset(timeout)
-				}
-			}
-		case <-responseTimer.C:
-			return false
-		}
-	}
-}
-
-func HandleConfirmation(c utils.MessageConfirmed, msgType string,
-	msg interface{}, toElevatorID int, responses map[int]bool) (bool, map[int]bool) {
-
-	switch msgType {
-	case "MessageOrderComplete":
-		if c.FromElevatorID == utils.MasterID && !utils.Master {
-			fmt.Println("Order complete confirmed by master")
-			return true, nil
-		}
-	case "MessageNewOrder":
-		if c.FromElevatorID == utils.MasterID && !utils.Master {
-			fmt.Println("Order confirmed by master")
-			return true, nil
-		} else if c.FromElevatorID == toElevatorID && utils.Master {
-			fmt.Println("Order confirmed by", c.FromElevatorID)
-			return true, nil
-		}
-	case "MessageLights":
-		fmt.Println("Lights confirmed by", c.FromElevatorID)
-		responses[c.FromElevatorID] = true
-		return true, responses
-	}
-	return false, nil
 }
 
 func BroadcastLights(SendLights chan [2][utils.NumFloors]bool, LightsTx chan utils.MessageLights) {
@@ -250,52 +210,6 @@ func BroadcastLights(SendLights chan [2][utils.NumFloors]bool, LightsTx chan uti
 					FromElevatorID: utils.ID}
 			}
 			resendTimer.Reset(timeout)
-		}
-	}
-}
-
-func BroadcastOrders(update chan map[int][3][utils.NumFloors]bool, NewOrderTx chan utils.MessageNewOrder) {
-
-	orders := map[int][3][utils.NumFloors]bool{}
-	timeout := 250 * time.Millisecond
-	resendTimer := time.NewTimer(timeout)
-
-	for {
-		time.Sleep(50 * time.Millisecond)
-		select {
-		case ordersUpdate := <-update:
-			orders = ordersUpdate
-		case <-resendTimer.C:
-			if utils.Master {
-				ResendOrders(orders, NewOrderTx) // Master resends orders every 3 seconds, in case of lost messages.
-			}
-			resendTimer.Reset(timeout)
-		}
-	}
-}
-
-func ResendOrders(orders map[int][3][utils.NumFloors]bool, NewOrderTx chan utils.MessageNewOrder) {
-	for id := range orders {
-		if id == utils.ID {
-			continue
-		}
-		for b := 0; b < 2; b++ {
-			for f := 0; f < utils.NumFloors; f++ {
-				if orders[id][b][f] {
-					order := utils.Order{
-						Floor:  f,
-						Button: elevio.ButtonType(b),
-					}
-					NewOrderTx <- utils.MessageNewOrder{
-						Type:           "MessageNewOrder",
-						NewOrder:       order,
-						ToElevatorID:   id,
-						FromElevatorID: utils.ID,
-					}
-					fmt.Println("Resent order")
-					time.Sleep(250 * time.Millisecond)
-				}
-			}
 		}
 	}
 }

@@ -14,7 +14,7 @@ const (
 	Timeout        = 3 * time.Second
 	MaxRetries     = 3
 	SlaveTimeout   = 3 * time.Second
-	MasterTimeout  = 15 * time.Second
+	MasterTimeout  = 10 * time.Second
 	DoorOpenTime   = 3
 )
 
@@ -22,12 +22,6 @@ const (
 	HallUp   = 0
 	HallDown = 1
 	Cab      = 2
-
-	True  = 1
-	False = 0
-
-	On  = 1
-	Off = 0
 
 	Up      = 1
 	Stopped = 0
@@ -62,16 +56,6 @@ const (
 	DoorOpen              // 3
 )
 
-type GlobalOrderArray struct {
-	HallOrderArray [2][NumFloors]bool              // Represents the hall orders
-	CabOrderArray  [NumOfElevators][NumFloors]bool // Represents the cab orders
-}
-
-var GlobalOrders = GlobalOrderArray{
-	HallOrderArray: [2][NumFloors]bool{},
-	CabOrderArray:  [NumOfElevators][NumFloors]bool{},
-}
-
 type GlobalOrderUpdate struct {
 	Order          Order
 	ForElevatorID  int
@@ -86,13 +70,6 @@ type NewPeersMessage struct {
 }
 
 type Ack struct {
-	Active    bool
-	Completed bool
-	Confirmed bool
-	Time      time.Time
-}
-
-type CabAck struct {
 	Active    bool
 	Completed bool
 	Confirmed bool
