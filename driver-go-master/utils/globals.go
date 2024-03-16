@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"fmt"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -36,6 +38,11 @@ const (
 var (
 	MasterID      int
 	MasterIDmutex sync.Mutex
+)
+
+var (
+	OrdersMutex sync.Mutex
+	Orders      map[int][NumOfElevators][NumFloors]bool
 )
 
 var NextMasterID int
@@ -92,4 +99,42 @@ type OrderWatcher struct {
 type Status struct {
 	ID       int
 	IsOnline bool
+}
+
+func Map_IntToString(Orders map[int][NumButtons][NumFloors]bool) map[string][NumButtons][NumFloors]bool {
+
+	// OrdersForSending converts the order matrix to a map with string keys.
+	// It is used to send the order matrix over the network.
+
+	OrdersForSending := make(map[string][NumButtons][NumFloors]bool)
+
+	for id, orderMatrix := range Orders {
+		OrdersForSending[fmt.Sprint(id)] = orderMatrix
+	}
+
+	return OrdersForSending
+
+}
+
+func Map_StringToInt(OrdersReceived map[string][NumButtons][NumFloors]bool) map[int][NumButtons][NumFloors]bool {
+
+	// OrdersForSending converts the order matrix to a map with string keys.
+	// It is used to send the order matrix over the network.
+
+	Orders := make(map[int][NumButtons][NumFloors]bool)
+
+	for id, orderMatrix := range OrdersReceived {
+		intID, _ := strconv.Atoi(id)
+		Orders[intID] = orderMatrix
+	}
+
+	return Orders
+}
+
+func InitOrders() map[int][NumButtons][NumFloors]bool {
+	Orders := make(map[int][NumButtons][NumFloors]bool)
+	for i := 0; i < NumOfElevators; i++ {
+		Orders[i] = [NumButtons][NumFloors]bool{}
+	}
+	return Orders
 }

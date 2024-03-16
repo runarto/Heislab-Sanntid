@@ -8,7 +8,10 @@ import (
 )
 
 func MessageReceiver(NewOrderRx chan utils.MessageNewOrder, OrderCompleteRx chan utils.MessageOrderComplete, ElevatorStatusRx chan utils.MessageElevatorStatus,
-	AckTx chan utils.MessageConfirmed, distribute chan interface{}, LightsRx chan utils.MessageLights) {
+	AckTx chan utils.MessageConfirmed, distribute chan interface{}, LightsRx chan utils.MessageLights, OrdersRx chan utils.MessageOrders, continueChannel chan bool) {
+
+	OrdersActive := [2][utils.NumFloors]bool{}
+	var proceed bool
 
 	for {
 		time.Sleep(5 * time.Millisecond)
@@ -16,25 +19,69 @@ func MessageReceiver(NewOrderRx chan utils.MessageNewOrder, OrderCompleteRx chan
 
 		case newMsg := <-OrderCompleteRx:
 			if newMsg.FromElevatorID != utils.ID {
-				fmt.Println("Received order complete from elevator", newMsg.FromElevatorID)
 				SendAck(newMsg.Type, AckTx, newMsg.Order)
+				f := newMsg.Order.Floor
+				b := newMsg.Order.Button
+				OrdersActive, proceed = UpdateActiveOrders(OrdersActive, int(b), f, false, newMsg.ToElevatorID)
+				if !proceed {
+					continue
+				}
+				fmt.Println("Received order complete from elevator", newMsg.FromElevatorID)
 				distribute <- newMsg
 			}
 
 		case newMsg := <-ElevatorStatusRx:
 			if newMsg.FromElevator.ID != utils.ID {
-				fmt.Println("Received elevator status from elevator", newMsg.FromElevator.ID)
 				distribute <- newMsg
 			}
 		case newMsg := <-NewOrderRx:
 			if newMsg.FromElevatorID != utils.ID {
+				SendAck(newMsg.Type, AckTx, newMsg.NewOrder)
+				f := newMsg.NewOrder.Floor
+				b := newMsg.NewOrder.Button
+				OrdersActive, proceed = UpdateActiveOrders(OrdersActive, int(b), f, true, newMsg.ToElevatorID)
+				if !proceed {
+					continue
+				}
 				fmt.Println("Received new order from elevator", newMsg.FromElevatorID)
 				fmt.Println("Order received is: ", newMsg.NewOrder)
-				SendAck(newMsg.Type, AckTx, newMsg.NewOrder)
 				distribute <- newMsg
+
 			}
 		}
 	}
+}
+
+func UpdateActiveOrders(Orders [2][utils.NumFloors]bool, b int, f int, isNew bool, toElevatorID int) ([2][utils.NumFloors]bool, bool) {
+
+	if toElevatorID != utils.ID {
+		return Orders, false
+	}
+
+	if b == utils.Cab {
+		return Orders, true
+	}
+
+	if Orders[b][f] && !isNew {
+		Orders[b][f] = isNew
+		return Orders, true
+	}
+
+	if Orders[b][f] && isNew {
+		return Orders, false
+	}
+
+	if !Orders[b][f] && isNew {
+		Orders[b][f] = true
+		return Orders, true
+	}
+
+	if !Orders[b][f] && !isNew {
+		return Orders, true
+	}
+
+	return Orders, false
+
 }
 
 func MessageDistributor(distribute chan interface{}, OrderComplete chan utils.MessageOrderComplete,
@@ -76,6 +123,18 @@ func LightsReceiver(LightsRx chan utils.MessageLights, SendLights chan [2][utils
 		time.Sleep(50 * time.Millisecond)
 		newLights := <-LightsRx
 		SendLights <- newLights.Lights
+	}
+}
+
+func MasterBroadcastReceiver(MasterRx chan int, MasterUpdateCh chan int) {
+
+	for {
+		time.Sleep(10 * time.Millisecond)
+		masterID := <-MasterRx
+		if masterID != utils.MasterID {
+			MasterUpdateCh <- masterID
+		}
+
 	}
 }
 

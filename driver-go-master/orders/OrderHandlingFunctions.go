@@ -34,6 +34,11 @@ func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, G
 	switch utils.Master {
 	case true:
 
+		fmt.Println(utils.Orders)
+		if !CheckIfOrderIsAlreadyActive(order) {
+			return
+		}
+
 		// CAB ORDER----------------------------------------------
 
 		if order.Button == utils.Cab {
@@ -115,48 +120,51 @@ func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, MasterUpdateCh 
 
 	var ActiveElevators peerUpdate
 
-	if len(p.Peers) == 0 {
+	if len(p.Peers) == 0 || len(p.Peers) == 1 {
 
 		fmt.Println("No peers available, elevator is disconnected")
 
 		IsOnlineCh <- false
 		*Online = false
 
-		MasterUpdateCh <- utils.ID
-
-		return
+		utils.MasterID = utils.NotDefined
 
 	} else {
 
-		val, _ := strconv.Atoi(p.Peers[0])
-		utils.NextMasterID = val
-
-		if DidMasterGoOffline(val) {
-			MasterUpdateCh <- val
+		if !IsMasterOnline(p.Peers) {
+			fmt.Println("Master was offline")
+			newMasterID, _ := strconv.Atoi(p.Peers[0])
+			utils.NextMasterID = newMasterID
 		}
 
 		IsOnlineCh <- true
 		*Online = true
 
-		ActiveElevators = HandleNewPeers(p, ActiveElevators)
-		ActiveElevators = HandleLostPeers(p, ActiveElevators)
+	}
 
-		if ActiveElevators.New != "" || ActiveElevators.Lost != nil {
+	ActiveElevators = HandleNewPeers(p, ActiveElevators)
+	ActiveElevators = HandleLostPeers(p, ActiveElevators)
 
-			HandleActiveElevators(ActiveElevators, ActiveElevatorUpdate)
+	if ActiveElevators.New != "" || ActiveElevators.Lost != nil {
 
-		}
+		HandleActiveElevators(ActiveElevators, ActiveElevatorUpdate)
 
 	}
 
 }
 
-func DidMasterGoOffline(val int) bool {
-	if val > utils.MasterID {
-		return true
-	} else {
+func IsMasterOnline(peersOnline []string) bool {
+	if utils.MasterID == utils.NotDefined {
 		return false
 	}
+	masterID := fmt.Sprint(utils.MasterID)
+	for i := range peersOnline {
+		if peersOnline[i] == masterID {
+			return true
+		}
+	}
+	return false
+
 }
 
 func HandleNewPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
@@ -302,7 +310,7 @@ func Compare(prev []int, new []int) (peers []string, newValues []string, lost []
 	return peers, newValues, lost
 }
 
-func HandleMasterUpdate(val int, e utils.Elevator) {
+func HandleMasterUpdate(val int, e utils.Elevator, ch chan interface{}, continueChannel chan bool) {
 	utils.MasterMutex.Lock()
 	utils.MasterIDmutex.Lock()
 	fmt.Println("Master update: ", val)
@@ -390,6 +398,10 @@ func HandleButtonEvent(newOrder elevio.ButtonEvent, e utils.Elevator, ch chan in
 	fmt.Println("Local order array:")
 	fmt.Println(LocalOrders)
 
+	if !isOnline {
+		DoOrderCh <- order
+	}
+
 	if order.Button == utils.Cab {
 
 		if !utils.Master {
@@ -416,5 +428,26 @@ func HandleButtonEvent(newOrder elevio.ButtonEvent, e utils.Elevator, ch chan in
 		ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, LocalOrders, isOnline, e.ID)
 
 	}
+
+}
+
+func CheckIfOrderIsAlreadyActive(Order utils.Order) bool {
+	utils.OrdersMutex.Lock()
+	defer utils.OrdersMutex.Unlock()
+
+	b := Order.Button
+	f := Order.Floor
+
+	if b == utils.Cab {
+		return true
+	}
+
+	for id := range utils.Orders {
+		fmt.Println("value: ", utils.Orders[id][b][f])
+		if utils.Orders[id][b][f] {
+			return false
+		}
+	}
+	return true
 
 }

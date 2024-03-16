@@ -39,6 +39,11 @@ type MessageConfirmed struct {
 	FromElevatorID int    `json:"fromElevatorID"` // The elevator to send the order to
 }
 
+type MessageOrders struct {
+	Type   string                                 `json:"type"` // A type identifier for decoding on the receiving end
+	Orders map[string][NumButtons][NumFloors]bool `json:"orders"`
+}
+
 func PackMessage(msgType string, params ...interface{}) interface{} {
 	switch msgType {
 	case "MessageOrderComplete":
@@ -86,6 +91,13 @@ func PackMessage(msgType string, params ...interface{}) interface{} {
 			Order:          params[1].(Order),
 			Confirmed:      params[2].(bool),
 			FromElevatorID: params[3].(int)}
+		return msg
+
+	case "MessageOrders":
+		msg := MessageOrders{
+			Type:   msgType,
+			Orders: params[0].(map[string][NumButtons][NumFloors]bool)}
+
 		return msg
 	}
 

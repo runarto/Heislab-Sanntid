@@ -2,7 +2,6 @@ package updater
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -11,7 +10,7 @@ import (
 )
 
 func UpdateGlobalOrderArray(GlobalUpdate utils.GlobalOrderUpdate, e utils.Elevator, orderWatcher chan utils.OrderWatcher, ch chan interface{},
-	IsOnlineCh chan bool, Orders *map[int][3][utils.NumFloors]bool, ordersUpdate chan map[int][3][utils.NumFloors]bool, SendLights chan [2][utils.NumFloors]bool) {
+	IsOnlineCh chan bool, Orders *map[int][3][utils.NumFloors]bool, SendLights chan [2][utils.NumFloors]bool) {
 
 	fmt.Println("Function: UpdateGlobalOrderArray")
 
@@ -31,24 +30,23 @@ func UpdateGlobalOrderArray(GlobalUpdate utils.GlobalOrderUpdate, e utils.Elevat
 		}
 
 	case false:
-
 		if temp[o.Button][o.Floor] {
 			fmt.Println("Update: Order complete")
 			temp[o.Button][o.Floor] = false
-			change = true
 		}
 	}
 
+	utils.OrdersMutex.Lock()
 	(*Orders)[forElevatorID] = temp
+	utils.OrdersMutex.Unlock()
 
 	if utils.Master {
 		fmt.Println(Orders)
 	}
 
 	if change && GlobalUpdate.Order.Button != utils.Cab {
-		go SendOrderUpdateIfChanged(*Orders, ordersUpdate, forElevatorID)
 		go SendWatcherUpdateIfChanged(e, GlobalUpdate, orderWatcher)
-		go SendLightsIfChanged(e, *Orders, SendLights)
+		go SendLightsIfChanged(e, *Orders, SendLights, o, isNew)
 	}
 }
 
@@ -62,7 +60,7 @@ func Printlights(lights [2][utils.NumFloors]bool) {
 
 }
 
-func LightsToSend(Orders map[int][3][utils.NumFloors]bool) [2][utils.NumFloors]bool {
+func LightsToSend(Orders map[int][3][utils.NumFloors]bool, Order utils.Order, isNew bool) [2][utils.NumFloors]bool {
 	Lights := [2][utils.NumFloors]bool{}
 	for id := range Orders {
 		for b := 0; b < 2; b++ {
@@ -72,6 +70,11 @@ func LightsToSend(Orders map[int][3][utils.NumFloors]bool) [2][utils.NumFloors]b
 				}
 			}
 		}
+	}
+	if isNew {
+		Lights[Order.Button][Order.Floor] = true
+	} else {
+		Lights[Order.Button][Order.Floor] = false
 	}
 	return Lights
 }
@@ -132,8 +135,6 @@ func UpdateAndSendNewState(e *utils.Elevator, s utils.Elevator, ch chan interfac
 func ReadAndSendOrdersDone(e utils.Elevator, s utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 	Orders map[int][3][utils.NumFloors]bool, LocalOrders chan [3][utils.NumFloors]bool) {
 
-	fmt.Println("Func: ReadAndSendOrdersDone")
-
 	// fmt.Println("Old State")
 	// utils.PrintLocalOrderArray(*e)
 	// fmt.Println("New State")
@@ -151,6 +152,7 @@ func ReadAndSendOrdersDone(e utils.Elevator, s utils.Elevator, ch chan interface
 				if !utils.Master {
 					msg := utils.PackMessage("MessageOrderComplete", utils.Order{Floor: f, Button: elevio.ButtonType(b)}, utils.MasterID, e.ID)
 					ch <- msg
+					fmt.Println("Sent a message order complete to master | func ReadAndSendOrdersDone")
 				}
 
 				GlobalUpdateCh <- utils.GlobalOrderUpdate{
@@ -160,13 +162,13 @@ func ReadAndSendOrdersDone(e utils.Elevator, s utils.Elevator, ch chan interface
 					IsComplete:     true,
 					IsNew:          false}
 
-				time.Sleep(20 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 			}
 		}
 	}
 }
 
-func CopyMasterOrderWatcher(copy utils.MessageOrderWatcher, m *utils.OrderWatcherArray) {
+func CopyMasterOrderWatcher(copy utils.MessageOrderWatcher, m *utils.OrderWatcherArray, DoOrderCh chan utils.Order) {
 
 	if !utils.Master {
 		m.WatcherMutex.Lock()
@@ -174,11 +176,13 @@ func CopyMasterOrderWatcher(copy utils.MessageOrderWatcher, m *utils.OrderWatche
 		m.WatcherMutex.Unlock()
 	}
 
+	SendOrdersToFSM(DoOrderCh, copy)
+
 }
 
 func UpdateOrderWatcherArray(copy utils.MessageOrderWatcher, m *utils.OrderWatcherArray) {
 
-	HallOrders := Map_StringToInt(copy.Orders)
+	HallOrders := utils.Map_StringToInt(copy.Orders)
 	size := len(HallOrders)
 
 	for e := 0; e < size; e++ {
@@ -216,6 +220,7 @@ func HandleActiveElevators(new utils.MessageElevatorStatus) {
 func UpdateActiveElevators(status utils.Status, Orders map[int][3][utils.NumFloors]bool,
 	ch chan interface{}, DoOrderCh chan utils.Order, MasterUpdateCh chan int, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
 
+	time.Sleep(200 * time.Millisecond)
 	fmt.Println("Function: UpdateActiveElevators")
 	if !status.IsOnline {
 		utils.ElevatorsMutex.Lock()
@@ -228,8 +233,6 @@ func UpdateActiveElevators(status utils.Status, Orders map[int][3][utils.NumFloo
 		utils.ElevatorsMutex.Unlock()
 		SendCabOrders(Orders, status.ID, ch)
 	}
-
-	DetermineMaster(utils.Elevators, MasterUpdateCh)
 }
 
 func SearchForElevatorAndUpdate(id int, online bool) {
@@ -244,30 +247,26 @@ func SearchForElevatorAndUpdate(id int, online bool) {
 func RedistributeHallOrders(id int, elevators []utils.Elevator, ch chan interface{},
 	DoOrderCh chan utils.Order, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
 
-	if !utils.Master {
+	if utils.MasterID != utils.NotDefined || !utils.Master {
 		return
 	}
+
 	fmt.Println("Function: RedistributeHallOrders")
-	var elevator utils.Elevator
-	for _, e := range elevators {
-		if e.ID == id {
-			elevator = e
-			break
-		}
-	}
+
 	for b := 0; b < 2; b++ {
 		for f := 0; f < utils.NumFloors; f++ {
-			if elevator.LocalOrderArray[b][f] {
+			if utils.Orders[id][b][f] {
 				BestElevator := orders.ChooseElevator(utils.Order{Floor: f, Button: elevio.ButtonType(b)})
 				if BestElevator.ID != utils.ID {
-					msg := utils.PackMessage("MessageNewOrder", utils.Order{Floor: f, Button: elevio.ButtonType(b)}, BestElevator.ID, elevator.ID)
+					msg := utils.PackMessage("MessageNewOrder", utils.Order{Floor: f, Button: elevio.ButtonType(b)}, BestElevator.ID, id)
+					fmt.Println("Redistributed hall orders")
 					ch <- msg
 					time.Sleep(150 * time.Millisecond)
 				} else {
 					DoOrderCh <- utils.Order{Floor: f, Button: elevio.ButtonType(b)}
 					time.Sleep(150 * time.Millisecond)
 				}
-				SendToGlobalUpdateChannel(b, f, BestElevator.ID, elevator.ID, GlobalUpdateCh)
+				SendToGlobalUpdateChannel(b, f, BestElevator.ID, id, GlobalUpdateCh)
 			}
 		}
 	}
@@ -281,7 +280,7 @@ func SendCabOrders(CabOrders map[int][utils.NumOfElevators][utils.NumFloors]bool
 	time.Sleep(100 * time.Millisecond)
 	fmt.Println("Function: SendCabOrders")
 	for f := 0; f < utils.NumFloors; f++ {
-		if Orders[id][2][f] {
+		if utils.Orders[id][2][f] {
 			fmt.Println("Elevator restart. Sending cab order at floor", f, " to elevator ", id)
 			msg := utils.PackMessage("MessageNewOrder", utils.Order{Floor: f, Button: elevio.ButtonType(2)}, id, utils.ID)
 			ch <- msg
@@ -301,17 +300,6 @@ func GetActiveElevators() []int {
 	}
 	utils.ElevatorsMutex.Unlock()
 	return activeElevators
-}
-
-func DetermineMaster(Elevators []utils.Elevator, MasterUpdateCh chan int) {
-
-	fmt.Println("Function: DetermineMaster")
-	fmt.Println("Master ID: ", utils.MasterID)
-
-	if utils.NextMasterID != utils.MasterID {
-		MasterUpdateCh <- utils.NextMasterID
-		return
-	}
 }
 
 func SendWatcherUpdateIfChanged(e utils.Elevator, GlobalUpdate utils.GlobalOrderUpdate, orderWatcher chan utils.OrderWatcher) {
@@ -334,16 +322,12 @@ func SendWatcherUpdateIfChanged(e utils.Elevator, GlobalUpdate utils.GlobalOrder
 }
 
 func SendLightsIfChanged(e utils.Elevator, Orders map[int][3][utils.NumFloors]bool,
-	SendLights chan [2][utils.NumFloors]bool) {
+	SendLights chan [2][utils.NumFloors]bool, Order utils.Order, isNew bool) {
 
 	if utils.Master {
-		Lights := LightsToSend(Orders)
+		Lights := LightsToSend(Orders, Order, isNew)
 		SendLights <- Lights
 	}
-}
-
-func SendOrderUpdateIfChanged(Orders map[int][3][utils.NumFloors]bool, OrdersUpdate chan map[int][3][utils.NumFloors]bool, forElevatorID int) {
-	OrdersUpdate <- Orders
 }
 
 func SendToGlobalUpdateChannel(b int, f int, BestElevatorID int, elevatorID int, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
@@ -362,36 +346,6 @@ func SendToGlobalUpdateChannel(b int, f int, BestElevatorID int, elevatorID int,
 		IsNew:          false}
 }
 
-func Map_IntToString(Orders map[int][utils.NumButtons][utils.NumFloors]bool) map[string][utils.NumButtons][utils.NumFloors]bool {
-
-	// OrdersForSending converts the order matrix to a map with string keys.
-	// It is used to send the order matrix over the network.
-
-	OrdersForSending := make(map[string][utils.NumButtons][utils.NumFloors]bool)
-
-	for id, orderMatrix := range Orders {
-		OrdersForSending[fmt.Sprint(id)] = orderMatrix
-	}
-
-	return OrdersForSending
-
-}
-
-func Map_StringToInt(OrdersReceived map[string][utils.NumButtons][utils.NumFloors]bool) map[int][utils.NumButtons][utils.NumFloors]bool {
-
-	// OrdersForSending converts the order matrix to a map with string keys.
-	// It is used to send the order matrix over the network.
-
-	Orders := make(map[int][utils.NumButtons][utils.NumFloors]bool)
-
-	for id, orderMatrix := range OrdersReceived {
-		intID, _ := strconv.Atoi(id)
-		Orders[intID] = orderMatrix
-	}
-
-	return Orders
-}
-
 func InitOrders() map[int][utils.NumButtons][utils.NumFloors]bool {
 	Orders := make(map[int][utils.NumButtons][utils.NumFloors]bool)
 	for i := 0; i < utils.NumOfElevators; i++ {
@@ -405,7 +359,7 @@ func UpdateOrders(copy utils.MessageOrderWatcher, Orders map[int][3][utils.NumFl
 	// OrdersForSending converts the order matrix to a map with string keys.
 	// It is used to send the order matrix over the network.
 
-	OrdersReceived := Map_StringToInt(copy.Orders)
+	OrdersReceived := utils.Map_StringToInt(copy.Orders)
 	tempOrders := [3][utils.NumFloors]bool{}
 
 	for id := 0; id < utils.NumOfElevators; id++ {
@@ -422,4 +376,21 @@ func UpdateOrders(copy utils.MessageOrderWatcher, Orders map[int][3][utils.NumFl
 
 	}
 	return Orders
+}
+
+func SendOrdersToFSM(DoOrderCh chan utils.Order, copy utils.MessageOrderWatcher) {
+	Orders := utils.Map_StringToInt(copy.Orders)
+	OrdersForElevator := Orders[utils.ID]
+
+	for b := 0; b < utils.NumButtons; b++ {
+		for f := 0; f < utils.NumFloors; f++ {
+			if OrdersForElevator[b][f] {
+				DoOrderCh <- utils.Order{
+					Floor:  f,
+					Button: elevio.ButtonType(b),
+				}
+			}
+		}
+	}
+
 }

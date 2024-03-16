@@ -25,14 +25,12 @@ func InitializeElevator() utils.Elevator {
 
 	e := crash.CheckCrashDump()
 
+	utils.MasterID = utils.NotDefined
+
 	const MotorLossTime = 5 * time.Second
 	motorLossTimer := time.NewTimer(MotorLossTime)
 	motorLossTimer.Stop()
 
-	if utils.ID == 0 {
-		utils.Master = true
-		utils.MasterID = 0
-	}
 	NullButtons()
 	fmt.Println("Function: InitializeElevator")
 	floor := elevio.GetFloor()
@@ -304,6 +302,14 @@ func ExecuteOrder(newOrder utils.Order, e utils.Elevator, doorTimer *time.Timer,
 
 	floor := newOrder.Floor
 	button := newOrder.Button
+
+	if e.LocalOrderArray[button][floor] {
+		return e
+	}
+
+	fmt.Println("---DO ORDER RECEIVED---")
+
+	fmt.Println("New order for FSM: ", newOrder)
 
 	switch e.CurrentState {
 

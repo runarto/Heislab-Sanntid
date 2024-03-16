@@ -13,7 +13,7 @@ import (
 func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpdateCh chan utils.GlobalOrderUpdate,
 	NewOrderRx <-chan utils.MessageNewOrder, OrderComplete <-chan utils.MessageOrderComplete, PeerUpdateCh chan peers.PeerUpdate,
 	DoOrderCh chan utils.Order, LocalStateUpdateCh chan utils.Elevator, MasterUpdateCh chan int, ch chan interface{}, IsOnlineCh chan bool, ActiveElevatorUpdate chan utils.Status,
-	WatcherUpdate chan utils.OrderWatcher, LocalOrdersUpdate chan [utils.NumButtons][utils.NumFloors]bool) {
+	WatcherUpdate chan utils.OrderWatcher, LocalOrdersUpdate chan [utils.NumButtons][utils.NumFloors]bool, continueChannel chan bool) {
 
 	LocalOrders := [utils.NumButtons][utils.NumFloors]bool{}
 	Online := false
@@ -34,7 +34,7 @@ func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpda
 			HandlePeersUpdate(peerUpdate, IsOnlineCh, MasterUpdateCh, ActiveElevatorUpdate, &Online)
 		case val := <-MasterUpdateCh:
 			fmt.Println("---MASTER UPDATE RECEIVED---")
-			HandleMasterUpdate(val, e)
+			HandleMasterUpdate(val, e, ch, continueChannel)
 
 		}
 	}

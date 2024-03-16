@@ -47,10 +47,6 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 
 		case newOrder := <-DoOrderCh:
 
-			fmt.Println("---DO ORDER RECEIVED---")
-
-			fmt.Println("New order for FSM: ", newOrder)
-
 			e = ExecuteOrder(newOrder, e, doorTimer, motorLossTimer, DoorOpenTime, MotorLossTime)
 
 			//utils.PrintLocalOrderArray(e)
@@ -107,6 +103,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 		}
 
 		SetCabLights(e)
+		LocalStateUpdateCh <- e
 
 		if !Online {
 
