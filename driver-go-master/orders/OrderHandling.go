@@ -8,33 +8,37 @@ import (
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-// Only local stuff
+func OrderHandler(e utils.Elevator, ButtonPressCh chan elevio.ButtonEvent, AllOrdersCh chan utils.GlobalOrderUpdate, OrderHandlerNetworkUpdateCh chan utils.Message, PeerUpdateCh chan peers.PeerUpdate,
+	DoOrderCh chan utils.Order, LocalElevatorStateUpdateCh chan utils.Elevator, messageHandler chan utils.Message, IsOnlineCh chan bool, ActiveElevatorUpdate chan utils.Status,
+	OfflineOrderCompleteCh chan utils.Order) {
 
-func OrderHandler(e utils.Elevator, ButtonCh chan elevio.ButtonEvent, GlobalUpdateCh chan utils.GlobalOrderUpdate,
-	NewOrderRx <-chan utils.MessageNewOrder, OrderComplete <-chan utils.MessageOrderComplete, PeerUpdateCh chan peers.PeerUpdate,
-	DoOrderCh chan utils.Order, LocalStateUpdateCh chan utils.Elevator, MasterUpdateCh chan int, ch chan interface{}, IsOnlineCh chan bool, ActiveElevatorUpdate chan utils.Status,
-	WatcherUpdate chan utils.OrderWatcher, LocalOrdersUpdate chan [utils.NumButtons][utils.NumFloors]bool, continueChannel chan bool) {
-
-	LocalOrders := [utils.NumButtons][utils.NumFloors]bool{}
 	Online := false
 
 	for {
 
 		select {
 
-		case newOrder := <-ButtonCh:
-			HandleButtonEvent(newOrder, e, ch, GlobalUpdateCh, LocalOrders, DoOrderCh, WatcherUpdate, IsOnlineCh, Online)
-		case newOrder := <-NewOrderRx:
-			HandleNewOrder(newOrder, LocalOrders, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, Online)
-		case orderComplete := <-OrderComplete:
-			fmt.Println("---ORDER COMPLETE RECEIVED---")
-			ProcessOrderComplete(orderComplete, e, GlobalUpdateCh)
+		// Messages from network ----------------
+		case update := <-OrderHandlerNetworkUpdateCh:
+			fmt.Println("---ORDER HANDLER NETWORK UPDATE RECEIVED---")
+			switch update.Type {
+			case "MessageNewOrder":
+				HandleNewOrder(update.Msg.(utils.MessageNewOrder), e, messageHandler, AllOrdersCh, DoOrderCh, Online, update.FromElevatorID, update.ToElevatorID)
+			case "MessageOrderComplete":
+				ProcessOrderComplete(update.Msg.(utils.MessageOrderComplete).Order, e, AllOrdersCh, update.FromElevatorID)
+			}
+
+		// Local events (and peer update)----------------
+
+		case newOrder := <-ButtonPressCh:
+			HandleButtonEvent(newOrder, e, messageHandler, AllOrdersCh, DoOrderCh, Online)
 		case peerUpdate := <-PeerUpdateCh:
 			fmt.Println("---PEER UPDATE RECEIVED---")
-			HandlePeersUpdate(peerUpdate, IsOnlineCh, MasterUpdateCh, ActiveElevatorUpdate, &Online)
-		case val := <-MasterUpdateCh:
-			fmt.Println("---MASTER UPDATE RECEIVED---")
-			HandleMasterUpdate(val, e, ch, continueChannel)
+			HandlePeersUpdate(peerUpdate, IsOnlineCh, ActiveElevatorUpdate, &Online)
+
+		// Offline updates ----------------
+		case orderComplete := <-OfflineOrderCompleteCh:
+			ProcessOrderComplete(orderComplete, e, AllOrdersCh, utils.ID)
 
 		}
 	}

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/runarto/Heislab-Sanntid/elevio"
@@ -29,31 +30,6 @@ var (
 type Order struct {
 	Floor  int
 	Button elevio.ButtonType
-	// An order contains the floor (from/to), and the type of button.
-}
-
-func GoUp(e Elevator) Elevator {
-
-	e.CurrentDirection = Up
-	elevio.SetMotorDirection(e.CurrentDirection)
-	e = SetState(Moving, e)
-	return e
-}
-
-func GoDown(e Elevator) Elevator {
-
-	e.CurrentDirection = Down
-	elevio.SetMotorDirection(e.CurrentDirection)
-	e = SetState(Moving, e)
-	return e
-}
-
-func StopElevator(e Elevator) Elevator {
-	// e.CurrentDirection = elevio.MD_Stop
-	e.CurrentDirection = Stopped
-	elevio.SetMotorDirection(elevio.MD_Stop)
-	e = SetState(Still, e)
-	return e
 }
 
 func SetDoorState(state bool, e Elevator) Elevator {
@@ -85,43 +61,70 @@ func Obstruction(state bool, e Elevator) Elevator {
 	return e
 }
 
-func CheckIfMaster() bool {
-	if Master {
-		return true
-	} else {
-		return false
-	}
-}
+func CalculateCost(e Elevator, order Order) int {
+	cost := 0
 
-func (e *Elevator) SetLights() {
-	for b := 0; b < NumButtons; b++ {
-		for f := 0; f < NumFloors; f++ {
-			if e.LocalOrderArray[b][f] {
-				elevio.SetButtonLamp(elevio.ButtonType(b), f, false)
+	// Base cost from the distance to the order's floor
+	cost += int(math.Abs(float64(e.CurrentFloor - order.Floor)))
+
+	// Determine the direction of the new order
+	var orderDirection int
+	if order.Button == HallUp {
+		orderDirection = Up
+	} else if order.Button == HallDown {
+		orderDirection = Down
+	}
+
+	// Iterate over hall button orders only
+	for f := 0; f < NumFloors; f++ {
+		if e.LocalOrderArray[HallUp][f] || e.LocalOrderArray[HallDown][f] {
+			// Distance cost for each hall order to the new order's floor
+			cost += int(math.Abs(float64(f - order.Floor)))
+			// If the order is in the opposite direction, add a penalty
+			if (e.LocalOrderArray[HallUp][f] && orderDirection == Down) ||
+				(e.LocalOrderArray[HallDown][f] && orderDirection == Up) {
+				cost += 2
 			}
 		}
 	}
-}
 
-func StopBtnPressed(btn bool, e Elevator) Elevator {
-	elevio.SetMotorDirection(elevio.MD_Stop)
-	if btn {
-		if elevio.GetFloor() != NotDefined {
-			elevio.SetStopLamp(true)
-			e = SetDoorState(Open, e)
+	// State-based cost adjustments
+	switch e.CurrentState {
+	case Moving:
+		// Reduce cost if moving in the same direction as the order, otherwise increase
+		if int(e.CurrentDirection) == orderDirection {
+			cost -= 1 // Reduction for aligned direction
+		} else {
+			cost += 2 // Penalty for opposite direction
 		}
-	} else {
-		elevio.SetStopLamp(false)
+	case Still:
+		cost -= 2 // Reduce cost for idle elevators to encourage taking new orders
+	case DoorOpen:
+		cost += 1 // Slight increase due to door closing delay
 	}
 
-	return e
+	return cost
 }
 
-func PrintLocalOrderArray(e Elevator) {
-	for i := 0; i < NumButtons; i++ {
-		for j := 0; j < NumFloors; j++ {
-			fmt.Print(e.LocalOrderArray[i][j], " ")
+// Function to find the best elevator for a given order
+func ChooseElevator(order Order) Elevator {
+	//Initiate variables
+	var BestElevator Elevator
+	lowestCost := int(^uint(0) >> 1) // Sets "lowestCost" to max int value
+
+	//Iterate through all elevators and calculate the cost for each. Update bestElevator if a lower cost is found
+	ElevatorsMutex.Lock()
+	defer ElevatorsMutex.Unlock()
+	for i := range Elevators {
+		if Elevators[i].IsActive {
+			cost := CalculateCost(Elevators[i], order)
+			fmt.Println("Cost for elevator ", Elevators[i].ID, " is: ", cost)
+			if cost <= lowestCost {
+				lowestCost = cost
+				BestElevator = Elevators[i]
+			}
 		}
-		fmt.Println()
 	}
+
+	return BestElevator
 }

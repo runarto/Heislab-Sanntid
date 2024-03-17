@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"strconv"
+	"time"
 
 	"github.com/runarto/Heislab-Sanntid/Network/bcast"
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
@@ -25,11 +26,9 @@ func main() {
 	// Initialize the elevator
 	var port = flag.String("port", "15657", "define the port number")
 	var id_val = flag.Int("id", 0, "define the elevator id")
-	var isMaster = flag.Bool("master", false, "define if the elevator is master")
 
 	flag.Parse()
 	utils.ID = *id_val
-	utils.Master = *isMaster
 	elevio.Init("localhost:"+*port, utils.NumFloors)
 
 	var e utils.Elevator
@@ -40,87 +39,76 @@ func main() {
 	//---------------------------------------------------------------------------
 
 	// General message sending and distributing channels channels
-	messageSender := make(chan interface{}, bufferSize*100)
-	messageDistributor := make(chan interface{}, bufferSize*1000)
+	messageSender := make(chan net.Packet, bufferSize)
+	messageReceiver := make(chan net.Packet, bufferSize)
+	messageHandler := make(chan utils.Message, bufferSize)
+	messageDistributor := make(chan utils.Message, bufferSize)
 
 	//Event channels
 	ButtonPressCh := make(chan elevio.ButtonEvent, bufferSize)
-	OrderComplete := make(chan utils.MessageOrderComplete, bufferSize)
-	NewOrder := make(chan utils.MessageNewOrder, bufferSize)
-	PeerUpdateCh := make(chan peers.PeerUpdate, bufferSize)
-	LocalOrdersCh := make(chan [utils.NumButtons][utils.NumFloors]bool, bufferSize)
-	continueChannel := make(chan bool)
+	PeerUpdateCh := make(chan peers.PeerUpdate)
+	OrderHandlerNetworkUpdateCh := make(chan utils.Message, bufferSize)
+	OfflineOrderCompleteCh := make(chan utils.Order, bufferSize)
 
 	//Update channels
-	GlobalUpdateCh := make(chan utils.GlobalOrderUpdate, bufferSize)
-	OrderWatcher := make(chan utils.OrderWatcher, bufferSize)
+	AllOrdersCh := make(chan utils.GlobalOrderUpdate, bufferSize)
+	OrderWatcherCh := make(chan utils.OrderWatcher, bufferSize)
 	MasterUpdateCh := make(chan int, bufferSize)
 	ActiveElevatorUpdateCh := make(chan utils.Status, bufferSize)
-	ElevStatus := make(chan utils.MessageElevatorStatus)
-	LocalStateUpdateCh := make(chan utils.Elevator, bufferSize)
+	LocalElevatorStateUpdateCh := make(chan utils.Elevator)
+	ArrayUpdater := make(chan utils.Message, bufferSize)
+	SlaveUpdateCh := make(chan utils.Order, bufferSize)
+	ActiveOrdersCh := make(chan map[int][3][utils.NumFloors]bool)
 
 	//FSM channels
 	DoOrderCh := make(chan utils.Order, bufferSize)
-	IsOnlineCh := make(chan bool, bufferSize)
+	IsOnlineCh := make(chan bool)
 
 	//Message sending channels
-	MasterTx := make(chan int)
-	OrdersTx := make(chan utils.MessageOrders, bufferSize)
+	MasterID_Tx := make(chan int)
 	LightsTx := make(chan utils.MessageLights)
-	ElevStatusTx := make(chan utils.MessageElevatorStatus, bufferSize)
-	OrderCompleteTx := make(chan utils.MessageOrderComplete, bufferSize)
-	NewOrderTx := make(chan utils.MessageNewOrder, bufferSize)
+	ElevatorStateTx := make(chan utils.MessageElevatorStatus)
 	MasterOrderWatcherTx := make(chan utils.MessageOrderWatcher)
-	PeerTxEnable := make(chan bool, bufferSize)
-	AckTx := make(chan utils.MessageConfirmed)
+	PeerTxEnable := make(chan bool)
 
 	// Message receiving channels
-	MasterRx := make(chan int)
+	MasterID_Rx := make(chan int)
 	LightsRx := make(chan utils.MessageLights)
-	SendLights := make(chan [2][utils.NumFloors]bool)
+	ElevatorStateRx := make(chan utils.MessageElevatorStatus)
 	SetLights := make(chan [2][utils.NumFloors]bool)
-	OrderCompleteRx := make(chan utils.MessageOrderComplete, bufferSize)
-	NewOrderRx := make(chan utils.MessageNewOrder, bufferSize)
-	ElevStatusRx := make(chan utils.MessageElevatorStatus)
 	MasterOrderWatcherRx := make(chan utils.MessageOrderWatcher)
-	AckRx := make(chan utils.MessageConfirmed)
-	OrdersRx := make(chan utils.MessageOrders, bufferSize)
 
 	//---------------------------------------------------------------------------
 
 	// Broadcasting -----------------------------------------------------------
-	go bcast.Transmitter(utils.ListeningPort, NewOrderTx, OrderCompleteTx, ElevStatusTx, LightsTx, MasterOrderWatcherTx, AckTx, OrdersTx, MasterTx)
-	go bcast.Receiver(utils.ListeningPort, NewOrderRx, OrderCompleteRx, ElevStatusRx, LightsRx, MasterOrderWatcherRx, AckRx, OrdersRx, MasterRx)
+	go bcast.Transmitter(utils.ListeningPort, ElevatorStateTx, LightsTx, MasterOrderWatcherTx, MasterID_Tx, messageSender)
+	go bcast.Receiver(utils.ListeningPort, ElevatorStateRx, LightsRx, MasterOrderWatcherRx, MasterID_Rx, messageReceiver)
+
+	// Peer handling -----------------------------------------------------------
+	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(e.ID), PeerTxEnable)
+	go peers.Receiver(utils.ListeningPort+1, PeerUpdateCh)
+
+	time.Sleep(1000 * time.Millisecond)
 
 	// Button polling ----------------------------------------------------------------
 	go elevio.PollButtons(ButtonPressCh)
 
 	// Message sending, receiving and distributing------------------------------------------------
-	go net.MessagePasser(messageSender, OrderCompleteTx, NewOrderTx, ElevStatusTx, MasterOrderWatcherTx, LightsTx, OrderWatcher, AckRx, DoOrderCh, OrdersTx)
-	go net.MessageReceiver(NewOrderRx, OrderCompleteRx, ElevStatusRx, AckTx, messageDistributor, LightsRx, OrdersRx, continueChannel)
-	go net.MessageDistributor(messageDistributor, OrderComplete, ElevStatus, NewOrder, SendLights)
-	go net.LightsReceiver(LightsRx, SetLights)
-	go net.MasterBroadcastReceiver(MasterRx, MasterUpdateCh)
+	go net.NetworkHandler(messageHandler, messageReceiver, messageSender, messageDistributor, OrderHandlerNetworkUpdateCh, SlaveUpdateCh)
+	//go net.MessageDistributor(messageDistributor, OrderHandlerNetworkUpdate, SetLights)
+	go net.BroadcastMaster(MasterID_Tx)
+	go net.BroadcastElevatorState(LocalElevatorStateUpdateCh, ElevatorStateTx, &e)
+	go net.BroadcastLights(LightsTx)
+	go net.BroadcastOrderWatcher(MasterOrderWatcherTx, ActiveOrdersCh)
+	go net.ReceiveBroadcasts(MasterOrderWatcherRx, ElevatorStateRx, LightsRx, ArrayUpdater, SetLights, MasterID_Rx, MasterUpdateCh)
 
 	// FSM, Order-handling and variable-updaters ------------------------------------------------
-	go fsm.FSM(e, DoOrderCh, LocalStateUpdateCh, PeerTxEnable, IsOnlineCh, SetLights, messageSender)
+	go fsm.FSM(e, DoOrderCh, LocalElevatorStateUpdateCh, PeerTxEnable, IsOnlineCh, SetLights, messageHandler, OfflineOrderCompleteCh)
 
-	go orders.OrderHandler(e, ButtonPressCh, GlobalUpdateCh, NewOrderRx, OrderComplete, PeerUpdateCh,
-		DoOrderCh, LocalStateUpdateCh, MasterUpdateCh, messageSender, IsOnlineCh, ActiveElevatorUpdateCh, OrderWatcher, LocalOrdersCh, continueChannel)
+	go orders.OrderHandler(e, ButtonPressCh, AllOrdersCh, OrderHandlerNetworkUpdateCh, PeerUpdateCh,
+		DoOrderCh, LocalElevatorStateUpdateCh, messageHandler, IsOnlineCh, ActiveElevatorUpdateCh, OfflineOrderCompleteCh)
 
-	go updater.LocalUpdater(e, GlobalUpdateCh, OrderWatcher, LocalStateUpdateCh, messageSender, ButtonPressCh, IsOnlineCh, ActiveElevatorUpdateCh,
-		DoOrderCh, MasterUpdateCh, LocalOrdersCh, SendLights)
-
-	go updater.GlobalUpdater(ElevStatus, MasterOrderWatcherRx, DoOrderCh)
-
-	// Broadcasting lights and OrderWatcher -----------------------------------------------------------
-	go net.BroadcastLights(SendLights, LightsTx)
-	go updater.BroadcastMasterOrderWatcher(messageSender)
-	go net.BroadcastMaster(MasterTx)
-
-	// Peer handling -----------------------------------------------------------
-	go peers.Transmitter(utils.ListeningPort+1, strconv.Itoa(e.ID), PeerTxEnable)
-	go peers.Receiver(utils.ListeningPort+1, PeerUpdateCh)
+	go updater.Updater(e, AllOrdersCh, OrderWatcherCh, LocalElevatorStateUpdateCh, messageHandler, ActiveElevatorUpdateCh, ArrayUpdater, SlaveUpdateCh, ActiveOrdersCh, ButtonPressCh)
 
 	select {}
 

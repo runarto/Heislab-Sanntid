@@ -5,11 +5,19 @@ import (
 	"time"
 
 	"github.com/runarto/Heislab-Sanntid/elevio"
-	"github.com/runarto/Heislab-Sanntid/orders"
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-func MasterBark(e utils.Elevator, m *utils.OrderWatcherArray, MasterBarkCh chan utils.Order) {
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Checks if a hall order has been confirmed by slave within a certain timeout period and sends a bark signal if not}
+//*
+//* @param      m             The master order watcher array
+//* @param      MasterBarkCh  Channel that resends order for re-delegation
+// */
+
+func MasterBark(m *utils.OrderWatcherArray, MasterBarkCh chan utils.Order) {
 
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
@@ -47,7 +55,16 @@ func MasterBark(e utils.Elevator, m *utils.OrderWatcherArray, MasterBarkCh chan 
 	}
 }
 
-func SlaveBark(e utils.Elevator, s *utils.OrderWatcherArray, SlaveBarkCh chan utils.Order) {
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Checks if a hall order has been confirmed by master within a certain timeout period and sends a bark signal if not}
+//*
+//* @param      s             The slave order watcher array
+//* @param      SlaveBarkCh   Channel that resends order to master
+// */
+
+func SlaveBark(s *utils.OrderWatcherArray, SlaveBarkCh chan utils.Order) {
 
 	fmt.Println("Barker started.")
 
@@ -56,7 +73,7 @@ func SlaveBark(e utils.Elevator, s *utils.OrderWatcherArray, SlaveBarkCh chan ut
 
 	for range ticker.C {
 
-		if !utils.Master {
+		if !utils.Master && utils.MasterID != utils.NotDefined {
 
 			currentTime := time.Now()
 			s.WatcherMutex.Lock()
@@ -86,14 +103,27 @@ func SlaveBark(e utils.Elevator, s *utils.OrderWatcherArray, SlaveBarkCh chan ut
 	}
 }
 
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Watches for barks from master and slave and resends the order to the network}
+//*
+//* @param      e             The elevator
+//* @param      m             The master order watcher array
+//* @param      s             The slave order watcher array
+//* @param      MasterBarkCh  Channel that resends order for re-delegation
+//* @param      SlaveBarkCh   Channel that resends order to master
+//* @param      messageHandler  Channel for sending orders to the network
+// */
+
 func Watchdog(e utils.Elevator, m *utils.OrderWatcherArray, s *utils.OrderWatcherArray, MasterBarkCh chan utils.Order,
-	SlaveBarkCh chan utils.Order, ButtonCh chan elevio.ButtonEvent, ch chan interface{}) {
+	SlaveBarkCh chan utils.Order, messageHandler chan utils.Message) {
 
 	fmt.Println("Watchdog started.")
 
-	go MasterBark(e, m, MasterBarkCh)
+	go MasterBark(m, MasterBarkCh)
 
-	//go SlaveBark(e, s, SlaveBarkCh)
+	go SlaveBark(s, SlaveBarkCh)
 
 	for {
 
@@ -103,29 +133,20 @@ func Watchdog(e utils.Elevator, m *utils.OrderWatcherArray, s *utils.OrderWatche
 
 			fmt.Println("Master bark received, resending order", order)
 
-			BestElevator := orders.ChooseElevator(order)
+			BestElevator := utils.ChooseElevator(order)
 
-			if BestElevator.ID == e.ID {
-
-				ButtonCh <- elevio.ButtonEvent{
-					Floor:  order.Floor,
-					Button: order.Button,
-				}
-
-			} else {
-
-				msg := utils.PackMessage("MessageNewOrder", order, BestElevator.ID, e.ID)
-				ch <- msg
-
-			}
+			msg := utils.PackMessage("MessageNewOrder", BestElevator.ID, e.ID, order)
+			messageHandler <- msg
 
 		case order := <-SlaveBarkCh:
 
 			fmt.Println("Slave bark received, resending order to master", order)
 
-			msg := utils.PackMessage("MessageNewOrder", order, utils.MasterID, e.ID)
-			ch <- msg
+			msg := utils.PackMessage("MessageNewOrder", utils.MasterID, e.ID, order)
+			messageHandler <- msg
 
 		}
 	}
 }
+
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

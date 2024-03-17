@@ -2,32 +2,48 @@ package orders
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
-	"time"
 
 	"github.com/runarto/Heislab-Sanntid/Network/peers"
 	"github.com/runarto/Heislab-Sanntid/elevio"
+	"github.com/runarto/Heislab-Sanntid/updater"
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
 
-type peerUpdate struct {
-	New  string
-	Lost []string
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Processes a new order based on the given parameters}
+//*
+//* @param      order          The order
+//* @param      e              The elevator
+//* @param      messageHandler Channel for sending orders to the network
+//* @param      toElevatorID   Identifier for the elevator to send the order to
+// */
+
+func SendOrder(order utils.Order, e utils.Elevator, messageHandler chan utils.Message, toElevatorID int) {
+
+	msg := utils.PackMessage("MessageNewOrder", toElevatorID, utils.ID, order)
+	messageHandler <- msg
+
 }
 
-var ActiveElevatorIDs []int
-var Elevators []utils.Elevator
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-func SendOrder(order utils.Order, e utils.Elevator, ch chan interface{}, toElevatorID int) {
+//*
+//* @brief      {Processes a new order based on the given parameters}
+//*
+//* @param      order          The order
+//* @param      e              The elevator
+//* @param      messageHandler Channel for sending orders to the network
+//* @param      AllOrdersCh    The all orders channel
+//* @param      DoOrderCh      The do order channel
+//* @param      isOnline       Indicates if online
+//* @param      fromElevatorID Identifier for the elevator that sent the order
+// */
 
-	msg := utils.PackMessage("MessageNewOrder", order, toElevatorID, e.ID)
-	ch <- msg
-
-}
-
-func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, GlobalUpdateCh chan utils.GlobalOrderUpdate,
-	DoOrderCh chan utils.Order, watcher chan utils.OrderWatcher, IsOnlineCh chan bool, LocalOrders [3][utils.NumFloors]bool, isOnline bool, fromElevatorID int) {
+func ProcessNewOrder(order utils.Order, e utils.Elevator, messageHandler chan utils.Message, AllOrdersCh chan utils.GlobalOrderUpdate,
+	DoOrderCh chan utils.Order, isOnline bool, fromElevatorID int) {
 
 	fmt.Println("Function: ProcessNewOrder")
 
@@ -42,74 +58,81 @@ func ProcessNewOrder(order utils.Order, e utils.Elevator, ch chan interface{}, G
 		// CAB ORDER----------------------------------------------
 
 		if order.Button == utils.Cab {
-			go func() {
-				GlobalUpdateCh <- utils.GlobalOrderUpdate{
-					Order:          order,
-					ForElevatorID:  fromElevatorID,
-					FromElevatorID: fromElevatorID,
-					IsComplete:     false,
-					IsNew:          true}
-			}()
 
-			SendOrder(order, e, ch, fromElevatorID)
+			AllOrdersCh <- utils.GlobalOrderUpdate{
+				Order:         order,
+				ForElevatorID: fromElevatorID,
+				IsComplete:    false,
+				IsNew:         true}
+
+			SendOrder(order, e, messageHandler, fromElevatorID)
 			return
 		}
 
 		// HALL ORDER---------------------------------------------
 
-		BestElevator := ChooseElevator(order)
+		BestElevator := utils.ChooseElevator(order)
 
-		go func() {
-			GlobalUpdateCh <- utils.GlobalOrderUpdate{
-				Order:          order,
-				ForElevatorID:  BestElevator.ID,
-				FromElevatorID: fromElevatorID,
-				IsComplete:     false,
-				IsNew:          true}
-		}()
+		AllOrdersCh <- utils.GlobalOrderUpdate{
+			Order:         order,
+			ForElevatorID: BestElevator.ID,
+			IsComplete:    false,
+			IsNew:         true}
 
 		fmt.Println("Best elevator for order", order, ": ", BestElevator.ID)
 
 		fmt.Println("Sending message for global order update...")
 
-		if BestElevator.ID == e.ID || !isOnline {
-
-			DoOrderCh <- order
-			fmt.Println("Sending order to FSM...")
-			return
-
-		} else {
-			SendOrder(order, e, ch, BestElevator.ID)
-			return
-		}
+		SendOrder(order, e, messageHandler, BestElevator.ID)
 
 	case false:
 
 		if isOnline {
-			SendOrder(order, e, ch, utils.MasterID) // Send to master if online
+			SendOrder(order, e, messageHandler, utils.MasterID) // Send to master if online
 			return
 		} else {
 			DoOrderCh <- order // If offline, send to FSM
 			return
 		}
-
 	}
+
 }
 
-func ProcessOrderComplete(orderComplete utils.MessageOrderComplete, e utils.Elevator, GlobalUpdateCh chan utils.GlobalOrderUpdate) {
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Processes the order complete based on the given parameters}
+//*
+//* @param      orderComplete  The order that is complete
+//* @param      e              The elevator
+//* @param      AllOrdersCh    Channel for updating the global order array
+//* @param      FromElevatorID Identifier for the elevator that sent the order
+// */
+
+func ProcessOrderComplete(orderComplete utils.Order, e utils.Elevator, AllOrdersCh chan utils.GlobalOrderUpdate, FromElevatorID int) {
 
 	GlobalOrderUpdate := utils.GlobalOrderUpdate{
-		Order:          orderComplete.Order,
-		ForElevatorID:  orderComplete.FromElevatorID,
-		FromElevatorID: orderComplete.FromElevatorID,
-		IsComplete:     true,
-		IsNew:          false}
+		Order:         orderComplete,
+		ForElevatorID: FromElevatorID,
+		IsComplete:    true,
+		IsNew:         false}
 
-	GlobalUpdateCh <- GlobalOrderUpdate
+	AllOrdersCh <- GlobalOrderUpdate
 
 }
 
-func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, MasterUpdateCh chan int, ActiveElevatorUpdate chan utils.Status, Online *bool) {
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Handles the peers update based on the given parameters}
+//*
+//* @param      p                   Contains active peers, new peers and lost peers
+//* @param      IsOnlineCh          Channel for updating the online status
+//* @param      ActiveElevatorUpdate Channel for updating the active elevators
+//* @param      Online              The online status
+// */
+
+func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, ActiveElevatorUpdateCh chan utils.Status, Online *bool) {
 
 	fmt.Println("Function: HandlePeersUpdate")
 
@@ -118,275 +141,135 @@ func HandlePeersUpdate(p peers.PeerUpdate, IsOnlineCh chan bool, MasterUpdateCh 
 	fmt.Printf("  New:      %q\n", p.New)
 	fmt.Printf("  Lost:     %q\n", p.Lost)
 
-	var ActiveElevators peerUpdate
-
 	if len(p.Peers) == 0 || len(p.Peers) == 1 {
 
-		fmt.Println("No peers available, elevator is disconnected")
+		fmt.Println("No other peers available, elevator is disconnected")
 
 		IsOnlineCh <- false
 		*Online = false
 
-		utils.MasterID = utils.NotDefined
+		utils.NextMasterID = utils.NotDefined
 
 	} else {
 
-		if !IsMasterOnline(p.Peers) {
-			fmt.Println("Master was offline")
-			newMasterID, _ := strconv.Atoi(p.Peers[0])
-			utils.NextMasterID = newMasterID
-		}
+		FindNewMaster(p.Peers)
 
 		IsOnlineCh <- true
 		*Online = true
 
 	}
 
-	ActiveElevators = HandleNewPeers(p, ActiveElevators)
-	ActiveElevators = HandleLostPeers(p, ActiveElevators)
+	if p.New != "" || p.Lost != nil {
 
-	if ActiveElevators.New != "" || ActiveElevators.Lost != nil {
-
-		HandleActiveElevators(ActiveElevators, ActiveElevatorUpdate)
+		HandleActiveElevators(p.New, p.Lost, ActiveElevatorUpdateCh)
 
 	}
 
 }
 
-func IsMasterOnline(peersOnline []string) bool {
-	if utils.MasterID == utils.NotDefined {
-		return false
-	}
-	masterID := fmt.Sprint(utils.MasterID)
-	for i := range peersOnline {
-		if peersOnline[i] == masterID {
-			return true
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// *
+// * @brief      {Finds the new master based on the given parameters}
+// *
+// * @param      peers The active elevators
+// */
+
+func FindNewMaster(peers []string) {
+
+	var nextMaster = utils.ID
+
+	for i := range peers {
+		peerID, _ := strconv.Atoi(peers[i])
+		if peerID < nextMaster {
+			nextMaster = peerID
 		}
 	}
-	return false
-
+	utils.NextMasterID = nextMaster
 }
 
-func HandleNewPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-	if p.New != "" {
-		newElevatorID := p.New
-		peerUpdate.New = newElevatorID
+// *
+// * @brief      {Handles the active elevators based on the given parameters}
+// *
+// * @param      new                    The new elevator
+// * @param      lost                   The lost elevators
+// * @param      ActiveElevatorUpdateCh Channel for updating the active elevators
+// */
+
+func HandleActiveElevators(new string, lost []string, ActiveElevatorUpdateCh chan utils.Status) {
+
+	if new != "" {
+		newElevatorID, _ := strconv.Atoi(new)
+		ActiveElevatorUpdateCh <- utils.Status{ID: newElevatorID, IsOnline: true}
 	}
 
-	return peerUpdate
-}
-
-func HandleLostPeers(p peers.PeerUpdate, peerUpdate peerUpdate) peerUpdate {
-
-	if p.Lost != nil {
-		peerUpdate.Lost = append(peerUpdate.Lost, p.Lost...)
-	}
-
-	return peerUpdate
-
-}
-
-func HandleActiveElevators(ActiveElevators peerUpdate, ActiveElevatorUpdate chan utils.Status) {
-
-	if ActiveElevators.New != "" {
-		newElevatorID, _ := strconv.Atoi(ActiveElevators.New)
-		UpdateElevatorsOnNetwork(newElevatorID, true, ActiveElevatorUpdate)
-	}
-
-	if ActiveElevators.Lost != nil {
-		for i := range ActiveElevators.Lost {
-			lostElevatorID, _ := strconv.Atoi(ActiveElevators.Lost[i])
-			UpdateElevatorsOnNetwork(lostElevatorID, false, ActiveElevatorUpdate)
-		}
+	for i := range lost {
+		lostElevatorID, _ := strconv.Atoi(lost[i])
+		ActiveElevatorUpdateCh <- utils.Status{ID: lostElevatorID, IsOnline: false}
 	}
 
 }
 
-func UpdateElevatorsOnNetwork(elevatorID int, isActive bool, ActiveElevatorUpdate chan utils.Status) {
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-	if isActive {
-		ActiveElevatorIDs = appendElevatorID(ActiveElevatorIDs, elevatorID)
-		ActiveElevatorUpdate <- utils.Status{ID: elevatorID, IsOnline: true}
-	} else {
-		ActiveElevatorIDs = removeElevatorID(ActiveElevatorIDs, elevatorID)
-		ActiveElevatorUpdate <- utils.Status{ID: elevatorID, IsOnline: false}
-	}
-}
+//*
+//* @brief      {Handles the new order based on the given parameters}
+//*
+//* @param      newOrder        The new order
+//* @param      e               The elevator
+//* @param      messageHandler  Channel for sending orders to the network
+//* @param      AllOrdersCh     Channel for updating the global order array
+//* @param      DoOrderCh       Channel for sending orders to the FSM
+//* @param      isOnline        Indicates if online
+//* @param      FromElevatorID  Identifier for the elevator that sent the order
+//* @param      ToElevatorID    Identifier for the elevator to send the order to
+// */
 
-func appendElevatorID(slice []int, value int) []int {
-	for _, item := range slice {
-		if item == value {
-			return slice // Return the original slice if value already exists
-		}
-	}
-	return append(slice, value) // Append value to slice if it doesn't exist
-}
-
-func removeElevatorID(slice []int, value int) []int {
-	for i, item := range slice {
-		if item == value {
-			return append(slice[:i], slice[i+1:]...)
-		}
-	}
-	return slice // Return the original slice if value doesn't exist
-}
-
-func ProcessElevatorStatus(new utils.Elevator) {
-
-	found := false
-	for i, elevator := range Elevators {
-		if elevator.ID == new.ID {
-			found = true
-			Elevators[i] = new
-			break
-		}
-	}
-
-	if !found {
-		Elevators = append(Elevators, new)
-	}
-
-}
-
-func IsEqual(a []int, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	sort.Ints(a)
-	sort.Ints(b)
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-func UpdatePeers(prev []int, new []int, IsOnlineCh chan bool) {
-
-	peers, _, _ := Compare(prev, new)
-
-	if len(peers) == 0 && len(new) == 0 {
-		IsOnlineCh <- false
-		return
-	}
-
-}
-
-func SmallestSlice(a []int, b []int) int {
-	if len(a) < len(b) {
-		return len(a)
-	}
-	return len(b)
-}
-
-func Compare(prev []int, new []int) (peers []string, newValues []string, lost []string) {
-	mPrev := make(map[int]bool)
-	mNew := make(map[int]bool)
-
-	for _, value := range prev {
-		mPrev[value] = true
-	}
-
-	for _, value := range new {
-		mNew[value] = true
-		if mPrev[value] {
-			peers = append(peers, strconv.Itoa(value))
-		} else {
-			newValues = append(newValues, strconv.Itoa(value))
-		}
-	}
-
-	for _, value := range prev {
-		if !mNew[value] {
-			lost = append(lost, strconv.Itoa(value))
-		}
-	}
-
-	return peers, newValues, lost
-}
-
-func HandleMasterUpdate(val int, e utils.Elevator, ch chan interface{}, continueChannel chan bool) {
-	utils.MasterMutex.Lock()
-	utils.MasterIDmutex.Lock()
-	fmt.Println("Master update: ", val)
-	if val == e.ID {
-		utils.MasterID = val
-		utils.Master = true
-		fmt.Println("I am master")
-	} else {
-		utils.MasterID = val
-		utils.Master = false
-		fmt.Println("The master is elevator ", val)
-	}
-	utils.MasterIDmutex.Unlock()
-	utils.MasterMutex.Unlock()
-}
-
-func HandleNewOrder(newOrder utils.MessageNewOrder, LocalOrders [3][utils.NumFloors]bool, e utils.Elevator, ch chan interface{},
-	GlobalUpdateCh chan utils.GlobalOrderUpdate, DoOrderCh chan utils.Order,
-	WatcherUpdate chan utils.OrderWatcher, IsOnlineCh chan bool, isOnline bool) {
+func HandleNewOrder(newOrder utils.MessageNewOrder, e utils.Elevator, messageHandler chan utils.Message,
+	AllOrdersCh chan utils.GlobalOrderUpdate, DoOrderCh chan utils.Order, isOnline bool, FromElevatorID int, ToElevatorID int) {
 
 	order := newOrder.NewOrder
 
-	if utils.Master && e.ID != newOrder.FromElevatorID {
+	if utils.Master && FromElevatorID != utils.ID {
 
 		fmt.Println("---NEW ORDER TO DELEGATE---")
 
-		ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, LocalOrders, isOnline, newOrder.FromElevatorID)
+		ProcessNewOrder(order, e, messageHandler, AllOrdersCh, DoOrderCh, isOnline, FromElevatorID)
 
-	} else if !utils.Master && newOrder.ToElevatorID == e.ID && newOrder.FromElevatorID != e.ID {
+	} else if (!utils.Master && ToElevatorID == utils.ID) ||
+		(ToElevatorID == utils.ID && FromElevatorID == utils.ID && utils.Master) {
 
 		fmt.Println("---NEW ORDER RECEIVED---")
 
-		GlobalUpdateCh <- utils.GlobalOrderUpdate{
-			Order:          order,
-			ForElevatorID:  e.ID,
-			FromElevatorID: newOrder.FromElevatorID,
-			IsComplete:     false,
-			IsNew:          true,
+		AllOrdersCh <- utils.GlobalOrderUpdate{
+			Order:         order,
+			ForElevatorID: utils.ID,
+			IsComplete:    false,
+			IsNew:         true,
 		}
-
-		time.Sleep(100 * time.Millisecond)
 
 		DoOrderCh <- order
-
-	} else if newOrder.ToElevatorID != e.ID && !utils.Master {
-
-		fmt.Println("Sending order", order, "from elevator", newOrder.FromElevatorID, "to updater")
-
-		if order.Button == utils.Cab {
-
-			go func() {
-				GlobalUpdateCh <- utils.GlobalOrderUpdate{
-					Order:          order,
-					ForElevatorID:  newOrder.FromElevatorID,
-					FromElevatorID: newOrder.FromElevatorID,
-					IsComplete:     false,
-					IsNew:          true}
-			}()
-
-		} else if newOrder.FromElevatorID == utils.MasterID && order.Button != utils.Cab {
-
-			go func() {
-				GlobalUpdateCh <- utils.GlobalOrderUpdate{
-					Order:          order,
-					ForElevatorID:  newOrder.ToElevatorID,
-					FromElevatorID: newOrder.FromElevatorID,
-					IsComplete:     false,
-					IsNew:          true}
-			}()
-		}
 	}
 }
 
-func HandleButtonEvent(newOrder elevio.ButtonEvent, e utils.Elevator, ch chan interface{},
-	GlobalUpdateCh chan utils.GlobalOrderUpdate, LocalOrders [3][utils.NumFloors]bool, DoOrderCh chan utils.Order, WatcherUpdate chan utils.OrderWatcher,
-	IsOnlineCh chan bool, isOnline bool) {
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Handles the button event based on the given parameters}
+//*
+//* @param      newOrder        The new order
+//* @param      e               The elevator
+//* @param      messageHandler  Channel for sending orders to the network
+//* @param      AllOrdersCh     Channel for updating the global order array
+//* @param      DoOrderCh       Channel for sending orders to the FSM
+//* @param      isOnline        Indicates if online
+// */
+
+func HandleButtonEvent(newOrder elevio.ButtonEvent, e utils.Elevator, messageHandler chan utils.Message,
+	AllOrdersCh chan utils.GlobalOrderUpdate, DoOrderCh chan utils.Order, isOnline bool) {
+
 	fmt.Println("---LOCAL BUTTON PRESSED---")
 
 	order := utils.Order{
@@ -396,40 +279,28 @@ func HandleButtonEvent(newOrder elevio.ButtonEvent, e utils.Elevator, ch chan in
 
 	fmt.Println("Button pressed: ", order)
 	fmt.Println("Local order array:")
-	fmt.Println(LocalOrders)
 
 	if !isOnline {
 		DoOrderCh <- order
-	}
-
-	if order.Button == utils.Cab {
-
-		if !utils.Master {
-			fmt.Println("Master ID: ", utils.MasterID)
-			SendOrder(order, e, ch, utils.MasterID)
-
-		} else {
-
-			go func() {
-				GlobalUpdateCh <- utils.GlobalOrderUpdate{
-					Order:          order,
-					ForElevatorID:  e.ID,
-					FromElevatorID: e.ID,
-					IsComplete:     false,
-					IsNew:          true}
-			}()
-
-			fmt.Println("Sending cab order to FSM...")
-			DoOrderCh <- order // Send to FSM
-		}
-
 	} else {
 
-		ProcessNewOrder(order, e, ch, GlobalUpdateCh, DoOrderCh, WatcherUpdate, IsOnlineCh, LocalOrders, isOnline, e.ID)
+		SendOrder(order, e, messageHandler, utils.MasterID)
 
+	}
+
+	if !utils.Master {
+		updater.SlaveOrderWatcherUpdate(true, false, order, e, &updater.SlaveOrderWatcher)
 	}
 
 }
+
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Checks if the order is already active based on the given parameters}
+//*
+//* @param      Order  the order in question
+// */
 
 func CheckIfOrderIsAlreadyActive(Order utils.Order) bool {
 	utils.OrdersMutex.Lock()

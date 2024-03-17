@@ -4,10 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/runarto/Heislab-Sanntid/elevio"
 	"github.com/runarto/Heislab-Sanntid/utils"
 )
+
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Saves the cab orders to a file}
+//*
+//* @param      e     {The elevator}
+// */
 
 func Crash(e utils.Elevator) {
 	fmt.Println("Elevator", e.ID, "crashed")
@@ -16,12 +25,22 @@ func Crash(e utils.Elevator) {
 
 }
 
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Saves the cab orders to a file}
+//*
+//* @param      e     {The elevator}
+// */
+
 func SaveCabOrders(e utils.Elevator) {
 
-	var CabOrders [utils.NumFloors]bool
+	var CabOrders [utils.NumButtons][utils.NumFloors]bool
 
-	for f := 0; f < utils.NumFloors; f++ {
-		CabOrders[f] = e.LocalOrderArray[utils.Cab][f]
+	for b := 0; b < utils.NumButtons; b++ {
+		for f := 0; f < utils.NumFloors; f++ {
+			CabOrders[b][f] = e.LocalOrderArray[b][f]
+		}
 	}
 
 	// Convert the cab orders to JSON
@@ -32,7 +51,8 @@ func SaveCabOrders(e utils.Elevator) {
 	}
 
 	// Create the file
-	file, err := os.Create("crash/CabOrders.json")
+	fileString := "crash/CabOrders" + strconv.Itoa(utils.ID) + ".json"
+	file, err := os.Create(fileString)
 	if err != nil {
 		fmt.Println("Error creating file:", err)
 		return
@@ -48,14 +68,22 @@ func SaveCabOrders(e utils.Elevator) {
 
 }
 
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//*
+//* @brief      {Checks for a crash dump and loads elevator state from it if it exists}
+//*
+//* @return     {The elevator}
+// */
+
 func CheckCrashDump() utils.Elevator {
 	fmt.Println("Checking for crash dump")
-	var CabOrders [utils.NumFloors]bool
 	var orders [utils.NumButtons][utils.NumFloors]bool
 	nullOrders := [utils.NumButtons][utils.NumFloors]bool{}
 
 	// Open the file
-	file, err := os.Open("crash/CabOrders.json")
+	fileString := "crash/CabOrders" + strconv.Itoa(utils.ID) + ".json"
+	file, err := os.Open(fileString)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return utils.Elevator{
@@ -85,7 +113,7 @@ func CheckCrashDump() utils.Elevator {
 	}
 
 	// Unmarshal the JSON data
-	err = json.Unmarshal(data[:count], &CabOrders)
+	err = json.Unmarshal(data[:count], &orders)
 	if err != nil {
 		fmt.Println("Error unmarshaling data:", err)
 		return utils.Elevator{
@@ -98,10 +126,6 @@ func CheckCrashDump() utils.Elevator {
 		}
 	}
 
-	for f := 0; f < utils.NumFloors; f++ {
-		orders[utils.Cab][f] = CabOrders[f]
-	}
-
 	fmt.Println("Crash dump found and loaded")
 	return utils.Elevator{
 		CurrentState:     utils.Still,
@@ -112,3 +136,5 @@ func CheckCrashDump() utils.Elevator {
 		IsActive:         true,
 	}
 }
+
+//*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

@@ -13,9 +13,7 @@ const (
 	NotDefined     = -1
 	NumButtons     = 3
 	ListeningPort  = 29876
-	Timeout        = 3 * time.Second
-	MaxRetries     = 3
-	SlaveTimeout   = 3 * time.Second
+	SlaveTimeout   = 5 * time.Second
 	MasterTimeout  = 10 * time.Second
 	DoorOpenTime   = 3
 )
@@ -36,23 +34,18 @@ const (
 )
 
 var (
-	MasterID      int
-	MasterIDmutex sync.Mutex
+	MasterID      int        // ID of the master
+	MasterIDmutex sync.Mutex // Mutex for the master ID
 )
 
 var (
-	OrdersMutex sync.Mutex
-	Orders      map[int][NumOfElevators][NumFloors]bool
+	OrdersMutex sync.Mutex                              // Mutex for the orders
+	Orders      map[int][NumOfElevators][NumFloors]bool // Map of orders for each elevator
 )
 
-var NextMasterID int
+var NextMasterID int // ID of next master
 
-var ID int
-
-var (
-	AckMatrix = make(map[int][NumButtons][NumFloors]Ack)
-	AckMutex  sync.Mutex
-)
+var ID int // ID of the elevator
 
 type State int
 
@@ -64,11 +57,10 @@ const (
 )
 
 type GlobalOrderUpdate struct {
-	Order          Order
-	ForElevatorID  int
-	FromElevatorID int
-	IsComplete     bool
-	IsNew          bool
+	Order         Order
+	ForElevatorID int
+	IsComplete    bool
+	IsNew         bool
 }
 
 type NewPeersMessage struct {

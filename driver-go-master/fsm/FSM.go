@@ -11,10 +11,11 @@ import (
 
 const bufferSize = 1000
 
-func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan utils.Elevator, PeerTxEnable chan bool,
-	IsOnlineCh <-chan bool, SetLights chan [2][utils.NumFloors]bool, ch chan interface{}) {
+func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalElevatorStateUpdateCh chan utils.Elevator, PeerTxEnable chan bool,
+	IsOnlineCh <-chan bool, SetLights chan [2][utils.NumFloors]bool, messageHandler chan utils.Message, OfflineOrderCompleteCh chan utils.Order) {
 
 	Online := false
+	var prev utils.Elevator
 
 	const ObstructionTimeout = 15 * time.Second
 	const DoorOpenTime = 3 * time.Second
@@ -47,22 +48,33 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 
 		case newOrder := <-DoOrderCh:
 
-			e = ExecuteOrder(newOrder, e, doorTimer, motorLossTimer, DoorOpenTime, MotorLossTime)
+			if e.LocalOrderArray[newOrder.Button][newOrder.Floor] {
+				continue
+			} else {
+				e.LocalOrderArray[newOrder.Button][newOrder.Floor] = true
+			}
 
-			//utils.PrintLocalOrderArray(e)
+			prev = e
+
+			e = ExecuteOrder(newOrder, e, doorTimer, motorLossTimer, DoorOpenTime, MotorLossTime,
+				messageHandler, Online, OfflineOrderCompleteCh)
+
 			crash.SaveCabOrders(e)
-			LocalStateUpdateCh <- e // Update the local elevator instance
+			LocalElevatorStateUpdateCh <- e // Update the local elevator instance
+			CheckOrdersDone(messageHandler, e, prev, Online, OfflineOrderCompleteCh)
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
 		case floor := <-FloorSensorCh:
 
 			fmt.Println("---ARRIVED AT FLOOR ", floor, "---")
 
+			prev = e
+
 			e = HandleArrivalAtFloor(floor, e, motorLossTimer, doorTimer, DoorOpenTime, MotorLossTime)
 
-			LocalStateUpdateCh <- e
+			LocalElevatorStateUpdateCh <- e
 			crash.SaveCabOrders(e)
-			//utils.PrintLocalOrderArray(e)
+			CheckOrdersDone(messageHandler, e, prev, Online, OfflineOrderCompleteCh)
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
 		case obstruction := <-ObstrCh:
@@ -70,7 +82,7 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 			fmt.Println("---OBSTRUCTION DETECTED---")
 
 			e = Obstruction(obstruction, e, doorTimer, DoorOpenTime, ObstructionTimeout, obstructionTimer, ObstrCh, PeerTxEnable)
-			LocalStateUpdateCh <- e
+			LocalElevatorStateUpdateCh <- e
 
 		case <-doorTimer.C:
 
@@ -78,9 +90,8 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 
 			e = DoorTimerExpired(e, doorTimer, DoorOpenTime, motorLossTimer, MotorLossTime, FloorSensorCh)
 
-			LocalStateUpdateCh <- e
+			LocalElevatorStateUpdateCh <- e
 			fmt.Println("Local state update sent...")
-			//utils.PrintLocalOrderArray(e)
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
 
 		case <-motorLossTimer.C:
@@ -88,9 +99,8 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 			crash.Crash(e)
 
 		case <-lastUpdateTimer.C:
-			LocalStateUpdateCh <- e
+			LocalElevatorStateUpdateCh <- e
 			lastUpdateTimer.Reset(TimeSinceLastUpdate)
-			//fmt.Println("State update timer expired... sending update")
 
 		case update := <-IsOnlineCh:
 			Online = update
@@ -103,11 +113,12 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalStateUpdateCh chan
 		}
 
 		SetCabLights(e)
-		LocalStateUpdateCh <- e
+		LocalElevatorStateUpdateCh <- e
 
 		if !Online {
 
 			SetHallLights(GetHallLights(e))
+
 		}
 
 	}
