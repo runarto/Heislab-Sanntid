@@ -205,7 +205,7 @@ func SlaveOrderWatcherUpdate(isNew bool, isConfirmed bool, o utils.Order, e util
 		s.WatcherMutex.Lock()
 
 		s.HallOrderArray[o.Button][o.Floor].Active = false
-		s.HallOrderArray[o.Button][o.Floor].Confirmed = true
+		s.HallOrderArray[o.Button][o.Floor].Confirmed = false
 		s.HallOrderArray[o.Button][o.Floor].Time = time.Now()
 
 		s.WatcherMutex.Unlock()
