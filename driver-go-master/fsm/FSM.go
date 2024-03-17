@@ -50,8 +50,6 @@ func FSM(e utils.Elevator, DoOrderCh <-chan utils.Order, LocalElevatorStateUpdat
 
 			if e.LocalOrderArray[newOrder.Button][newOrder.Floor] {
 				continue
-			} else {
-				e.LocalOrderArray[newOrder.Button][newOrder.Floor] = true
 			}
 
 			prev = e
