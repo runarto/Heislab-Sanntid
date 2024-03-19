@@ -42,6 +42,7 @@ func Updater(e utils.Elevator, AllOrdersCh chan utils.GlobalOrderUpdate, OrderWa
 		case msg := <-ArrayUpdater:
 			switch msg.Type {
 			case "ElevatorStatus":
+				fmt.Println("---ELEVATOR STATUS UPDATE RECEIVED---")
 				UpdateOrAddActiveElevator(msg.Msg.(utils.MessageElevatorStatus))
 			case "OrderWatcher":
 				UpdateOrderWatcherArray(msg.Msg.(utils.MessageOrderWatcher), &MasterOrderWatcher)

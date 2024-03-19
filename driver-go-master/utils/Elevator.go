@@ -63,11 +63,8 @@ func Obstruction(state bool, e Elevator) Elevator {
 
 func CalculateCost(e Elevator, order Order) int {
 	cost := 0
-
-	// Base cost from the distance to the order's floor
 	cost += int(math.Abs(float64(e.CurrentFloor - order.Floor)))
 
-	// Determine the direction of the new order
 	var orderDirection int
 	if order.Button == HallUp {
 		orderDirection = Up
@@ -75,12 +72,9 @@ func CalculateCost(e Elevator, order Order) int {
 		orderDirection = Down
 	}
 
-	// Iterate over hall button orders only
 	for f := 0; f < NumFloors; f++ {
 		if e.LocalOrderArray[HallUp][f] || e.LocalOrderArray[HallDown][f] {
-			// Distance cost for each hall order to the new order's floor
 			cost += int(math.Abs(float64(f - order.Floor)))
-			// If the order is in the opposite direction, add a penalty
 			if (e.LocalOrderArray[HallUp][f] && orderDirection == Down) ||
 				(e.LocalOrderArray[HallDown][f] && orderDirection == Up) {
 				cost += 2
@@ -88,19 +82,17 @@ func CalculateCost(e Elevator, order Order) int {
 		}
 	}
 
-	// State-based cost adjustments
 	switch e.CurrentState {
 	case Moving:
-		// Reduce cost if moving in the same direction as the order, otherwise increase
 		if int(e.CurrentDirection) == orderDirection {
-			cost -= 1 // Reduction for aligned direction
+			cost -= 1
 		} else {
-			cost += 2 // Penalty for opposite direction
+			cost += 2
 		}
 	case Still:
-		cost -= 2 // Reduce cost for idle elevators to encourage taking new orders
+		cost -= 2
 	case DoorOpen:
-		cost += 1 // Slight increase due to door closing delay
+		cost += 1
 	}
 
 	return cost

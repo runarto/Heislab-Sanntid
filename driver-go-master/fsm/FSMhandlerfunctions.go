@@ -555,6 +555,7 @@ func ExecuteOrder(newOrder utils.Order, e utils.Elevator, doorTimer *time.Timer,
 	case utils.DoorOpen:
 
 		if ShouldClearOrderAtFloor(e, floor, int(button)) {
+			e.LocalOrderArray[button][floor] = true
 			prev := e
 			fmt.Println("Clearing order at floor: ", floor, " and button: ", button)
 			e = ClearOrder(e, floor, int(button))
@@ -568,6 +569,7 @@ func ExecuteOrder(newOrder utils.Order, e utils.Elevator, doorTimer *time.Timer,
 	case utils.Still:
 
 		if ShouldClearOrderAtFloor(e, floor, int(button)) {
+			e.LocalOrderArray[button][floor] = true
 			prev := e
 			e = ClearOrder(e, floor, int(button))
 			fmt.Println("Clearing order at floor: ", floor, " and button: ", button)

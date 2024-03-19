@@ -37,7 +37,7 @@ func SaveCabOrders(e utils.Elevator) {
 
 	var CabOrders [utils.NumButtons][utils.NumFloors]bool
 
-	for b := 0; b < utils.NumButtons; b++ {
+	for b := 2; b < utils.NumButtons; b++ {
 		for f := 0; f < utils.NumFloors; f++ {
 			CabOrders[b][f] = e.LocalOrderArray[b][f]
 		}
